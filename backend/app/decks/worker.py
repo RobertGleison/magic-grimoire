@@ -117,7 +117,7 @@ async def _run_generate_deck(
 
 
 @celery_app.task(name="app.decks.worker.generate_deck_task", bind=True)
-def generate_deck_task(
+def feat: created tasks dtosgenerate_deck_task(
     self,
     deck_id: str,
     prompt: str,
