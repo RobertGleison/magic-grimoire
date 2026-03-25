@@ -20,8 +20,11 @@
   --crimson:       #8b1a2f;
   --crimson-glow:  rgba(139, 26, 47, 0.3);
 
+  --arcane:        #8b4ea8;
+  --sapphire:      #2e7ab8;
+
   --text-cream:    #f0e4c8;
-  --text-warm:     #c9b89a;
+  --text-warm:     #ffffff;
   --text-muted:    #7a6b54;
   --text-faint:    #4a3e30;
 
@@ -97,6 +100,50 @@ body::before {
   overflow: hidden;
 }
 
+.app-shell.landing {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.landing-content {
+  flex: 1;
+}
+
+.header-formats {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-cream);
+  margin-top: 14px;
+}
+
+.app-header .hero-cta-row {
+  margin-top: 20px;
+}
+
+.app-shell.landing .app-header {
+  padding: 250px 24px 250px;
+}
+
+.app-shell.landing .header-title {
+  font-size: clamp(42px, 9vw, 100px);
+  line-height: 0.9;
+}
+
+.app-shell.landing .header-subtitle {
+  font-size: clamp(14px, 2vw, 18px);
+  max-width: 520px;
+  text-align: center;
+  margin-top: 16px;
+  color: var(--text-cream)
+}
+
+.app-shell.landing .header-eyebrow {
+  font-size: 11px;
+}
+
 /* ─── Header ─────────────────────────────────────────────────────── */
 
 .app-header {
@@ -104,6 +151,7 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
+  text-align: center;
   padding: 28px 24px 20px;
   border-bottom: 1px solid var(--border-dim);
   position: relative;
@@ -134,13 +182,10 @@ body::before {
   font-family: var(--font-display);
   font-size: clamp(18px, 3vw, 28px);
   font-weight: 700;
-  color: var(--gold-bright);
+  color: var(--gold-mid);
   letter-spacing: 0.04em;
   line-height: 1;
-  text-shadow:
-    0 0 40px rgba(232, 199, 106, 0.4),
-    0 0 80px rgba(232, 199, 106, 0.15);
-  animation: title-pulse 4s ease-in-out infinite;
+
 }
 
 @keyframes title-pulse {
@@ -519,7 +564,7 @@ body::before {
 
 .input-container {
   max-width: 760px;
-  margin: 0 auto;
+  margin: 30 auto;
   position: relative;
   background: linear-gradient(135deg, rgba(21, 16, 32, 0.95), rgba(14, 11, 20, 0.98));
   border: 1px solid var(--border-gold);
@@ -625,7 +670,8 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
 
 .input-hint {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 25px;
+  margin-bottom: 25px;
   font-family: var(--font-body);
   font-size: 12px;
   color: var(--text-faint);
@@ -689,20 +735,20 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
 
 .forge-back-link {
   position: absolute;
-  left: 20px;
+  left: 60px;
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-heading);
-  font-size: 11px;
+  font-size: 15px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--gold-mid);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .forge-back-link:hover {
-  color: var(--gold-mid);
+  color: var(--gold-dim);
 }
 
 /* ─── Utilities ─────────────────────────────────────────────────── */
@@ -737,6 +783,7 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   justify-content: center;
   overflow: hidden;
   padding: 60px 24px;
+  background:  rgba(30, 18, 50, 0.85) 0%, transparent 100%;
 }
 
 /* Warm radial glow beneath sigil */
@@ -783,6 +830,11 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
 
 .ring-3 {
   animation: sigil-rotate-cw 45s linear infinite;
+  inset: 18%;
+}
+
+.ring-4 {
+  animation: sigil-rotate-ccw 110s linear infinite;
   inset: 18%;
 }
 
@@ -846,13 +898,11 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   font-size: clamp(42px, 9vw, 100px);
   font-weight: 700;
   line-height: 0.9;
-  letter-spacing: -0.01em;
   color: var(--gold-bright);
-  text-shadow:
-    0 0 60px rgba(232, 199, 106, 0.35),
-    0 0 120px rgba(232, 199, 106, 0.15);
   margin-bottom: 24px;
-  animation: title-pulse 5s ease-in-out infinite;
+}
+.hero-title span {
+  display: block;
 }
 
 .hero-tagline {
@@ -861,7 +911,7 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   font-weight: 300;
   line-height: 1.6;
   color: var(--text-warm);
-  max-width: 420px;
+  max-width: 500px;
   margin-bottom: 36px;
 }
 
@@ -877,6 +927,7 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  margin-top: 60px;
   padding: 14px 28px;
   background: linear-gradient(135deg, var(--gold-dim), var(--gold-mid));
   color: #0c0a08;
@@ -928,24 +979,7 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   color: var(--text-faint);
 }
 
-/* Scroll hint */
-.hero-scroll-hint {
-  position: absolute;
-  bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-faint);
-  font-family: var(--font-heading);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  opacity: 0.6;
-  animation: fade-up 1s ease 1.2s both;
-}
+
 
 /* ─── Section base ───────────────────────────────────────────────── */
 
@@ -1042,13 +1076,18 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   position: relative;
   background: rgba(14, 11, 20, 0.5);
   border: 1px solid var(--border-dim);
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.05s, background 0.05s;
 }
+
 
 .step-card:hover {
   border-color: var(--border-gold);
-  background: rgba(21, 16, 32, 0.8);
+  transform: translateY(-2px);
 }
+/* .step-card:hover {
+  border-color: var(--border-gold);
+  background: rgba(21, 16, 32, 0.8);
+} */
 
 .step-numeral {
   font-family: var(--font-display);
@@ -1117,31 +1156,30 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   border: 1px solid var(--border-dim);
   border-radius: 2px;
   background: linear-gradient(145deg, rgba(21, 16, 32, 0.6), rgba(14, 11, 20, 0.8));
-  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  transition: border-color 0.1s, transform 0.1s;
   position: relative;
   overflow: hidden;
 }
 
-.feature-card::before {
+.feature-card::after {
   content: '';
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 2px;
   background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
-  opacity: 0;
-  transition: opacity 0.3s;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
 }
 
 .feature-card:hover {
   border-color: var(--border-gold);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  transform: translateY(-2px);
 }
 
-.feature-card:hover::before {
-  opacity: 1;
+.feature-card:hover::after {
+  transform: scaleX(1);
 }
 
 .feature-icon {
@@ -1177,17 +1215,31 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   background: linear-gradient(180deg, rgba(14, 11, 20, 0.6) 0%, transparent 100%);
 }
 
+
 .prompts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  overflow: hidden;
+}
+
+.prompts-track {
+  display: flex;
   gap: 12px;
+  animation: prompts-scroll 24s linear infinite;
+}
+
+.prompts-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes prompts-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 .prompt-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 20px 16px;
+  padding: 25px 20px 16px;
   border: 1px solid var(--border-dim);
   border-radius: 2px;
   background: rgba(14, 11, 20, 0.7);
@@ -1196,6 +1248,8 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  width: 280px;
+  flex-shrink: 0;
 }
 
 .prompt-card::after {
@@ -1212,9 +1266,15 @@ textarea.chat-input::-webkit-scrollbar-thumb { background: var(--gold-dim); }
 
 .prompt-card:hover {
   border-color: var(--border-gold);
-  background: rgba(21, 16, 32, 0.9);
   transform: translateY(-2px);
 }
+
+/*
+.prompt-card:hover {
+  border-color: var(--border-gold);
+  background: rgba(21, 16, 32, 0.9);
+  transform: translateY(-2px);
+} */
 
 .prompt-card:hover::after {
   transform: scaleX(1);
