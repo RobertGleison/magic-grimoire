@@ -3,6 +3,7 @@
 import { useReveal } from './hooks/useReveal';
 import Link from 'next/link';
 import { ArcaneSigil } from './components/ArcaneSigil';
+import { ManaSymbol } from './components/ManaSymbol';
 
 
 const PROMPTS = [
@@ -169,7 +170,7 @@ export default function LandingPage() {
                 <Link key={i} href="/grimoire" className="prompt-card">
                   <div className="prompt-colors">
                     {ex.colors.map((c) => (
-                      <div key={c} className={`color-pip ${c}`} aria-hidden="true">{c}</div>
+                      <ManaSymbol key={c} symbol={c} size={18} />
                     ))}
                     <span className="prompt-format">{ex.format}</span>
                   </div>

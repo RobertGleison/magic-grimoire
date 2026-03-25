@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArcaneSigil } from '../components/ArcaneSigil';
+import { ManaSymbol, ManaCost } from '../components/ManaSymbol';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,15 @@ const STATUS_LABELS: Record<string, string> = {
   failed:          'The ritual has failed.',
 };
 
+const STATUS_FLAVOR: Record<string, string> = {
+  parsing_intent:  '"Words hold the seeds of all creation."',
+  searching_cards: '"Every card is a world waiting to be discovered."',
+  composing_deck:  '"From a thousand possibilities, one emerges perfect."',
+  enriching:       '"Knowledge transforms the ordinary into the extraordinary."',
+  completed:       '"And so the grimoire speaks its final word."',
+  failed:          '"Even the greatest mages face insurmountable odds."',
+};
+
 const SUGGESTION_PROMPTS = [
   '"Build me a black/white vampire tribal deck for standard"',
   '"Create a fast red aggro deck focused on burn spells"',
@@ -69,8 +79,67 @@ const FORMATS: { value: DeckFormat; label: string }[] = [
   { value: 'commander',  label: 'Commander' },
 ];
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Card grouping helpers ────────────────────────────────────────────────────
 
+type CardGroup = { label: string; count: number; cards: CardEntry[] };
+
+function getCardCategory(card: CardEntry): string {
+  const t = (card.type_line ?? '').toLowerCase();
+  if (t.includes('land')) return 'Lands';
+  if (t.includes('creature')) return 'Creatures';
+  if (t.includes('planeswalker')) return 'Planeswalkers';
+  if (t.includes('instant')) return 'Instants';
+  if (t.includes('sorcery')) return 'Sorceries';
+  if (t.includes('enchantment')) return 'Enchantments';
+  if (t.includes('artifact')) return 'Artifacts';
+  return 'Other';
+}
+
+const TYPE_ORDER = ['Creatures', 'Instants', 'Sorceries', 'Planeswalkers', 'Enchantments', 'Artifacts', 'Lands', 'Other'];
+
+function groupCardsByType(cards: CardEntry[]): CardGroup[] {
+  const hasTypes = cards.some((c) => c.type_line);
+  if (!hasTypes) {
+    return [{
+      label: 'Cards',
+      count: cards.reduce((s, c) => s + c.quantity, 0),
+      cards: [...cards].sort((a, b) => a.name.localeCompare(b.name)),
+    }];
+  }
+  const groups: Record<string, CardEntry[]> = {};
+  for (const card of cards) {
+    const cat = getCardCategory(card);
+    (groups[cat] ??= []).push(card);
+  }
+  return TYPE_ORDER
+    .filter((t) => groups[t]?.length)
+    .map((t) => ({
+      label: t,
+      count: groups[t].reduce((s, c) => s + c.quantity, 0),
+      cards: groups[t].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+}
+
+// ─── Color bar helpers ────────────────────────────────────────────────────────
+
+const COLOR_GRADIENT: Record<string, string> = {
+  W: '#d8c878', U: '#2878c0', B: '#403020', R: '#b82010', G: '#208050', C: '#808090',
+};
+
+function getColorBarGradient(colors: string[]): string {
+  if (!colors.length) return 'linear-gradient(90deg, var(--gold-dim), var(--gold-bright), var(--gold-dim))';
+  if (colors.length === 1) {
+    const c = COLOR_GRADIENT[colors[0]] ?? '#808090';
+    return `linear-gradient(90deg, ${c}88, ${c}, ${c}88)`;
+  }
+  const stops = colors.map((c, i) => {
+    const pct = Math.round((i / (colors.length - 1)) * 100);
+    return `${COLOR_GRADIENT[c] ?? '#808090'} ${pct}%`;
+  });
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function StatusDots() {
   return (
@@ -84,10 +153,14 @@ function StatusDots() {
 
 function DeckDisplay({ deck }: { deck: Deck }) {
   const cards = deck.cards ?? [];
-  const sortedCards = [...cards].sort((a, b) => a.name.localeCompare(b.name));
+  const groups = groupCardsByType(cards);
+  const colorBar = deck.colors?.length ? getColorBarGradient(deck.colors) : null;
 
   return (
     <div className="deck-display fade-in">
+      {/* Color identity bar */}
+      {colorBar && <div className="deck-color-bar" style={{ background: colorBar }} />}
+
       <div className="deck-header">
         <div>
           <div className="deck-title">{deck.title ?? 'Arcane Deck'}</div>
@@ -98,20 +171,34 @@ function DeckDisplay({ deck }: { deck: Deck }) {
         {deck.colors && deck.colors.length > 0 && (
           <div className="deck-colors">
             {deck.colors.map((c) => (
-              <div key={c} className={`color-pip ${c}`} title={c}>
-                {c}
-              </div>
+              <ManaSymbol key={c} symbol={c} size={20} />
             ))}
           </div>
         )}
       </div>
 
-      {sortedCards.length > 0 ? (
+      {groups.length > 0 ? (
         <div className="deck-cards-list">
-          {sortedCards.map((card, i) => (
-            <div key={i} className="card-entry">
-              <span className="card-qty">{card.quantity}×</span>
-              <span className="card-name" title={card.name}>{card.name}</span>
+          {groups.map((group) => (
+            <div key={group.label} className="card-group">
+              <div className="card-group-header">
+                <span className="card-group-label">{group.label}</span>
+                <span className="card-group-count">{group.count}</span>
+              </div>
+              {group.cards.map((card, i) => (
+                <div key={i} className="card-entry">
+                  <span className="card-qty">{card.quantity}</span>
+                  <div className="card-info">
+                    <div className="card-name-row">
+                      <span className="card-name" title={card.name}>{card.name}</span>
+                      {card.mana_cost && <ManaCost cost={card.mana_cost} size={13} />}
+                    </div>
+                    {card.type_line && (
+                      <span className="card-type-line">{card.type_line}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -121,7 +208,9 @@ function DeckDisplay({ deck }: { deck: Deck }) {
         </div>
       )}
 
-      <div className="deck-footer">Deck · {deck.id.slice(0, 8).toUpperCase()}</div>
+      <div className="deck-footer">
+        <span>{deck.format.toUpperCase()} · {deck.id.slice(0, 8).toUpperCase()}</span>
+      </div>
     </div>
   );
 }
@@ -138,12 +227,19 @@ function MessageBubble({ message }: { message: Message }) {
         <div className="message-label">{isUser ? 'Seeker' : 'Grimoire'}</div>
 
         {message.loadingStatus ? (
-          <div className="status-indicator">
-            <StatusDots />
-            <span className="status-text">
-              {STATUS_LABELS[message.loadingStatus] ?? 'Channeling arcane energies…'}
-            </span>
-          </div>
+          <>
+            <div className="status-indicator">
+              <StatusDots />
+              <span className="status-text">
+                {STATUS_LABELS[message.loadingStatus] ?? 'Channeling arcane energies…'}
+              </span>
+            </div>
+            {STATUS_FLAVOR[message.loadingStatus] && (
+              <div className="status-flavor">
+                {STATUS_FLAVOR[message.loadingStatus]}
+              </div>
+            )}
+          </>
         ) : (
           <div className="message-bubble">{message.content}</div>
         )}
