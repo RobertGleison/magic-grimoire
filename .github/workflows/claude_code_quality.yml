@@ -6,9 +6,9 @@ on:
 
 jobs:
   claude-quality-review:
-    if: |
-      github.event.issue.pull_request &&
-      contains(github.event.comment.body, '@code-quality')
+    if: >-
+      contains(github.event.comment.body, '@code-quality') &&
+      github.event.issue.pull_request != null
 
     runs-on: ubuntu-latest
     permissions:
@@ -36,9 +36,11 @@ jobs:
           additional_permissions: |
             actions: read
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/promptlylabs/:*),Read,Glob,Grep" --model claude-haiku-4-5-20251001'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/RobertGleison/:*),Read,Glob,Grep" --model claude-haiku-4-5-20251001'
           prompt: |
-            /code-review:code-review ${{ github.repository }}/pull/${{ github.event.issue.number }}
+            Review PR #${{ github.event.issue.number }} of ${{ github.repository }}.
+            Run: gh pr diff ${{ github.event.issue.number }} to get the diff, analyze the changed files, then post a comment via gh pr comment with your findings.
 
             Focus exclusively on code quality patterns. Review the changed files and flag any violations or improvement opportunities in the following areas:
 
