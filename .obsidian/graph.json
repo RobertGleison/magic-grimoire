@@ -7,11 +7,41 @@
   "showOrphans": true,
   "collapse-color-groups": false,
   "colorGroups": [
-    { "query": "tag:#service", "color": { "a": 1, "rgb": 14701138 } },
-    { "query": "tag:#api", "color": { "a": 1, "rgb": 14869218 } },
-    { "query": "tag:#frontend", "color": { "a": 1, "rgb": 3670323 } },
-    { "query": "tag:#infrastructure", "color": { "a": 1, "rgb": 9699539 } },
-    { "query": "tag:#index", "color": { "a": 1, "rgb": 16742912 } }
+    {
+      "query": "tag:#service",
+      "color": {
+        "a": 1,
+        "rgb": 14701138
+      }
+    },
+    {
+      "query": "tag:#api",
+      "color": {
+        "a": 1,
+        "rgb": 14869218
+      }
+    },
+    {
+      "query": "tag:#frontend",
+      "color": {
+        "a": 1,
+        "rgb": 3670323
+      }
+    },
+    {
+      "query": "tag:#infrastructure",
+      "color": {
+        "a": 1,
+        "rgb": 9699539
+      }
+    },
+    {
+      "query": "tag:#index",
+      "color": {
+        "a": 1,
+        "rgb": 16742912
+      }
+    }
   ],
   "collapse-display": false,
   "showArrow": true,
@@ -23,6 +53,6 @@
   "repelStrength": 10,
   "linkStrength": 1,
   "linkDistance": 250,
-  "scale": 1,
-  "close": false
+  "scale": 1.4999999999999991,
+  "close": true
 }
