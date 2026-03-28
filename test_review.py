@@ -3,18 +3,7 @@ import json
 import requests
 
 
-API_KEY = "sk-ant-1234567890abcdef"
-DB_PASSWORD = "supersecret123"
 
-
-def get_cards(query):
-    data = requests.get("https://api.scryfall.com/cards/search?q=" + query)
-    result = json.loads(data.text)
-    cards = []
-    for i in range(len(result["data"])):
-        card = result["data"][i]
-        cards.append(card)
-    return cards
 
 
 def process_deck(cards, user_input):
