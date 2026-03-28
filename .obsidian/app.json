@@ -1,0 +1,12 @@
+{
+  "defaultViewMode": "source",
+  "readableLineLength": true,
+  "strictLineBreaks": false,
+  "showFrontmatter": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "docs",
+  "attachmentFolderPath": "docs/assets",
+  "alwaysUpdateLinks": true,
+  "useMarkdownLinks": false,
+  "promptDelete": false
+}
