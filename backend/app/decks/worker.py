@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import redis.asyncio as aioredis
 from sqlalchemy import select
@@ -42,7 +42,7 @@ async def _run_generate_deck(
             task = result.scalar_one_or_none()
             if task:
                 task.status = "processing"
-                task.updated_at = datetime.now(tz=timezone.utc)
+                task.updated_at = datetime.now(tz=UTC)
                 await db.commit()
 
             await _publish(redis_client, channel, {"status": "parsing_intent", "message": "Parsing your request..."})
@@ -78,13 +78,13 @@ async def _run_generate_deck(
                 deck.card_count = sum(c.get("quantity", 1) for c in enriched_cards)
                 deck.colors = intent.get("colors", [])
                 deck.status = "completed"
-                deck.completed_at = datetime.now(tz=timezone.utc)
+                deck.completed_at = datetime.now(tz=UTC)
 
             result = await db.execute(select(Task).where(Task.id == task_id))
             task = result.scalar_one_or_none()
             if task:
                 task.status = "completed"
-                task.updated_at = datetime.now(tz=timezone.utc)
+                task.updated_at = datetime.now(tz=UTC)
 
             await db.commit()
 
@@ -103,7 +103,7 @@ async def _run_generate_deck(
                 task = result.scalar_one_or_none()
                 if task:
                     task.status = "failed"
-                    task.updated_at = datetime.now(tz=timezone.utc)
+                    task.updated_at = datetime.now(tz=UTC)
 
                 await db.commit()
         except Exception:
