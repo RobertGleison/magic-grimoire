@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: true
+tone_instructions: "Senior engineer reviewing TypeScript, Next.js, and Python. Focus on correctness, security, and performance and best practices. Be direct and concise. Prioritize bugs and vulnerabilities over style. Elaborate only when asked."
+reviews:
+  profile: "chill"
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: false
+  sequence_diagrams: true
+  changed_files_summary: true
+  abort_on_close: true
+
+  path_filters:
+    - "!frontend/package-lock.json"
+    - "!backend/uv.lock"
+    - "!**/node_modules/**"
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!dist/**"
+    - "!build/**"
+    - "!.git/**"
+
+  path_instructions:
+    - path: "frontend/app/**/*.{ts,tsx}"
+      instructions: >-
+        Review Next.js App Router code:
+        - Verify correct use of server vs client components ('use client' directive)
+        - Check for unnecessary client-side hydration
+        - Validate TypeScript strict mode compliance
+        - Ensure proper React 19 and Next.js 15 patterns
+        - Verify Sentry integration points are not broken
+
+    - path: "frontend/app/components/**"
+      instructions: >-
+        Review React components:
+        - Check reusability, composition, and prop typing
+        - Validate accessibility (ARIA labels, semantic HTML)
+        - Check for unnecessary re-renders or missing memoization
+
+    - path: "backend/app/*/routes.py"
+      instructions: >-
+        Review FastAPI routes:
+        - Verify correct HTTP status codes (202 for async ops, 204 for deletes)
+        - Check dependency injection via Depends
+        - Validate Pydantic DTO usage and input validation
+        - Verify proper async/await usage
+        - Check error handling with HTTPException
+
+    - path: "backend/app/*/model.py"
+      instructions: >-
+        Review SQLAlchemy ORM models:
+        - Check column types, nullability, and defaults
+        - Verify foreign key constraints and cascade behavior
+        - Validate index definitions for query performance
+        - Check timezone-aware DateTime handling
+
+    - path: "backend/app/*/worker.py"
+      instructions: >-
+        Review Celery worker code:
+        - Verify async/await patterns and database session management
+        - Check Redis pub/sub usage and channel naming
+        - Validate error handling, retries, and resource cleanup
+        - Verify task status is updated correctly in all code paths
+
+    - path: "backend/app/services/**"
+      instructions: >-
+        Review service layer:
+        - Check Claude and Scryfall API integrations for error handling and timeouts
+        - Validate response parsing and type safety
+        - Check caching strategy and Redis usage
+
+    - path: "backend/app/core/**"
+      instructions: >-
+        Review core infrastructure:
+        - Verify SQLAlchemy async engine and connection pool config
+        - Check Pydantic settings for proper env var validation and secure defaults
+
+    - path: "backend/alembic/versions/**"
+      instructions: >-
+        Review Alembic migrations:
+        - Verify upgrade() and downgrade() are symmetric
+        - Check index creation and foreign key constraints
+        - Validate data type choices (UUID, JSONB, ARRAY)
+        - Check timezone-aware timestamp defaults
+
+    - path: "docker-compose.yml"
+      instructions: >-
+        Review Docker Compose config:
+        - Verify service health checks and dependency order
+        - Check environment variable passing and secret handling
+        - Validate volume persistence and port mappings
+
+    - path: ".github/workflows/**"
+      instructions: >-
+        Review GitHub Actions workflows:
+        - Verify triggers and path filters are correct
+        - Check secret handling and permissions
+        - Validate test and build steps
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    base_branches:
+      - main
+
+  tools:
+    languagetool:
+      enabled: true
+
+chat:
+  auto_reply: true
