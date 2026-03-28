@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
 from app.decks import model as deck_model  # noqa: F401 — required for Base.metadata to include tables
-from app.router import api_router
 from app.tasks import model as task_model  # noqa: F401 — required for Base.metadata to include tables
+from app.router import api_router
 
 
 @asynccontextmanager
@@ -30,7 +30,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=Fal,
     allow_methods=["*"],
     allow_headers=["*"],
 )
