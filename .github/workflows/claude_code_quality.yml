@@ -37,10 +37,42 @@ jobs:
             actions: read
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/RobertGleison/:*),Read,Glob,Grep" --model claude-haiku-4-5-20251001'
+          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/RobertGleison/:*),Read,Glob,Grep" --model claude-sonnet-4-6'
           prompt: |
             Review PR #${{ github.event.issue.number }} of ${{ github.repository }}.
             Run: gh pr diff ${{ github.event.issue.number }} to get the diff, analyze the changed files, then post a comment via gh pr comment with your findings.
+
+            Format the comment exactly like this:
+
+            ## Code Quality Review
+
+            ### 🌱 Strengths
+            - List genuine strengths (keep it brief, max 3 bullets)
+
+            ### 💭 Issues
+
+            #### 🔴 Critical (Must Fix)
+            - **Issue title**
+              File: `path/to/file:line`
+              Explanation of why it's critical and what to do.
+
+            #### 🟡 Warnings (Should Fix)
+            - **Issue title**
+              File: `path/to/file:line`
+              Explanation.
+
+            #### 🔵 Suggestions (Nice to Have)
+            - **Issue title**
+              Explanation.
+
+            ### 📌 Assessment
+            **Ready to merge?** ✅ Yes / ❌ No
+            **Reasoning:** One sentence explaining the verdict.
+
+            Rules:
+            - Only include severity sections that have actual findings — omit empty ones.
+            - Skip Strengths if there are Critical issues.
+            - Be concise — no filler, no praise beyond Strengths.
 
             Focus exclusively on code quality patterns. Review the changed files and flag any violations or improvement opportunities in the following areas:
 

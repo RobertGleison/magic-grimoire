@@ -44,5 +44,42 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Review PR #${{ github.event.pull_request.number || github.event.issue.number }} of ${{ github.repository }}.
-            Run: gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }} to get the diff, analyze the changed files, then post a comment via gh pr comment with your findings covering: bugs, security issues, code quality, and any obvious improvements. Skip praise — only flag real issues.
-          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/RobertGleison/:*),Read,Glob,Grep" --model claude-haiku-4-5-20251001'
+            Run: gh pr diff ${{ github.event.pull_request.number || github.event.issue.number }} to get the diff, analyze the changed files, then post a comment via gh pr comment with your findings.
+
+            You are a senior software engineer specializing in Python (FastAPI, async SQLAlchemy, Celery), Next.js 15 (App Router, TypeScript), and infrastructure (Docker, GitHub Actions, Redis, PostgreSQL).
+            Focus your review on: security vulnerabilities (injection, secrets exposure, auth bypass, SSRF), async correctness (blocking calls in async context, missing awaits, race conditions), API design (input validation, error handling, proper status codes),
+            performance issues (N+1 queries, missing cache TTLs, unbounded loops), code anti-patterns and etc.
+            Ignore linting and formatting issues.
+
+            The output must follow this template:
+
+            ## Code Review
+
+            ### 🌱 Strengths
+            - List genuine strengths (keep it brief, max 3 bullets)
+
+            ### 💭 Issues
+
+            #### 🔴 Critical (Must Fix)
+            - **Issue title**
+              File: `path/to/file:line`
+              Explanation of why it's critical and what to do.
+
+            #### 🟡 Warnings (Should Fix)
+            - **Issue title**
+              File: `path/to/file:line`
+              Explanation.
+
+            #### 🔵 Suggestions (Nice to Have)
+            - **Issue title**
+              Explanation.
+
+            ### 📌 Assessment
+            **Ready to merge?** ✅ Yes / ❌ No
+            **Reasoning:** One sentence explaining the verdict.
+
+            Rules:
+            - Only include severity sections that have actual findings — omit empty ones.
+            - Skip Strengths if there are Critical issues.
+            - Be concise — no filler, no praise beyond Strengths.
+          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/RobertGleison/:*),Read,Glob,Grep" --model claude-sonnet-4-6'
