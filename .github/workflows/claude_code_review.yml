@@ -1,27 +1,28 @@
-
-
-name: Claude Code Review
+name: Claude Assistant
 
 on:
-  pull_request:
-    types: [opened, ready_for_review, reopened]
   issue_comment:
     types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   claude-review:
     if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request &&
-       contains(github.event.comment.body, '@claude'))
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && github.event.issue.pull_request) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      issues: write
+      issues: read
+      checks: read
       id-token: write
+      actions: read
     env:
       HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
 
@@ -30,15 +31,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.issue.number) }}
 
       - name: Run Claude Code Review
         id: claude-review
         if: env.HAS_ANTHROPIC_KEY == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          additional_permissions: |
+            actions: read
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number || github.event.issue.number }}'
-          claude_args: '--allowed-tools Bash,Edit,Read,Write,Glob,Grep,mcp__github__create_pull_request_review,mcp__github__create_issue_comment,mcp__github__list_pull_requests,mcp__github__get_pull_request,mcp__github__list_pull_request_files,mcp__github__update_pull_request_review,mcp__github__get_issue,mcp__github__list_issues,mcp__github__get_file_contents --max-turns 10 --model claude-haiku-4-5-20251001'
-
+          prompt: |
+            Review the changes in PR #${{ github.event.pull_request.number || github.event.issue.number }} of ${{ github.repository }}.
+            Fetch the diff, analyze the changed files, and post a concise review as a PR comment covering: bugs, security issues, code quality, and any obvious improvements. Skip praise — only flag real issues.
+          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/promptlylabs/:*),Read,Glob,Grep" --model claude-haiku-4-5-20251001'
