@@ -8,7 +8,7 @@ jobs:
   claude-quality-review:
     if: |
       github.event.issue.pull_request &&
-      github.event.comment.body == '/code-quality'
+      contains(github.event.comment.body, '@code-quality')
 
     runs-on: ubuntu-latest
     permissions:
@@ -16,6 +16,8 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
 
     steps:
       - name: Checkout repository
@@ -25,9 +27,11 @@ jobs:
 
       - name: Run Claude Code Quality Review
         id: claude-quality-review
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--allowed-tools Bash,Edit,Read,Write,Glob,Grep,mcp__github__create_pull_request_review,mcp__github__create_issue_comment,mcp__github__list_pull_requests,mcp__github__get_pull_request,mcp__github__list_pull_request_files,mcp__github__update_pull_request_review,mcp__github__get_issue,mcp__github__list_issues,mcp__github__get_file_contents --max-turns 10 --model claude-haiku-4-5-20251001'
           prompt: |
             /code-review:code-review ${{ github.repository }}/pull/${{ github.event.issue.number }}
 

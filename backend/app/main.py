@@ -1,14 +1,25 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import Engine  # noqa: F401 — required for Base.metadata to include tables
 
 from app.decks import model as deck_model  # noqa: F401 — required for Base.metadata to include tables
 from app.router import api_router
-from app.tasks import model as task_model  # noqa: F401 — required for Base.metadata to include tables
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    yield
+    await Engine.dispose()
 
 app = FastAPI(
     title="Magic Grimoire API",
     description="AI-powered Magic The Gathering deck generator",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
+
 )
 
 app.add_middleware(
