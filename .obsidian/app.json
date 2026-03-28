@@ -1,4 +1,13 @@
 {
+  "userIgnoreFilters": [
+    "backend",
+    "frontend",
+    "grimoire",
+    ".git",
+    ".github",
+    ".obsidian",
+    ".claude"
+  ],
   "defaultViewMode": "source",
   "readableLineLength": true,
   "strictLineBreaks": false,
@@ -8,5 +17,5 @@
   "attachmentFolderPath": "docs/assets",
   "alwaysUpdateLinks": true,
   "useMarkdownLinks": false,
-  "promptDelete": false
+  "promptDelete": true
 }
