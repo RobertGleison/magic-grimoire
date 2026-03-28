@@ -41,6 +41,7 @@ jobs:
           additional_permissions: |
             actions: read
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Review the changes in PR #${{ github.event.pull_request.number || github.event.issue.number }} of ${{ github.repository }}.
             Fetch the diff, analyze the changed files, and post a concise review as a PR comment covering: bugs, security issues, code quality, and any obvious improvements. Skip praise — only flag real issues.
