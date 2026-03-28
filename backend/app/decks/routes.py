@@ -7,13 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.decks.model import Deck
 from app.decks.dtos import (
     DeckGenerateRequestDTO,
     DeckGenerateResponseDTO,
     DeckListResponseDTO,
     DeckResponseDTO,
 )
+from app.decks.model import Deck
 from app.tasks.model import Task
 
 router = APIRouter()

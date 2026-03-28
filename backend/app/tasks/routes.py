@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import Annotated, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Annotated
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,7 +16,7 @@ from app.tasks.model import Task
 router = APIRouter()
 
 
-async def _sse_event_generator(task_id: str) -> AsyncGenerator[str, None]:
+async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = redis_client.pubsub()
     channel = f"task:{task_id}"
@@ -26,7 +27,7 @@ async def _sse_event_generator(task_id: str) -> AsyncGenerator[str, None]:
         while True:
             try:
                 message = await asyncio.wait_for(pubsub.get_message(ignore_subscribe_messages=True), timeout=30.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield ": keepalive\n\n"
                 continue
 

@@ -8,26 +8,36 @@ jobs:
   claude-quality-review:
     if: |
       github.event.issue.pull_request &&
-      github.event.comment.body == '/code-quality'
+      contains(github.event.comment.body, '@code-quality')
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      issues: write
+      issues: read
+      checks: read
       id-token: write
+      actions: read
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.issue.number) }}
 
       - name: Run Claude Code Quality Review
         id: claude-quality-review
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          additional_permissions: |
+            actions: read
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api repos/promptlylabs/:*),Read,Glob,Grep" --model claude-haiku-4-5-20251001'
           prompt: |
             /code-review:code-review ${{ github.repository }}/pull/${{ github.event.issue.number }}
 
