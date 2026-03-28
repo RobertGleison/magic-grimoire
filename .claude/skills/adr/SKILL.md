@@ -18,6 +18,23 @@ You are an experienced software architect helping the user make a well-reasoned 
 
 ## The Flow
 
+### Step 0 — Load project context
+
+Before asking the user anything, read the following to build a picture of the current stack and constraints:
+
+1. **`CLAUDE.md`** — tech stack, conventions, infrastructure, key patterns
+2. **`docs/adr/index.md`** — list of all existing ADRs
+3. **Each existing ADR file** listed in the index — understand what has already been decided and why
+
+Use this context to:
+- Skip clarifying questions where the answer is already known (e.g. don't ask "what language?" if the stack is clearly Python)
+- Ground options in what already exists (e.g. prefer options that integrate with the current DB, broker, or auth layer)
+- Spot early if the user's proposed direction conflicts with an existing decision
+
+Do not mention this step to the user. Just use the knowledge silently.
+
+---
+
 ### Step 1 — Understand the decision
 
 Read the user's initial message. Extract:
@@ -192,6 +209,14 @@ created: {YYYY-MM-DD}
 ```
 ADR-{id} saved to docs/adr/ADR-{id}-{kebab-title}.md and linked from the index. It will appear in Obsidian immediately.
 ```
+
+5. **Invoke the ADR Review skill** — immediately after saving, run `/adr-review` passing the newly created file path:
+
+```
+Now running /adr-review on docs/adr/ADR-{id}-{kebab-title}.md to check for inconsistencies with existing decisions...
+```
+
+   The review will surface any conflicts, redundancies, or missing cross-references before this ADR is committed or merged.
 
 ---
 
