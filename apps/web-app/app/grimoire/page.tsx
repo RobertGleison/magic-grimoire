@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArcaneSigil } from '../components/ArcaneSigil';
-import { ManaSymbol, ManaCost } from '../components/ManaSymbol';
+import { ManaSymbol } from '../components/ManaSymbol';
 import { SealLogo } from '../components/atoms';
 import AuthModal from '../components/AuthModal';
 import DeckPanel, { DeckData } from '../components/DeckPanel';

@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 from app.decks.model import Deck
-from app.services.llm import create_llm_service
 from app.services import scryfall_service
+from app.services.llm import create_llm_service
 from app.tasks.model import Task
 from app.workers.celery_app import celery_app
 

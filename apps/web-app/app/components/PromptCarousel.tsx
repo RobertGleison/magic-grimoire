@@ -40,7 +40,7 @@ export function PromptCarousel() {
               ))}
               <span className="prompt-format">{ex.format}</span>
             </div>
-            <p className="prompt-text">"{ex.prompt}"</p>
+            <p className="prompt-text">&ldquo;{ex.prompt}&rdquo;</p>
             <div className="prompt-cta">Try this →</div>
           </Link>
         ))}

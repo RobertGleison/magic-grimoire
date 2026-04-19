@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.core.database import engine
 from app.decks import model as deck_model  # noqa: F401 — required for Base.metadata to include tables
 from app.router import api_router
