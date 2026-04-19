@@ -10,10 +10,6 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: apps/web-app
-
     steps:
       - uses: actions/checkout@v4
 
@@ -26,9 +22,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: apps/web-app
 
       - name: Lint
-        run: npm run lint
+        run: make lint-web-app
 
       - name: Build
         run: npm run build
+        working-directory: apps/web-app

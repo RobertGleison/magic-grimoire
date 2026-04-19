@@ -1,4 +1,4 @@
-.PHONY: dev down build test lint lint-fix
+.PHONY: dev down build test lint lint-api-server lint-web-app lint-fix
 
 ## Start backend services in background, then frontend in foreground
 dev:
@@ -18,10 +18,16 @@ test:
 	cd apps/api-server && uv run pytest || [ $$? -eq 5 ]
 	cd apps/web-app && npm test --if-present
 
-## Run all linters
-lint:
+## Lint api-server
+lint-api-server:
 	cd apps/api-server && uv run ruff check .
+
+## Lint web-app
+lint-web-app:
 	cd apps/web-app && npm run lint
+
+## Run all linters
+lint: lint-api-server lint-web-app
 
 ## Auto-fix lint issues
 lint-fix:

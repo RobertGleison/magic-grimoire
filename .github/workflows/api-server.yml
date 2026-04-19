@@ -29,7 +29,8 @@ jobs:
         run: uv sync --group dev
 
       - name: Lint
-        run: uv run ruff check .
+        run: make lint-api-server
+        working-directory: ${{ github.workspace }}
 
       - name: Run tests
         run: uv run pytest || [ $? -eq 5 ]
