@@ -112,7 +112,7 @@ apps/web-app/app/
 
 **Local dev:** `docker-compose.yml` at repo root. All services have health checks. Run with `make dev`.
 
-**CI:** `.github/workflows/` — `backend.yml` (pytest, paths: `apps/api-server/**`), `frontend.yml` (lint + build, paths: `apps/web-app/**`), `gitleaks.yml` (secret scan).
+**CI:** `.github/workflows/` — `api-server.yml` (pytest, paths: `apps/api-server/**`), `web-app.yml` (lint + build, paths: `apps/web-app/**`), `gitleaks.yml` (secret scan).
 
 ---
 
