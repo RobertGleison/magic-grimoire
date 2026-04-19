@@ -135,13 +135,13 @@ export default function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: Au
 
         <form onSubmit={submit}>
           {mode === 'signup' && (
-            <AuthField label="Seeker's Name" value={name} onChange={setName} placeholder="Planeswalker of choice" />
+            <AuthField label="Name" value={name} onChange={setName} placeholder="Planeswalker of choice" />
           )}
-          <AuthField label="Sigil of Contact" value={email} onChange={setEmail} placeholder="seeker@plane.mtg" type="email" />
-          <AuthField label="Word of Passage" value={pw} onChange={setPw} placeholder="••••••••" type="password" />
+          <AuthField label="Email" value={email} onChange={setEmail} placeholder="seeker@plane.mtg" type="email" />
+          <AuthField label="Password" value={pw} onChange={setPw} placeholder="••••••••" type="password" />
 
           <button type="submit" className="btn btn-primary" disabled={busy} style={{ width: '100%', marginTop: 12, fontSize: '0.8rem', padding: '14px 24px', opacity: busy ? 0.6 : 1 }}>
-            {busy ? 'Sealing the oath…' : (mode === 'signup' ? 'Inscribe ✦' : 'Enter the Tome ✦')}
+            {busy ? 'Sealing the oath…' : (mode === 'signup' ? 'Sign up' : 'Log in')}
           </button>
         </form>
 
@@ -150,7 +150,7 @@ export default function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: Au
             onClick={() => onSwitchMode(mode === 'signup' ? 'login' : 'signup')}
             style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.92rem' }}
           >
-            {mode === 'signup' ? 'Already bound? Return to the tome.' : 'No binding yet? Inscribe anew.'}
+            {mode === 'signup' ? 'Already have an account? Return to the log in.' : 'No account yet? Sign up'}
           </button>
         </div>
 
@@ -161,7 +161,7 @@ export default function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: Au
         </div>
 
         <button onClick={onClose} className="btn" style={{ width: '100%', fontSize: '0.72rem' }}>
-          Enter as Wanderer
+          Skip login
         </button>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--muted)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.45 }}>
           Wanderers may cast, but the tome keeps no record<br />— decks cannot be saved or exported.

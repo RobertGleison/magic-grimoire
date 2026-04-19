@@ -3,6 +3,45 @@
 import { useState } from 'react';
 import { ManaSymbol, ManaCost } from './ManaSymbol';
 
+// ─── Card hover preview ───────────────────────────────────────────────────────
+
+const PREVIEW_W = 200;
+const PREVIEW_H = 279; // MTG card aspect ratio
+
+function CardImageTooltip({ name, image_uri, pos }: {
+  name: string;
+  image_uri?: string;
+  pos: { x: number; y: number };
+}) {
+  const src = image_uri
+    ?? `https://api.scryfall.com/cards/named?format=image&version=normal&exact=${encodeURIComponent(name)}`;
+
+  const left = pos.x + PREVIEW_W + 18 > window.innerWidth
+    ? pos.x - PREVIEW_W - 14
+    : pos.x + 14;
+  const top = Math.max(8, Math.min(pos.y - PREVIEW_H / 2, window.innerHeight - PREVIEW_H - 8));
+
+  return (
+    <div style={{
+      position: 'fixed', left, top, zIndex: 9999, pointerEvents: 'none',
+      animation: 'messageIn 0.15s ease',
+    }}>
+      <img
+        src={src}
+        alt={name}
+        width={PREVIEW_W}
+        height={PREVIEW_H}
+        style={{
+          display: 'block',
+          borderRadius: 11,
+          objectFit: 'cover',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.07)',
+        }}
+      />
+    </div>
+  );
+}
+
 export interface CardEntry {
   name: string;
   quantity: number;
@@ -76,70 +115,82 @@ function viewBtn(active: boolean): React.CSSProperties {
 }
 
 function CardRow({ card, isGuest }: { card: CardEntry; isGuest: boolean }) {
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '6px 0',
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.98rem',
-        color: 'var(--cream)',
-        borderBottom: '1px dotted rgba(var(--accent-glow), 0.08)',
-        transition: 'background 0.2s, padding 0.2s',
-        cursor: isGuest ? 'default' : 'pointer',
-        opacity: isGuest ? 0.85 : 1,
-      }}
-      onMouseEnter={e => { if (!isGuest) { e.currentTarget.style.background = 'rgba(var(--accent-glow), 0.06)'; e.currentTarget.style.paddingLeft = '8px'; } }}
-      onMouseLeave={e => { if (!isGuest) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.paddingLeft = '0'; } }}
-    >
-      <span style={{ width: 24, textAlign: 'right', color: 'var(--accent)', fontFamily: 'var(--font-ui)', fontSize: '0.78rem', flexShrink: 0 }}>
-        {card.quantity}×
-      </span>
-      <span style={{ flex: 1, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {card.name}
-      </span>
-      {card.mana_cost && (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-          <ManaCost cost={card.mana_cost} size={13} />
+    <>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '6px 0',
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.98rem',
+          color: 'var(--cream)',
+          borderBottom: '1px dotted rgba(var(--accent-glow), 0.08)',
+          transition: 'background 0.2s, padding 0.2s',
+          cursor: isGuest ? 'default' : 'pointer',
+          opacity: isGuest ? 0.85 : 1,
+        }}
+        onMouseEnter={e => { setHoverPos({ x: e.clientX, y: e.clientY }); if (!isGuest) { e.currentTarget.style.background = 'rgba(var(--accent-glow), 0.06)'; e.currentTarget.style.paddingLeft = '8px'; } }}
+        onMouseMove={e => setHoverPos({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={e => { setHoverPos(null); if (!isGuest) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.paddingLeft = '0'; } }}
+      >
+        <span style={{ width: 24, textAlign: 'right', color: 'var(--accent)', fontFamily: 'var(--font-ui)', fontSize: '0.78rem', flexShrink: 0 }}>
+          {card.quantity}×
         </span>
-      )}
-    </div>
+        <span style={{ flex: 1, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {card.name}
+        </span>
+        {card.mana_cost && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+            <ManaCost cost={card.mana_cost} size={13} />
+          </span>
+        )}
+      </div>
+      {hoverPos && <CardImageTooltip name={card.name} image_uri={card.image_uri} pos={hoverPos} />}
+    </>
   );
 }
 
 function MiniCardTile({ card }: { card: CardEntry }) {
-  const t = card.type_line ?? '';
-  const icon = t.includes('Land') ? '⛰' : t.includes('Creature') ? '❖' : t.includes('Instant') ? '⚡' : '✦';
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const imgSrc = card.image_uri
+    ?? `https://api.scryfall.com/cards/named?format=image&version=normal&exact=${encodeURIComponent(card.name)}`;
+
   return (
-    <div
-      style={{
-        aspectRatio: '0.72 / 1',
-        position: 'relative',
-        background: 'linear-gradient(160deg, rgba(var(--accent-glow), 0.08), var(--void-2))',
-        border: '1px solid rgba(var(--accent-glow), 0.22)',
-        padding: '8px 8px 6px',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'default',
-        transition: 'all 0.25s',
-        overflow: 'hidden',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.5)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.22)'; }}
-    >
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--cream)', lineHeight: 1.1, fontStyle: 'italic', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {card.name}
+    <>
+      <div
+        style={{
+          aspectRatio: '0.72 / 1',
+          position: 'relative',
+          border: '1px solid rgba(var(--accent-glow), 0.22)',
+          cursor: 'default',
+          transition: 'all 0.25s',
+          overflow: 'hidden',
+        }}
+        onMouseEnter={e => { setHoverPos({ x: e.clientX, y: e.clientY }); e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.5)'; }}
+        onMouseMove={e => setHoverPos({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={e => { setHoverPos(null); e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.22)'; }}
+      >
+        <img
+          src={imgSrc}
+          alt={card.name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          padding: '16px 6px 5px',
+          background: 'linear-gradient(transparent, rgba(0,0,0,0.75))',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+        }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.58rem', color: 'var(--accent)' }}>×{card.quantity}</span>
+          {card.mana_cost && <ManaCost cost={card.mana_cost} size={10} />}
+        </div>
       </div>
-      <div style={{ flex: 1, border: '1px solid rgba(var(--accent-glow), 0.1)', minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'repeating-linear-gradient(135deg, rgba(var(--accent-glow), 0.04) 0 7px, rgba(0,0,0,0.22) 7px 14px)' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'rgba(var(--accent-glow), 0.45)' }}>{icon}</span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
-        <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.58rem', color: 'var(--accent)' }}>×{card.quantity}</span>
-        {card.mana_cost && <ManaCost cost={card.mana_cost} size={10} />}
-      </div>
-    </div>
+      {hoverPos && <CardImageTooltip name={card.name} image_uri={card.image_uri} pos={hoverPos} />}
+    </>
   );
 }
 
@@ -147,6 +198,18 @@ interface DeckPanelProps {
   deck: DeckData;
   isGuest: boolean;
   onRequestLogin: () => void;
+}
+
+function exportTxt(deck: DeckData) {
+  const cards = deck.cards ?? [];
+  const lines = cards.map(c => `${c.quantity} ${c.name}`);
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(deck.title ?? 'deck').toLowerCase().replace(/\s+/g, '-')}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelProps) {
@@ -247,15 +310,13 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
         {isGuest ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.9rem', color: 'var(--cream)', opacity: 0.75 }}>
-              <span style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>✦</span>
-              Bind as Seeker to save, export & preview cards.
             </div>
-            <button className="btn btn-primary" onClick={onRequestLogin} style={{ fontSize: '0.68rem' }}>Bind Seeker ✦</button>
+            <button className="btn btn-primary" onClick={onRequestLogin} style={{ fontSize: '0.68rem' }}>Save Deck</button>
           </div>
         ) : (
           <>
             <button className="btn btn-primary" style={{ fontSize: '0.65rem' }}>Save to Tome</button>
-            <button className="btn" style={{ fontSize: '0.65rem' }}>Export .txt</button>
+            <button className="btn" onClick={() => exportTxt(deck)} style={{ fontSize: '0.65rem' }}>Export .txt</button>
             <button className="btn" style={{ fontSize: '0.65rem' }}>Copy Arena</button>
           </>
         )}

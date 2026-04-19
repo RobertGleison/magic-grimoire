@@ -5,11 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { ArcaneSigil } from '../components/ArcaneSigil';
 import { ManaSymbol } from '../components/ManaSymbol';
 import { SealLogo } from '../components/atoms';
-import AuthModal from '../components/AuthModal';
 import DeckPanel, { DeckData } from '../components/DeckPanel';
 import { useUser } from '../context/UserContext';
-import { User } from '../context/UserContext';
-import { BASIC_COLORS, COLOR_LABEL, ALL_FORMATS, ALL_ARCHETYPES, ALL_STRATEGIES } from '../enums';
+import { BASIC_COLORS, COLOR_LABEL, ALL_FORMATS, ALL_STRATEGIES } from '../enums';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,7 +17,7 @@ interface ChatMessage {
   role: 'oracle' | 'seeker';
   content: string;
   format?: string;
-  opts?: { colors: string[]; archetype: string; strategy: string; size: number };
+  opts?: { colors: string[]; strategy: string; size: number };
   loading?: boolean;
   loadingStage?: LoadingStage;
 }
@@ -46,6 +44,30 @@ const QUICK_PROMPTS = [
   'Dimir mill for Commander',
 ];
 
+// ─── Mock ────────────────────────────────────────────────────────────────────
+
+const MOCK_MODE = true;
+
+const MOCK_DECK: DeckData = {
+  id: 'mock-001',
+  title: 'Verdant Storm',
+  format: 'Modern',
+  colors: ['G'],
+  card_count: 60,
+  cards: [
+    { name: 'Llanowar Elves',       quantity: 4,  mana_cost: '{G}',         type_line: 'Creature — Elf Druid' },
+    { name: 'Elvish Mystic',        quantity: 4,  mana_cost: '{G}',         type_line: 'Creature — Elf Druid' },
+    { name: 'Elvish Clancaller',    quantity: 4,  mana_cost: '{G}{G}',      type_line: 'Creature — Elf' },
+    { name: 'Elvish Archdruid',     quantity: 4,  mana_cost: '{1}{G}{G}',   type_line: 'Creature — Elf Druid' },
+    { name: 'Imperious Perfect',    quantity: 4,  mana_cost: '{2}{G}',      type_line: 'Creature — Elf Warrior' },
+    { name: 'Ezuri, Renegade Leader', quantity: 4, mana_cost: '{1}{G}{G}',  type_line: 'Creature — Elf Warrior' },
+    { name: 'Collected Company',    quantity: 4,  mana_cost: '{3}{G}',      type_line: 'Instant' },
+    { name: 'Chord of Calling',     quantity: 4,  mana_cost: '{X}{G}{G}{G}',type_line: 'Instant' },
+    { name: 'Harmonize',            quantity: 4,  mana_cost: '{2}{G}{G}',   type_line: 'Sorcery' },
+    { name: 'Nykthos, Shrine to Nyx', quantity: 4, mana_cost: '',          type_line: 'Land' },
+    { name: 'Forest',               quantity: 20, mana_cost: '',            type_line: 'Basic Land — Forest' },
+  ],
+};
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -99,7 +121,6 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
                   {message.opts.colors.map(c => <ManaSymbol key={c} symbol={c} size={10} />)}
                 </span>
               )}
-              {message.opts.archetype !== 'Any' && <span className="chip">{message.opts.archetype}</span>}
               {message.opts.strategy !== 'Balanced' && <span className="chip">{message.opts.strategy}</span>}
             </div>
           )}
@@ -146,17 +167,14 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
 }
 
 function ChatOptions({
-  open, setOpen, format, setFormat, colors, toggleColor, deckSize, setDeckSize, archetype, setArchetype, strategy, setStrategy,
+  open, setOpen, format, setFormat, colors, toggleColor, deckSize, setDeckSize, strategy, setStrategy,
 }: {
   open: boolean; setOpen: (v: boolean) => void;
   format: string; setFormat: (v: string) => void;
   colors: string[]; toggleColor: (c: string) => void;
   deckSize: number; setDeckSize: (v: number) => void;
-  archetype: string; setArchetype: (v: string) => void;
   strategy: string; setStrategy: (v: string) => void;
 }) {
-  const sizes = format === 'Commander' ? [100] : [40, 60, 75];
-
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
@@ -178,7 +196,6 @@ function ChatOptions({
             {colors.map(c => <ManaSymbol key={c} symbol={c} size={11} />)}
           </span>
         )}
-        {archetype !== 'Any' && <span className="chip">{archetype}</span>}
         {strategy !== 'Balanced' && <span className="chip">{strategy}</span>}
       </div>
 
@@ -187,7 +204,7 @@ function ChatOptions({
           <div className="opt-row">
             <span className="opt-label">Format</span>
             {ALL_FORMATS.map(f => (
-              <button key={f} className={`opt-btn${format === f ? ' on' : ''}`} onClick={() => { setFormat(f); if (f === 'Commander') setDeckSize(100); else if (deckSize === 100) setDeckSize(60); }}>{f}</button>
+              <button key={f} className={`opt-btn${format === f ? ' on' : ''}`} onClick={() => { setFormat(f); if (f === 'Commander') setDeckSize(100); }}>{f}</button>
             ))}
           </div>
           <div className="opt-row">
@@ -204,15 +221,23 @@ function ChatOptions({
           </div>
           <div className="opt-row">
             <span className="opt-label">Size</span>
-            {sizes.map(s => (
-              <button key={s} className={`opt-btn${deckSize === s ? ' on' : ''}`} onClick={() => setDeckSize(s)}>{s} cards</button>
-            ))}
-          </div>
-          <div className="opt-row">
-            <span className="opt-label">Archetype</span>
-            {ALL_ARCHETYPES.map(a => (
-              <button key={a} className={`opt-btn${archetype === a ? ' on' : ''}`} onClick={() => setArchetype(a)}>{a}</button>
-            ))}
+            <input
+              type="number"
+              min={60}
+              value={deckSize}
+              disabled={format === 'Commander'}
+              onChange={e => setDeckSize(Math.max(60, Number(e.target.value)))}
+              style={{
+                width: 70, background: 'transparent',
+                border: '1px solid rgba(var(--accent-glow), 0.3)',
+                color: 'var(--cream)', fontFamily: 'var(--font-ui)',
+                fontSize: '0.7rem', padding: '3px 6px', textAlign: 'center',
+                opacity: format === 'Commander' ? 0.5 : 1,
+              }}
+            />
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.6rem', color: 'var(--cream)', opacity: 0.5 }}>
+              {format === 'Commander' ? 'fixed at 100' : 'cards · 60 – 200+'}
+            </span>
           </div>
           <div className="opt-row" style={{ marginBottom: 0 }}>
             <span className="opt-label">Strategy</span>
@@ -230,7 +255,7 @@ function ChatOptions({
 
 function GrimoireInner() {
   const searchParams = useSearchParams();
-  const { user, setUser } = useUser();
+  const { user, openAuth } = useUser();
 
   const initialPrompt = searchParams.get('prompt') ?? '';
 
@@ -242,15 +267,16 @@ function GrimoireInner() {
   const [format, setFormat] = useState('Modern');
   const [colors, setColors] = useState<string[]>([]);
   const [deckSize, setDeckSize] = useState(60);
-  const [archetype, setArchetype] = useState('Any');
   const [strategy, setStrategy] = useState('Balanced');
   const [optsOpen, setOptsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>(0);
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
+  const [showSaveNudge, setShowSaveNudge] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const cancelRef = useRef(false);
 
   const toggleColor = (c: string) => {
     setColors(cs => cs.includes(c) ? cs.filter(x => x !== c) : [...cs, c]);
@@ -277,6 +303,16 @@ function GrimoireInner() {
     });
   }, []);
 
+  const handleStop = useCallback(() => {
+    cancelRef.current = true;
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
+    }
+    updateLastOracleMessage({ loading: false, content: 'The ritual was interrupted.' });
+    setLoading(false);
+  }, [updateLastOracleMessage]);
+
   const fetchDeck = useCallback(async (deckId: string) => {
     try {
       const res = await fetch(`/api/v1/decks/${deckId}`);
@@ -287,40 +323,62 @@ function GrimoireInner() {
         loading: false,
         content: `So it shall be. The tome has divined **${deck.title ?? 'thy deck'}** for **${deck.format}** — ${deck.card_count ?? 0} cards of purpose, balanced and ready for battle.`,
       });
+      if (!user) setShowSaveNudge(true);
     } catch {
       updateLastOracleMessage({
         loading: false,
         content: 'The deck was forged, but its details could not be retrieved from the archives.',
       });
     } finally {
+      esRef.current = null;
       setLoading(false);
     }
   }, [updateLastOracleMessage]);
 
   const handleSend = useCallback(async () => {
-    const prompt = input.trim();
-    if (!prompt || loading) return;
+    if (loading) return;
 
-    // Build enhanced prompt with options
+    const prompt = input.trim();
+    cancelRef.current = false;
+
     const optParts = [
       colors.length > 0 ? `Colors: ${colors.join(', ')}` : '',
-      archetype !== 'Any' ? `Archetype: ${archetype}` : '',
       strategy !== 'Balanced' ? `Strategy: ${strategy}` : '',
       deckSize !== 60 ? `Deck size: ${deckSize}` : '',
     ].filter(Boolean);
-    const enhancedPrompt = optParts.length > 0 ? `${prompt}. ${optParts.join('. ')}` : prompt;
+    const enhancedPrompt = prompt
+      ? (optParts.length > 0 ? `${prompt}. ${optParts.join('. ')}` : prompt)
+      : (optParts.length > 0 ? optParts.join('. ') : 'Surprise me with a fun deck');
 
-    const opts = { colors: [...colors], size: deckSize, archetype, strategy };
+    const opts = { colors: [...colors], size: deckSize, strategy };
 
     setMessages(m => [
       ...m,
-      { role: 'seeker', content: prompt, format, opts },
+      { role: 'seeker', content: prompt || enhancedPrompt, format, opts },
       { role: 'oracle', content: '', loading: true },
     ]);
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setLoading(true);
     setLoadingStage(0);
+
+    if (MOCK_MODE) {
+      for (let s = 0; s < LOADING_STAGES.length; s++) {
+        await new Promise<void>(r => setTimeout(r, 750));
+        if (cancelRef.current) return;
+        setLoadingStage(s as LoadingStage);
+      }
+      await new Promise<void>(r => setTimeout(r, 400));
+      if (cancelRef.current) return;
+      setActiveDeck(MOCK_DECK);
+      updateLastOracleMessage({
+        loading: false,
+        content: `So it shall be. The tome has divined **${MOCK_DECK.title}** for **${MOCK_DECK.format}** — ${MOCK_DECK.card_count} cards of purpose, balanced and ready for battle.`,
+      });
+      setLoading(false);
+      if (!user) setShowSaveNudge(true);
+      return;
+    }
 
     try {
       const initRes = await fetch('/api/v1/decks/generate', {
@@ -329,13 +387,21 @@ function GrimoireInner() {
         body: JSON.stringify({ prompt: enhancedPrompt, format: format.toLowerCase() }),
       });
 
+      if (initRes.status === 429) {
+        updateLastOracleMessage({ loading: false, content: 'The free ritual is spent. Bind thyself to the tome to continue casting.' });
+        setLoading(false);
+        openAuth();
+        return;
+      }
       if (!initRes.ok) throw new Error(`Server error: ${initRes.status}`);
 
       const { task_id, deck_id } = await initRes.json();
 
       const es = new EventSource(`/api/v1/tasks/${task_id}/stream`);
+      esRef.current = es;
 
       es.onmessage = (event) => {
+        if (cancelRef.current) return;
         try {
           const data = JSON.parse(event.data) as { status: string };
           const stage = STATUS_TO_STAGE[data.status];
@@ -343,9 +409,11 @@ function GrimoireInner() {
 
           if (data.status === 'completed') {
             es.close();
+            esRef.current = null;
             fetchDeck(deck_id);
           } else if (data.status === 'failed') {
             es.close();
+            esRef.current = null;
             updateLastOracleMessage({ loading: false, content: 'The ritual has failed. The arcane forces could not be contained. Please try again.' });
             setLoading(false);
           }
@@ -355,7 +423,9 @@ function GrimoireInner() {
       };
 
       es.onerror = () => {
+        if (cancelRef.current) return;
         es.close();
+        esRef.current = null;
         fetchDeck(deck_id);
       };
     } catch (err) {
@@ -363,18 +433,13 @@ function GrimoireInner() {
       updateLastOracleMessage({ loading: false, content: `Could not reach the arcane server. ${message}` });
       setLoading(false);
     }
-  }, [input, format, colors, deckSize, archetype, strategy, loading, fetchDeck, updateLastOracleMessage]);
+  }, [input, format, colors, deckSize, strategy, loading, fetchDeck, updateLastOracleMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
-
-  const handleAuthSuccess = (u: User) => {
-    setUser(u);
-    setAuthMode(null);
   };
 
   const isGuest = !user;
@@ -420,7 +485,7 @@ function GrimoireInner() {
             </div>
             {isGuest && (
               <button
-                onClick={() => setAuthMode('login')}
+                onClick={openAuth}
                 style={{
                   fontFamily: 'var(--font-ui)', fontSize: '0.6rem', letterSpacing: '0.18em', textTransform: 'uppercase',
                   padding: '7px 12px', border: '1px solid rgba(var(--accent-glow), 0.4)', background: 'transparent',
@@ -445,6 +510,32 @@ function GrimoireInner() {
               ))}
             </div>
           </div>
+
+          {/* Save nudge */}
+          {showSaveNudge && isGuest && (
+            <div style={{
+              position: 'absolute', bottom: 170, left: 0, right: 0, zIndex: 20,
+              display: 'flex', justifyContent: 'center', padding: '0 20px',
+              animation: 'messageIn 0.4s ease',
+            }}>
+              <div style={{
+                maxWidth: 540, width: '100%',
+                background: 'linear-gradient(135deg, rgba(28,22,40,0.97), rgba(14,11,20,0.99))',
+                border: '1px solid rgba(var(--accent-glow), 0.45)',
+                boxShadow: '0 0 40px rgba(var(--accent-glow), 0.12)',
+                padding: '14px 18px',
+                display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+              }}>
+                <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.95rem', color: 'var(--cream)', opacity: 0.9 }}>
+                  ✦ Thy deck awaits — Sign in to bind it to thy grimoire.
+                </span>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button className="btn btn-primary" onClick={openAuth} style={{ fontSize: '0.65rem', padding: '7px 14px' }}>Sign In</button>
+                  <button className="btn" onClick={() => setShowSaveNudge(false)} style={{ fontSize: '0.65rem', padding: '7px 10px' }}>✕</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Input */}
           <div style={{
@@ -484,7 +575,6 @@ function GrimoireInner() {
                   format={format} setFormat={setFormat}
                   colors={colors} toggleColor={toggleColor}
                   deckSize={deckSize} setDeckSize={setDeckSize}
-                  archetype={archetype} setArchetype={setArchetype}
                   strategy={strategy} setStrategy={setStrategy}
                 />
                 <textarea
@@ -509,21 +599,39 @@ function GrimoireInner() {
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                   <span className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.4 }}>⏎ to cast</span>
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() || loading}
-                    style={{
-                      fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
-                      padding: '7px 16px',
-                      background: input.trim() && !loading ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.3), rgba(var(--accent-glow), 0.1))' : 'transparent',
-                      border: '1px solid ' + (input.trim() && !loading ? 'rgba(var(--accent-glow), 0.6)' : 'rgba(var(--accent-glow), 0.15)'),
-                      color: input.trim() && !loading ? 'var(--accent)' : 'var(--muted)',
-                      cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    Cast ✦
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {loading && (
+                      <button
+                        onClick={handleStop}
+                        style={{
+                          fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
+                          padding: '7px 14px',
+                          background: 'transparent',
+                          border: '1px solid rgba(180, 60, 60, 0.5)',
+                          color: 'rgba(220, 100, 100, 0.9)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        ✕ Stop
+                      </button>
+                    )}
+                    <button
+                      onClick={handleSend}
+                      disabled={loading}
+                      style={{
+                        fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
+                        padding: '7px 16px',
+                        background: !loading ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.3), rgba(var(--accent-glow), 0.1))' : 'transparent',
+                        border: '1px solid ' + (!loading ? 'rgba(var(--accent-glow), 0.6)' : 'rgba(var(--accent-glow), 0.15)'),
+                        color: !loading ? 'var(--accent)' : 'var(--muted)',
+                        cursor: !loading ? 'pointer' : 'not-allowed',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      Cast ✦
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -535,19 +643,11 @@ function GrimoireInner() {
           <DeckPanel
             deck={activeDeck}
             isGuest={isGuest}
-            onRequestLogin={() => setAuthMode('login')}
+            onRequestLogin={openAuth}
           />
         )}
       </div>
 
-      {authMode && (
-        <AuthModal
-          mode={authMode}
-          onClose={() => setAuthMode(null)}
-          onSuccess={handleAuthSuccess}
-          onSwitchMode={setAuthMode}
-        />
-      )}
     </>
   );
 }

@@ -10,12 +10,22 @@ export interface User {
 interface UserContextType {
   user: User | null;
   setUser: (u: User | null) => void;
+  authOpen: boolean;
+  openAuth: () => void;
+  closeAuth: () => void;
 }
 
-const UserContext = createContext<UserContextType>({ user: null, setUser: () => {} });
+const UserContext = createContext<UserContextType>({
+  user: null,
+  setUser: () => {},
+  authOpen: false,
+  openAuth: () => {},
+  closeAuth: () => {},
+});
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -33,7 +43,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{
+      user, setUser,
+      authOpen,
+      openAuth: () => setAuthOpen(true),
+      closeAuth: () => setAuthOpen(false),
+    }}>
       {children}
     </UserContext.Provider>
   );
