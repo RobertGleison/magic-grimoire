@@ -124,6 +124,25 @@ export function ArcaneSigil({ size = 280, intensity = 1 }: ArcaneSigilProps) {
           strokeWidth="1"
           opacity="0.85"
         />
+        {/* Mana symbols at pentagon vertices — WUBRG clockwise from top */}
+        {(['white', 'blue', 'black', 'red', 'green'] as const).map((color, i) => {
+          const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+          const cx = 200 + Math.cos(a) * 65;
+          const cy = 200 + Math.sin(a) * 65;
+          const sz = 28;
+          return (
+            <image
+              key={color}
+              href={`/assets/mana-${color}.png`}
+              x={cx - sz / 2}
+              y={cy - sz / 2}
+              width={sz}
+              height={sz}
+              opacity="1"
+              style={{ animation: 'spinCW 110s linear infinite', transformBox: 'fill-box', transformOrigin: 'center' }}
+            />
+          );
+        })}
         <polygon
           points={[0, 2, 4, 1, 3].map((i) => {
             const a = (i / 5) * Math.PI * 2 - Math.PI / 2;

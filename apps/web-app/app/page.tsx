@@ -89,74 +89,60 @@ export default function LandingPage() {
         justifyContent: 'center',
         position: 'relative',
         overflow: 'hidden',
-        padding: '80px 24px',
+        padding: '80px 48px',
       }}>
         <div style={{
-          position: 'absolute',
-          top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          opacity: 0.35,
-          pointerEvents: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 48,
+          width: '100%',
+          maxWidth: 1100,
+          position: 'relative',
+          zIndex: 4,
         }}>
-          <ArcaneSigil size={780} intensity={0.6} />
-        </div>
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(circle at 50% 50%, transparent 30%, var(--void-0) 80%)',
-          pointerEvents: 'none',
-        }} />
+          {/* Left — text */}
+          <div style={{ flex: '1 1 auto', maxWidth: 560 }}>
+            <Ornament style={{ justifyContent: 'flex-start', maxWidth: 320, marginBottom: 32 }}>
+              <span style={{ fontSize: '0.7rem' }}>Codex Arcanum</span>
+            </Ornament>
 
-        <div style={{ position: 'relative', textAlign: 'center', maxWidth: 900, zIndex: 4 }}>
-          <Ornament style={{ justifyContent: 'center', maxWidth: 320, margin: '0 auto 32px' }}>
-            <span style={{ fontSize: '0.7rem' }}>Codex Arcanum </span>
-          </Ornament>
+            <h1 className="h-display" style={{
+              fontSize: 'clamp(3rem, 6vw, 5.5rem)',
+              lineHeight: 1.05,
+              margin: '0 0 12px',
+              textShadow: '0 0 40px rgba(var(--accent-glow), 0.3)',
+            }}>
+              Magic<br />
+              <span style={{ ...gradientText, fontStyle: 'italic' }}>Grimoire</span>
+            </h1>
 
-          <h1 className="h-display" style={{
-            fontSize: 'clamp(3rem, 8vw, 6rem)',
-            lineHeight: 1.05,
-            margin: '0 0 12px',
-            textShadow: '0 0 40px rgba(var(--accent-glow), 0.3)',
-          }}>
-            Magic<br />
-            <span style={{ ...gradientText, fontStyle: 'italic' }}>Grimoire</span>
-          </h1>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 'clamp(1rem, 1.8vw, 1.25rem)',
+              color: 'var(--cream)',
+              fontStyle: 'italic',
+              margin: '0 0 48px',
+              maxWidth: 480,
+              opacity: 0.85,
+            }}>
+              Whisper your Magic: The Gathering desires and it shall forge for you the perfect deck of cards.
+            </p>
 
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 'clamp(1.1rem, 2vw, 1.4rem)',
-            color: 'var(--cream)',
-            fontStyle: 'italic',
-            margin: '0 auto 48px',
-            maxWidth: 580,
-            opacity: 0.85,
-          }}>
-            Whisper your Magic: The Gathering desires and it shall forge for you the perfect deck of cards.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', opacity: 0.6 }}>
-              {ALL_COLORS.map(c => <ManaSymbol key={c} symbol={c} size={18} />)}
-            </div>
-            <button className="btn btn-primary" onClick={enterGrimoire} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
-              Ask the Grimoire
-            </button>
-            <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontFamily: 'var(--font-ui)', letterSpacing: '0.2em', opacity: 0.7 }}>
-              No account · No incense · Just intent
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 18 }}>
+              <button className="btn btn-primary" onClick={enterGrimoire} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
+                Ask the Grimoire
+              </button>
+              <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontFamily: 'var(--font-ui)', letterSpacing: '0.2em', opacity: 0.7 }}>
+                No account · No incense · Just intent
+              </div>
             </div>
           </div>
-        </div>
 
-        <div style={{
-          position: 'absolute',
-          bottom: 32, left: '50%',
-          transform: 'translateX(-50%)',
-          color: 'var(--muted)',
-          fontFamily: 'var(--font-ui)',
-          fontSize: '0.7rem',
-          letterSpacing: '0.3em',
-          textTransform: 'uppercase',
-          animation: 'fadeBreath 3s ease-in-out infinite',
-        }}>
+          {/* Right — sigil */}
+          <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ArcaneSigil size={560} intensity={0.8} />
+          </div>
         </div>
       </section>
 
@@ -272,13 +258,11 @@ export default function LandingPage() {
       </RevealSection>
 
       {/* Final CTA */}
-      <RevealSection style={{ padding: '120px 24px', textAlign: 'center', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.3, pointerEvents: 'none' }}>
-          <ArcaneSigil size={500} intensity={0.5} />
-        </div>
+      <RevealSection style={{ padding: '120px', textAlign: 'center', position: 'relative' }}>
+
         <div style={{ position: 'relative', zIndex: 2 }}>
-          <h2 className="h-display" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', margin: '0 0 16px', fontStyle: 'italic' }}>
-            <span style={gradientText}>The tome awaits.</span>
+          <h2 className="h-display" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)', margin: '0 0 16px', fontStyle: 'italic' }}>
+            <span style={gradientText}>The tome awaits</span>
           </h2>
           <button className="btn btn-primary" onClick={enterGrimoire} style={{ fontSize: '0.9rem', padding: '18px 40px' }}>
             Ask the Grimoire

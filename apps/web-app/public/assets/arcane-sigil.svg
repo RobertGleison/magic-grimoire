@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 400 400" style="filter: drop-shadow(0 0 20px rgba(232,199,106,0.4));" aria-hidden="true">
+  <defs>
+    <radialGradient id="sigilGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="rgba(232,199,106,0.25)"/>
+      <stop offset="70%"  stop-color="rgba(232,199,106,0.05)"/>
+      <stop offset="100%" stop-color="rgba(232,199,106,0)"/>
+    </radialGradient>
+    <linearGradient id="sigilStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#e8c76a"/>
+      <stop offset="100%" stop-color="#8a6f2e"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    .ring-outer  { animation: spinCW  90s  linear infinite; transform-origin: 200px 200px; }
+    .ring-second { animation: spinCCW 60s  linear infinite; transform-origin: 200px 200px; }
+    .ring-third  { animation: spinCW  45s  linear infinite; transform-origin: 200px 200px; }
+    .ring-inner  { animation: spinCCW 110s linear infinite; transform-origin: 200px 200px; }
+    .center-pulse { animation: pulse 3s ease-in-out infinite; transform-origin: 200px 200px; }
+
+    @keyframes spinCW  { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
+    @keyframes spinCCW { from { transform: rotate(0deg);    } to { transform: rotate(-360deg); } }
+    @keyframes pulse {
+      0%,100% { opacity: 0.9; transform: scale(1); }
+      50%     { opacity: 1;   transform: scale(1.15); filter: drop-shadow(0 0 8px #e8c76a); }
+    }
+  </style>
+
+  <!-- Background glow -->
+  <circle cx="200" cy="200" r="180" fill="url(#sigilGrad)"/>
+
+  <!-- Outer ring — 90s CW -->
+  <g class="ring-outer">
+    <circle cx="200" cy="200" r="180" fill="none" stroke="url(#sigilStroke)" stroke-width="1"   opacity="0.7"/>
+    <circle cx="200" cy="200" r="178" fill="none" stroke="url(#sigilStroke)" stroke-width="0.5" opacity="0.4"/>
+    <!-- 12 tick marks -->
+    <line x1="370.0" y1="200.0" x2="380.0" y2="200.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="347.2" y1="285.0" x2="355.9" y2="290.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="285.0" y1="347.2" x2="290.0" y2="355.9" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="200.0" y1="370.0" x2="200.0" y2="380.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="115.0" y1="347.2" x2="110.0" y2="355.9" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="52.8"  y1="285.0" x2="44.1"  y2="290.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="30.0"  y1="200.0" x2="20.0"  y2="200.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="52.8"  y1="115.0" x2="44.1"  y2="110.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="115.0" y1="52.8"  x2="110.0" y2="44.1"  stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="200.0" y1="30.0"  x2="200.0" y2="20.0"  stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="285.0" y1="52.8"  x2="290.0" y2="44.1"  stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <line x1="347.2" y1="115.0" x2="355.9" y2="110.0" stroke="#e8c76a" stroke-width="1" opacity="0.6"/>
+    <!-- 8 rune glyphs -->
+    <text x="200.0" y="40.0"  fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">◈</text>
+    <text x="313.1" y="86.9"  fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">※</text>
+    <text x="360.0" y="200.0" fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">⟡</text>
+    <text x="313.1" y="313.1" fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">✦</text>
+    <text x="200.0" y="360.0" fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">◈</text>
+    <text x="86.9"  y="313.1" fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">※</text>
+    <text x="40.0"  y="200.0" fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">⟡</text>
+    <text x="86.9"  y="86.9"  fill="#e8c76a" font-size="12" text-anchor="middle" dominant-baseline="middle" opacity="0.8">✦</text>
+  </g>
+
+  <!-- Second ring — 60s CCW -->
+  <g class="ring-second">
+    <circle cx="200" cy="200" r="140" fill="none" stroke="#c9a84c" stroke-width="0.8" opacity="0.5" stroke-dasharray="2 4"/>
+    <circle cx="340.0" cy="200.0" r="3" fill="#e8c76a" opacity="0.8"/>
+    <circle cx="270.0" cy="321.2" r="3" fill="#e8c76a" opacity="0.8"/>
+    <circle cx="130.0" cy="321.2" r="3" fill="#e8c76a" opacity="0.8"/>
+    <circle cx="60.0"  cy="200.0" r="3" fill="#e8c76a" opacity="0.8"/>
+    <circle cx="130.0" cy="78.8"  r="3" fill="#e8c76a" opacity="0.8"/>
+    <circle cx="270.0" cy="78.8"  r="3" fill="#e8c76a" opacity="0.8"/>
+  </g>
+
+  <!-- Third ring — 45s CW, hexagram -->
+  <g class="ring-third">
+    <circle cx="200" cy="200" r="110" fill="none" stroke="#e8c76a" stroke-width="0.6" opacity="0.5"/>
+    <polygon points="200,95 290.9,147.5 290.9,252.5 200,305 109.1,252.5 109.1,147.5"
+             fill="none" stroke="#e8c76a" stroke-width="0.8" opacity="0.6"/>
+    <polygon points="252.5,109.1 305,200 252.5,290.9 147.5,290.9 95,200 147.5,109.1"
+             fill="none" stroke="#e8c76a" stroke-width="0.8" opacity="0.4"/>
+  </g>
+
+  <!-- Innermost — 110s CCW, pentagram -->
+  <g class="ring-inner">
+    <circle cx="200" cy="200" r="70" fill="none" stroke="#c9a84c" stroke-width="1" opacity="0.7"/>
+    <!-- Pentagon outline -->
+    <polygon points="200,135 261.8,179.9 238.2,252.6 161.8,252.6 138.2,179.9"
+             fill="none" stroke="#e8c76a" stroke-width="1" opacity="0.85"/>
+    <!-- Pentagram star -->
+    <polygon points="200,135 238.2,252.6 138.2,179.9 261.8,179.9 161.8,252.6"
+             fill="none" stroke="#e8c76a" stroke-width="0.8" opacity="0.55"/>
+  </g>
+
+  <!-- Center pulse -->
+  <circle class="center-pulse" cx="200" cy="200" r="8" fill="#e8c76a" opacity="0.9"/>
+  <circle cx="200" cy="200" r="3" fill="#f0e4c8" opacity="1"/>
+</svg>

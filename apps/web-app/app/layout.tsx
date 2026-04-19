@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
 import SpineNav from "./components/SpineNav";
 
 export const metadata: Metadata = {
   title: "Magic Grimoire",
-  description: "Whisper thine desire into the tome, and it shall render sixty cards of purest intent.",
+  description: "AI-powered Magic: The Gathering deck builder. Describe your playstyle in plain language and get a balanced 60-card deck with real MTG cards — instantly.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="en" data-accent="gold">
