@@ -57,6 +57,7 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
+next_features.txt
 
 # Obsidian — workspace state is local, config is tracked
 .obsidian/workspace.json

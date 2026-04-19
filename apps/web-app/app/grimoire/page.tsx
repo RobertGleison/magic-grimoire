@@ -9,6 +9,7 @@ import AuthModal from '../components/AuthModal';
 import DeckPanel, { DeckData } from '../components/DeckPanel';
 import { useUser } from '../context/UserContext';
 import { User } from '../context/UserContext';
+import { BASIC_COLORS, COLOR_LABEL, ALL_FORMATS, ALL_ARCHETYPES, ALL_STRATEGIES } from '../enums';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,16 +46,6 @@ const QUICK_PROMPTS = [
   'Dimir mill for Commander',
 ];
 
-const FORMATS = ['Standard', 'Modern', 'Pioneer', 'Legacy', 'Commander'];
-const ARCHETYPES = ['Any', 'Aggro', 'Midrange', 'Control', 'Combo', 'Tribal', 'Ramp', 'Tempo'];
-const STRATEGIES = ['Balanced', 'Aggressive', 'Defensive', 'Budget', 'Spicy'];
-const COLORS_LIST = [
-  { id: 'W', label: 'White' },
-  { id: 'U', label: 'Blue' },
-  { id: 'B', label: 'Black' },
-  { id: 'R', label: 'Red' },
-  { id: 'G', label: 'Green' },
-];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -195,16 +186,16 @@ function ChatOptions({
         <div style={{ marginTop: 8, padding: '10px 12px', border: '1px solid rgba(var(--accent-glow), 0.2)', background: 'rgba(14, 11, 20, 0.6)', animation: 'messageIn 0.25s ease' }}>
           <div className="opt-row">
             <span className="opt-label">Format</span>
-            {FORMATS.map(f => (
+            {ALL_FORMATS.map(f => (
               <button key={f} className={`opt-btn${format === f ? ' on' : ''}`} onClick={() => { setFormat(f); if (f === 'Commander') setDeckSize(100); else if (deckSize === 100) setDeckSize(60); }}>{f}</button>
             ))}
           </div>
           <div className="opt-row">
             <span className="opt-label">Colors</span>
-            {COLORS_LIST.map(c => (
-              <button key={c.id} className={`opt-btn${colors.includes(c.id) ? ' on' : ''}`} onClick={() => toggleColor(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 7px' }}>
-                <ManaSymbol symbol={c.id} size={13} />
-                <span>{c.label}</span>
+            {BASIC_COLORS.map(c => (
+              <button key={c} className={`opt-btn${colors.includes(c) ? ' on' : ''}`} onClick={() => toggleColor(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 7px' }}>
+                <ManaSymbol symbol={c} size={13} />
+                <span>{COLOR_LABEL[c]}</span>
               </button>
             ))}
             {colors.length > 0 && (
@@ -219,13 +210,13 @@ function ChatOptions({
           </div>
           <div className="opt-row">
             <span className="opt-label">Archetype</span>
-            {ARCHETYPES.map(a => (
+            {ALL_ARCHETYPES.map(a => (
               <button key={a} className={`opt-btn${archetype === a ? ' on' : ''}`} onClick={() => setArchetype(a)}>{a}</button>
             ))}
           </div>
           <div className="opt-row" style={{ marginBottom: 0 }}>
             <span className="opt-label">Strategy</span>
-            {STRATEGIES.map(s => (
+            {ALL_STRATEGIES.map(s => (
               <button key={s} className={`opt-btn${strategy === s ? ' on' : ''}`} onClick={() => setStrategy(s)}>{s}</button>
             ))}
           </div>

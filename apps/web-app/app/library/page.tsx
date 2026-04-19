@@ -4,10 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
 import { ManaSymbol } from '../components/ManaSymbol';
-
-const COLOR_MAP: Record<string, string> = {
-  W: '#f0ead8', U: '#1460a8', B: '#3a2818', R: '#c81808', G: '#0f6030',
-};
+import { COLOR_HEX } from '../enums';
 
 const SAVED_DECKS = [
   { id: 'verdant-swarm', name: 'The Verdant Swarm', archetype: 'Mono-Green Elf Tribal', format: 'Modern', colors: ['G'], savedOn: 'IV · iii · MMXXVI', prompt: 'mono-green elf tribal for Modern, aggressive' },
@@ -19,7 +16,7 @@ const SAVED_DECKS = [
 ];
 
 function DeckTile({ deck, onClick }: { deck: typeof SAVED_DECKS[0]; onClick: () => void }) {
-  const colors = deck.colors.map(c => COLOR_MAP[c] || '#8a6f2e');
+  const colors = deck.colors.map(c => COLOR_HEX[c] || '#8a6f2e');
   const grad = colors.length === 1
     ? `radial-gradient(circle at 30% 30%, ${colors[0]}55, var(--void-1) 70%)`
     : `linear-gradient(135deg, ${colors.map((c, i) => `${c}55 ${(i / (colors.length - 1)) * 100}%`).join(', ')})`;

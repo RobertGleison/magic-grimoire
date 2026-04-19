@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from './context/UserContext';
 import { ArcaneSigil } from './components/ArcaneSigil';
 import { ManaSymbol } from './components/ManaSymbol';
+import { ALL_COLORS } from './enums';
 import { Ornament, Frame } from './components/atoms';
 import { useReveal } from './hooks/useReveal';
 
@@ -69,7 +70,7 @@ export default function LandingPage() {
         <div style={{ position: 'relative', textAlign: 'center', maxWidth: 900, zIndex: 4 }}>
           <div style={{ marginBottom: 32 }}>
             <Ornament style={{ justifyContent: 'center', maxWidth: 320, margin: '0 auto' }}>
-              <span style={{ fontSize: '0.7rem' }}>Codex Arcanum · Vol. IV</span>
+              <span style={{ fontSize: '0.7rem' }}>Codex Arcanum </span>
             </Ornament>
           </div>
 
@@ -97,17 +98,17 @@ export default function LandingPage() {
             maxWidth: 580,
             opacity: 0.85,
           }}>
-            Whisper thine desire into the tome, and it shall render unto thee sixty cards of purest intent.
+            Whisper your Magic: The Gathering desires and it shall forge to you the perfect deck of cards.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', opacity: 0.6 }}>
-              {['W', 'U', 'B', 'R', 'G'].map(c => <ManaSymbol key={c} symbol={c} size={18} />)}
+              {ALL_COLORS.map(c => <ManaSymbol key={c} symbol={c} size={18} />)}
             </div>
             <button className="btn btn-primary" onClick={enterGrimoire} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
-              Enter the Grimoire ✦
+              Access Grimoire
             </button>
-            <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontFamily: 'var(--font-ui)', letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.7 }}>
+            <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontFamily: 'var(--font-ui)', letterSpacing: '0.2em', opacity: 0.7 }}>
               No account · No incense · Just intent
             </div>
           </div>
@@ -186,7 +187,7 @@ export default function LandingPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
           {[
-            { title: 'Five Colors of Magic', body: 'Every color pie, every guild, every shard. The tome knows the soul of each.', pips: ['W', 'U', 'B', 'R', 'G'] as const },
+            { title: 'Five Colors of Magic', body: 'Every color pie, every guild, every shard. The tome knows the soul of each.', pips: ALL_COLORS },
             { title: 'All Formats Honored', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.', icon: '⟡' },
             { title: 'Curated Synergies', body: 'Not a list of cards — a plan. Mana curves, ratios, and interactions chosen with intent.', icon: '✦' },
             { title: 'Annotated Reasoning', body: 'Each inclusion justified. Each ratio defended. Argue with the oracle, refine the result.', icon: '❖' },
