@@ -91,7 +91,7 @@ jobs:
             - Deeply nested conditionals that could be flattened with early returns
             - Missing guard clauses for invalid states or edge cases
 
-            **React Re-renders (frontend/)**
+            **React Re-renders (apps/web-app/)**
             - Missing or incorrect React.memo, useMemo, useCallback
             - Objects or arrays created inline in JSX that cause unnecessary re-renders
             - useEffect with missing or overly broad dependency arrays

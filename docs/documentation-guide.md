@@ -19,13 +19,13 @@ When the user says **"document [file]"** or **"create documentation for [file]"*
 
    | Source path | Output folder | Tag |
    |---|---|---|
-   | `backend/app/services/*.py` | `docs/services/` | `#service` |
-   | `backend/app/*/routes.py` | `docs/api/` | `#api` |
-   | `backend/app/*/model.py` | `docs/models/` | `#model` |
-   | `backend/app/*/worker.py` | `docs/workers/` | `#worker` |
-   | `frontend/app/components/**` | `docs/frontend/components/` | `#frontend` |
-   | `frontend/app/hooks/**` | `docs/frontend/hooks/` | `#frontend` |
-   | `frontend/app/**/page.tsx` | `docs/frontend/pages/` | `#frontend` |
+   | `apps/api-server/app/services/*.py` | `docs/services/` | `#service` |
+   | `apps/api-server/app/*/routes.py` | `docs/api/` | `#api` |
+   | `apps/api-server/app/*/model.py` | `docs/models/` | `#model` |
+   | `apps/api-server/app/*/worker.py` | `docs/workers/` | `#worker` |
+   | `apps/web-app/app/components/**` | `docs/frontend/components/` | `#frontend` |
+   | `apps/web-app/app/hooks/**` | `docs/frontend/hooks/` | `#frontend` |
+   | `apps/web-app/app/**/page.tsx` | `docs/frontend/pages/` | `#frontend` |
    | `.github/workflows/*.yml` | `docs/infrastructure/` | `#infrastructure` |
    | `docker-compose.yml` / k8s | `docs/infrastructure/` | `#infrastructure` |
 

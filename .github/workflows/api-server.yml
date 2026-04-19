@@ -1,0 +1,36 @@
+name: api-server CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - "apps/api-server/**"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/api-server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Lint
+        run: make lint-api-server
+        working-directory: ${{ github.workspace }}
+
+      - name: Run tests
+        run: uv run pytest || [ $? -eq 5 ]
