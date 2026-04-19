@@ -156,19 +156,16 @@ function CardRow({ card, isGuest }: { card: CardEntry; isGuest: boolean }) {
 
 function MiniCardTile({ card }: { card: CardEntry }) {
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
-  const t = card.type_line ?? '';
-  const icon = t.includes('Land') ? '⛰' : t.includes('Creature') ? '❖' : t.includes('Instant') ? '⚡' : '✦';
+  const imgSrc = card.image_uri
+    ?? `https://api.scryfall.com/cards/named?format=image&version=normal&exact=${encodeURIComponent(card.name)}`;
+
   return (
     <>
       <div
         style={{
           aspectRatio: '0.72 / 1',
           position: 'relative',
-          background: 'linear-gradient(160deg, rgba(var(--accent-glow), 0.08), var(--void-2))',
           border: '1px solid rgba(var(--accent-glow), 0.22)',
-          padding: '8px 8px 6px',
-          display: 'flex',
-          flexDirection: 'column',
           cursor: 'default',
           transition: 'all 0.25s',
           overflow: 'hidden',
@@ -177,13 +174,17 @@ function MiniCardTile({ card }: { card: CardEntry }) {
         onMouseMove={e => setHoverPos({ x: e.clientX, y: e.clientY })}
         onMouseLeave={e => { setHoverPos(null); e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.22)'; }}
       >
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--cream)', lineHeight: 1.1, fontStyle: 'italic', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {card.name}
-        </div>
-        <div style={{ flex: 1, border: '1px solid rgba(var(--accent-glow), 0.1)', minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'repeating-linear-gradient(135deg, rgba(var(--accent-glow), 0.04) 0 7px, rgba(0,0,0,0.22) 7px 14px)' }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'rgba(var(--accent-glow), 0.45)' }}>{icon}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
+        <img
+          src={imgSrc}
+          alt={card.name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          padding: '16px 6px 5px',
+          background: 'linear-gradient(transparent, rgba(0,0,0,0.75))',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+        }}>
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.58rem', color: 'var(--accent)' }}>×{card.quantity}</span>
           {card.mana_cost && <ManaCost cost={card.mana_cost} size={10} />}
         </div>
@@ -297,10 +298,8 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
         {isGuest ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.9rem', color: 'var(--cream)', opacity: 0.75 }}>
-              <span style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>✦</span>
-              Bind as Seeker to save, export & preview cards.
             </div>
-            <button className="btn btn-primary" onClick={onRequestLogin} style={{ fontSize: '0.68rem' }}>Bind Seeker ✦</button>
+            <button className="btn btn-primary" onClick={onRequestLogin} style={{ fontSize: '0.68rem' }}>Save Deck</button>
           </div>
         ) : (
           <>

@@ -11,13 +11,13 @@ export default function SpineNav() {
 
   const links = user
     ? [
-        { path: '/', label: 'Codex' },
+        { path: '/', label: 'Home' },
         { path: '/library', label: 'Library' },
         { path: '/grimoire', label: 'Grimoire' },
       ]
     : [
-        { path: '/', label: 'Codex' },
-        { path: '/grimoire', label: 'Cast' },
+        { path: '/', label: 'Home' },
+        { path: '/grimoire', label: 'Grimoire' },
       ];
 
   return (
