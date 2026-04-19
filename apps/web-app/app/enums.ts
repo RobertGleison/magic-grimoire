@@ -31,7 +31,12 @@ export const COLOR_LABEL: Record<string, string> = {
 };
 
 export const COLOR_HEX: Record<string, string> = {
-  WHITE: '#f0ead8', BLUE: '#1460a8', BLACK: '#3a2818', RED: '#c81808', GREEN: '#0f6030', COLORLESS: '#7a7a8a',
+  WHITE: '#f0ead8',
+  BLUE: '#1460a8',
+  BLACK: '#000000',
+  RED: '#c81808',
+  GREEN: '#0f6030',
+  COLORLESS: '#7a7a8a',
 };
 
 // ─── Formats ─────────────────────────────────────────────────────────────────
