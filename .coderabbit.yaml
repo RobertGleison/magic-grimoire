@@ -14,8 +14,8 @@ reviews:
   abort_on_close: true
 
   path_filters:
-    - "!frontend/package-lock.json"
-    - "!backend/uv.lock"
+    - "!apps/web-app/package-lock.json"
+    - "!apps/api-server/uv.lock"
     - "!**/node_modules/**"
     - "!**/__pycache__/**"
     - "!**/*.pyc"
@@ -24,7 +24,7 @@ reviews:
     - "!.git/**"
 
   path_instructions:
-    - path: "frontend/app/**/*.{ts,tsx}"
+    - path: "apps/web-app/app/**/*.{ts,tsx}"
       instructions: >-
         Review Next.js App Router code:
         - Verify correct use of server vs client components ('use client' directive)
@@ -33,14 +33,14 @@ reviews:
         - Ensure proper React 19 and Next.js 15 patterns
         - Verify Sentry integration points are not broken
 
-    - path: "frontend/app/components/**"
+    - path: "apps/web-app/app/components/**"
       instructions: >-
         Review React components:
         - Check reusability, composition, and prop typing
         - Validate accessibility (ARIA labels, semantic HTML)
         - Check for unnecessary re-renders or missing memoization
 
-    - path: "backend/app/*/routes.py"
+    - path: "apps/api-server/app/*/routes.py"
       instructions: >-
         Review FastAPI routes:
         - Verify correct HTTP status codes (202 for async ops, 204 for deletes)
@@ -49,7 +49,7 @@ reviews:
         - Verify proper async/await usage
         - Check error handling with HTTPException
 
-    - path: "backend/app/*/model.py"
+    - path: "apps/api-server/app/*/model.py"
       instructions: >-
         Review SQLAlchemy ORM models:
         - Check column types, nullability, and defaults
@@ -57,7 +57,7 @@ reviews:
         - Validate index definitions for query performance
         - Check timezone-aware DateTime handling
 
-    - path: "backend/app/*/worker.py"
+    - path: "apps/api-server/app/*/worker.py"
       instructions: >-
         Review Celery worker code:
         - Verify async/await patterns and database session management
@@ -65,20 +65,20 @@ reviews:
         - Validate error handling, retries, and resource cleanup
         - Verify task status is updated correctly in all code paths
 
-    - path: "backend/app/services/**"
+    - path: "apps/api-server/app/services/**"
       instructions: >-
         Review service layer:
         - Check Claude and Scryfall API integrations for error handling and timeouts
         - Validate response parsing and type safety
         - Check caching strategy and Redis usage
 
-    - path: "backend/app/core/**"
+    - path: "apps/api-server/app/core/**"
       instructions: >-
         Review core infrastructure:
         - Verify SQLAlchemy async engine and connection pool config
         - Check Pydantic settings for proper env var validation and secure defaults
 
-    - path: "backend/alembic/versions/**"
+    - path: "apps/api-server/alembic/versions/**"
       instructions: >-
         Review Alembic migrations:
         - Verify upgrade() and downgrade() are symmetric

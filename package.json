@@ -1,0 +1,8 @@
+{
+  "name": "magic-grimoire",
+  "private": true,
+  "workspaces": [
+    "apps/web-app",
+    "packages/*"
+  ]
+}
