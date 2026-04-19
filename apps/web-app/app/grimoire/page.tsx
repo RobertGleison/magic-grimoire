@@ -5,10 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { ArcaneSigil } from '../components/ArcaneSigil';
 import { ManaSymbol } from '../components/ManaSymbol';
 import { SealLogo } from '../components/atoms';
-import AuthModal from '../components/AuthModal';
 import DeckPanel, { DeckData } from '../components/DeckPanel';
 import { useUser } from '../context/UserContext';
-import { User } from '../context/UserContext';
 import { BASIC_COLORS, COLOR_LABEL, ALL_FORMATS, ALL_STRATEGIES } from '../enums';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -257,7 +255,7 @@ function ChatOptions({
 
 function GrimoireInner() {
   const searchParams = useSearchParams();
-  const { user, setUser } = useUser();
+  const { user, openAuth } = useUser();
 
   const initialPrompt = searchParams.get('prompt') ?? '';
 
@@ -273,7 +271,7 @@ function GrimoireInner() {
   const [optsOpen, setOptsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>(0);
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
+  const [showSaveNudge, setShowSaveNudge] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -325,6 +323,7 @@ function GrimoireInner() {
         loading: false,
         content: `So it shall be. The tome has divined **${deck.title ?? 'thy deck'}** for **${deck.format}** — ${deck.card_count ?? 0} cards of purpose, balanced and ready for battle.`,
       });
+      if (!user) setShowSaveNudge(true);
     } catch {
       updateLastOracleMessage({
         loading: false,
@@ -377,6 +376,7 @@ function GrimoireInner() {
         content: `So it shall be. The tome has divined **${MOCK_DECK.title}** for **${MOCK_DECK.format}** — ${MOCK_DECK.card_count} cards of purpose, balanced and ready for battle.`,
       });
       setLoading(false);
+      if (!user) setShowSaveNudge(true);
       return;
     }
 
@@ -387,6 +387,12 @@ function GrimoireInner() {
         body: JSON.stringify({ prompt: enhancedPrompt, format: format.toLowerCase() }),
       });
 
+      if (initRes.status === 429) {
+        updateLastOracleMessage({ loading: false, content: 'The free ritual is spent. Bind thyself to the tome to continue casting.' });
+        setLoading(false);
+        openAuth();
+        return;
+      }
       if (!initRes.ok) throw new Error(`Server error: ${initRes.status}`);
 
       const { task_id, deck_id } = await initRes.json();
@@ -436,11 +442,6 @@ function GrimoireInner() {
     }
   };
 
-  const handleAuthSuccess = (u: User) => {
-    setUser(u);
-    setAuthMode(null);
-  };
-
   const isGuest = !user;
 
   return (
@@ -484,7 +485,7 @@ function GrimoireInner() {
             </div>
             {isGuest && (
               <button
-                onClick={() => setAuthMode('login')}
+                onClick={openAuth}
                 style={{
                   fontFamily: 'var(--font-ui)', fontSize: '0.6rem', letterSpacing: '0.18em', textTransform: 'uppercase',
                   padding: '7px 12px', border: '1px solid rgba(var(--accent-glow), 0.4)', background: 'transparent',
@@ -509,6 +510,32 @@ function GrimoireInner() {
               ))}
             </div>
           </div>
+
+          {/* Save nudge */}
+          {showSaveNudge && isGuest && (
+            <div style={{
+              position: 'absolute', bottom: 170, left: 0, right: 0, zIndex: 20,
+              display: 'flex', justifyContent: 'center', padding: '0 20px',
+              animation: 'messageIn 0.4s ease',
+            }}>
+              <div style={{
+                maxWidth: 540, width: '100%',
+                background: 'linear-gradient(135deg, rgba(28,22,40,0.97), rgba(14,11,20,0.99))',
+                border: '1px solid rgba(var(--accent-glow), 0.45)',
+                boxShadow: '0 0 40px rgba(var(--accent-glow), 0.12)',
+                padding: '14px 18px',
+                display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+              }}>
+                <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.95rem', color: 'var(--cream)', opacity: 0.9 }}>
+                  ✦ Thy deck awaits — Sign in to bind it to thy grimoire.
+                </span>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button className="btn btn-primary" onClick={openAuth} style={{ fontSize: '0.65rem', padding: '7px 14px' }}>Sign In</button>
+                  <button className="btn" onClick={() => setShowSaveNudge(false)} style={{ fontSize: '0.65rem', padding: '7px 10px' }}>✕</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Input */}
           <div style={{
@@ -616,19 +643,11 @@ function GrimoireInner() {
           <DeckPanel
             deck={activeDeck}
             isGuest={isGuest}
-            onRequestLogin={() => setAuthMode('login')}
+            onRequestLogin={openAuth}
           />
         )}
       </div>
 
-      {authMode && (
-        <AuthModal
-          mode={authMode}
-          onClose={() => setAuthMode(null)}
-          onSuccess={handleAuthSuccess}
-          onSwitchMode={setAuthMode}
-        />
-      )}
     </>
   );
 }

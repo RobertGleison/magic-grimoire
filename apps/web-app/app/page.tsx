@@ -32,9 +32,9 @@ const STEPS = [
 
 const FEATURES = [
   { title: 'All Colors', body: 'Every color combination, every guild, every shard. The tome knows the soul of each.', pips: ALL_COLORS },
-  { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.'},
-  { title: 'Synergies', body: 'Not a list of cards — a plan. Mana curves, ratios, and interactions chosen with intent.' },
-  { title: 'Iteration', body: 'Each inclusion justified. Each ratio defended. Argue with the oracle, refine the result.' },
+  { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.', icon: '⚔' },
+  { title: 'Synergies', body: 'Not a list of cards — a plan. Mana curves, ratios, and interactions chosen with intent.', icon: '✦' },
+  { title: 'Iteration', body: 'Each inclusion justified. Each ratio defended. Argue with the oracle, refine the result.', icon: '◈' },
 ];
 
 const gradientText: React.CSSProperties = {

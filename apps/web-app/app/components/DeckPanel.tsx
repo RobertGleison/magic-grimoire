@@ -200,6 +200,18 @@ interface DeckPanelProps {
   onRequestLogin: () => void;
 }
 
+function exportTxt(deck: DeckData) {
+  const cards = deck.cards ?? [];
+  const lines = cards.map(c => `${c.quantity} ${c.name}`);
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(deck.title ?? 'deck').toLowerCase().replace(/\s+/g, '-')}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelProps) {
   const [layout, setLayout] = useState<DeckLayout>('list');
   const cards = deck.cards ?? [];
@@ -304,7 +316,7 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
         ) : (
           <>
             <button className="btn btn-primary" style={{ fontSize: '0.65rem' }}>Save to Tome</button>
-            <button className="btn" style={{ fontSize: '0.65rem' }}>Export .txt</button>
+            <button className="btn" onClick={() => exportTxt(deck)} style={{ fontSize: '0.65rem' }}>Export .txt</button>
             <button className="btn" style={{ fontSize: '0.65rem' }}>Copy Arena</button>
           </>
         )}

@@ -2,7 +2,7 @@ import math
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,17 +14,35 @@ from app.decks.dtos import (
     DeckResponseDTO,
 )
 from app.decks.model import Deck
+from app.services import redis_cache
 from app.tasks.model import Task
 
 router = APIRouter()
+
+# 30-day TTL for guest rate limit keys
+_GUEST_RATE_LIMIT_TTL = 30 * 24 * 60 * 60
 
 
 @router.post("/decks/generate", response_model=DeckGenerateResponseDTO, status_code=status.HTTP_202_ACCEPTED)
 async def generate_deck(
     request: DeckGenerateRequestDTO,
+    req: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> DeckGenerateResponseDTO:
     from app.decks.worker import generate_deck_task
+
+    auth_header = req.headers.get("Authorization", "")
+    is_authenticated = auth_header.startswith("Bearer ")
+
+    if not is_authenticated:
+        client_ip = req.client.host if req.client else "unknown"
+        rate_key = f"ratelimit:ip:{client_ip}"
+        if await redis_cache.get(rate_key):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Guest generation limit reached. Sign in to generate more decks.",
+            )
+        await redis_cache.set(rate_key, "1", ttl=_GUEST_RATE_LIMIT_TTL)
 
     deck = Deck(
         prompt=request.prompt,

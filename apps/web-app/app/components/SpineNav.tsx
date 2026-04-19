@@ -7,7 +7,7 @@ import { SealLogo } from './atoms';
 export default function SpineNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, openAuth } = useUser();
 
   const links = user
     ? [
@@ -39,6 +39,18 @@ export default function SpineNav() {
           </div>
         ))}
       </div>
+      {!user && (
+        <div
+          className="spine-link"
+          onClick={openAuth}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && openAuth()}
+          style={{ marginBottom: 8, fontSize: '0.55rem', opacity: 0.7 }}
+        >
+          Sign In
+        </div>
+      )}
       <div className="spine-foot">MG · MMXXVI</div>
     </nav>
   );

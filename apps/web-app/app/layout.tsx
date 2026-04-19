@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
 import SpineNav from "./components/SpineNav";
+import AuthGate from "./components/AuthGate";
 
 export const metadata: Metadata = {
   title: "Magic Grimoire",
@@ -30,6 +31,7 @@ export default function RootLayout({
           <div className="shell" id="app">
             {children}
           </div>
+          <AuthGate />
         </UserProvider>
       </body>
     </html>
