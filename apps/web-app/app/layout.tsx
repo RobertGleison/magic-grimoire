@@ -8,6 +8,7 @@ import AuthGate from "./components/AuthGate";
 export const metadata: Metadata = {
   title: "Magic Grimoire",
   description: "AI-powered Magic: The Gathering deck builder. Describe your playstyle in plain language and get a balanced 60-card deck with real MTG cards — instantly.",
+  icons: { icon: '/assets/grimoire_icon.png' },
 };
 
 export default function RootLayout({

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
 import { ManaSymbol } from '../components/ManaSymbol';
 import DeckPanel, { CardEntry } from '../components/DeckPanel';
+import s from './page.module.css';
 
 interface SavedDeck {
   id: string;
@@ -161,50 +162,47 @@ function ImportModal({ onImport, onClose }: { onImport: (deck: SavedDeck) => voi
   };
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(8,6,10,0.85)', backdropFilter: 'blur(6px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: 500, background: 'linear-gradient(180deg, var(--void-2), var(--void-0))', border: '1px solid rgba(var(--accent-glow), 0.4)', padding: '32px 28px', boxShadow: '0 0 60px rgba(var(--accent-glow), 0.15)', animation: 'messageIn 0.3s ease' }}
-      >
-        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 16, background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '1.3rem' }}>×</button>
-        <div className="h-ui" style={{ fontSize: '0.6rem', opacity: 0.6, marginBottom: 6 }}>Inscribe from without</div>
-        <h2 className="h-display" style={{ fontSize: '1.5rem', margin: '0 0 24px', fontStyle: 'italic' }}>Import Deck</h2>
+    <div className={s.modalOverlay} onClick={onClose}>
+      <div className={s.modalBox} onClick={e => e.stopPropagation()}>
+        <button className={s.modalClose} onClick={onClose}>×</button>
+        <div className={`h-ui ${s.modalTagline}`}>Inscribe from without</div>
+        <h2 className={`h-display ${s.modalTitle}`}>Import Deck</h2>
 
-        <div style={{ marginBottom: 14 }}>
-          <label className="h-ui" style={{ fontSize: '0.58rem', opacity: 0.65, display: 'block', marginBottom: 6 }}>Deck Name</label>
+        <div className={s.modalField}>
+          <label className={`h-ui ${s.modalLabel}`}>Deck Name</label>
           <input
+            className={s.modalInput}
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="My Deck"
-            style={{ width: '100%', padding: '10px 12px', background: 'var(--void-0)', border: '1px solid rgba(var(--accent-glow), 0.2)', color: 'var(--cream)', fontFamily: 'var(--font-body)', fontSize: '1rem', outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label className="h-ui" style={{ fontSize: '0.58rem', opacity: 0.65, display: 'block', marginBottom: 6 }}>Decklist · one card per line <span style={{ opacity: 0.5 }}>(e.g. 4 Lightning Bolt)</span></label>
+        <div className={s.modalField}>
+          <label className={`h-ui ${s.modalLabel}`}>
+            Decklist · one card per line{' '}
+            <span className={s.modalLabelHint}>(e.g. 4 Lightning Bolt)</span>
+          </label>
           <textarea
+            className={s.modalTextarea}
             value={txt}
             onChange={e => { setTxt(e.target.value); setError(''); }}
             placeholder={'4 Lightning Bolt\n4 Goblin Guide\n20 Mountain'}
             rows={10}
-            style={{ width: '100%', padding: '10px 12px', background: 'var(--void-0)', border: '1px solid rgba(var(--accent-glow), 0.2)', color: 'var(--cream)', fontFamily: 'var(--font-ui)', fontSize: '0.82rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-          <span className="h-ui" style={{ fontSize: '0.58rem', opacity: 0.5 }}>or</span>
+        <div className={s.modalUploadRow}>
+          <span className={`h-ui ${s.modalOr}`}>or</span>
           <label style={{ cursor: 'pointer' }}>
             <span className="btn" style={{ fontSize: '0.65rem', display: 'inline-block' }}>Upload .txt</span>
             <input type="file" accept=".txt" onChange={handleFile} style={{ display: 'none' }} />
           </label>
         </div>
 
-        {error && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.88rem', color: 'rgba(220,100,100,0.9)', margin: '0 0 14px', fontStyle: 'italic' }}>{error}</p>}
+        {error && <p className={s.modalError}>{error}</p>}
 
-        <button className="btn btn-primary" onClick={handleImport} style={{ width: '100%', fontSize: '0.72rem' }}>Import ✦</button>
+        <button className={`btn btn-primary ${s.modalSubmit}`} onClick={handleImport}>Import ✦</button>
       </div>
     </div>
   );
@@ -216,37 +214,21 @@ function DeckTile({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
     ?? `https://api.scryfall.com/cards/named?format=image&version=art_crop&exact=${encodeURIComponent(firstCard?.name ?? '')}`;
 
   return (
-    <div
-      onClick={onClick}
-      style={{
-        position: 'relative', cursor: 'pointer',
-        background: 'linear-gradient(180deg, var(--void-2), var(--void-1))',
-        border: '1px solid rgba(var(--accent-glow), 0.2)',
-        overflow: 'hidden', transition: 'all 0.3s',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.5)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(var(--accent-glow), 0.15)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
-    >
-      <div style={{ height: 120, position: 'relative', borderBottom: '1px solid rgba(var(--accent-glow), 0.25)', overflow: 'hidden' }}>
-        <img
-          src={imgSrc}
-          alt={firstCard?.name}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
-        />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
-        <div style={{ position: 'absolute', top: 10, left: 12, display: 'flex', gap: 4 }}>
+    <div className={s.tile} onClick={onClick}>
+      <div className={s.tileImageWrapper}>
+        <img className={s.tileImage} src={imgSrc} alt={firstCard?.name} />
+        <div className={s.tileImageOverlay} />
+        <div className={s.tileColors}>
           {deck.colors.map(c => <ManaSymbol key={c} symbol={c} size={20} />)}
         </div>
-        <div style={{ position: 'absolute', bottom: 8, right: 12, fontFamily: 'var(--font-ui)', fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--cream)', opacity: 0.9, background: 'rgba(0,0,0,0.55)', padding: '3px 8px' }}>
-          {deck.format}
-        </div>
+        <div className={s.tileFormat}>{deck.format}</div>
       </div>
-      <div style={{ padding: '16px 18px' }}>
-        <h3 className="h-display" style={{ fontSize: '1.2rem', margin: '0 0 4px', fontStyle: 'italic', color: 'var(--cream)' }}>{deck.name}</h3>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.95rem', color: 'var(--cream)', opacity: 0.7, fontStyle: 'italic', marginBottom: 14 }}>{deck.archetype}</div>
-        <div style={{ paddingTop: 12, borderTop: '1px dotted rgba(var(--accent-glow), 0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.5 }}>{deck.savedOn}</span>
-          <span style={{ color: 'var(--accent)', fontSize: '0.85rem', fontFamily: 'var(--font-display)' }}>→</span>
+      <div className={s.tileBody}>
+        <h3 className={`h-display ${s.tileName}`}>{deck.name}</h3>
+        <div className={s.tileArchetype}>{deck.archetype}</div>
+        <div className={s.tileFooter}>
+          <span className={`h-ui ${s.tileSavedOn}`}>{deck.savedOn}</span>
+          <span className={s.tileArrow}>→</span>
         </div>
       </div>
     </div>
@@ -255,39 +237,19 @@ function DeckTile({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
 
 function DeckRow({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px',
-        background: 'linear-gradient(90deg, var(--void-2), var(--void-1))',
-        border: '1px solid rgba(var(--accent-glow), 0.15)',
-        cursor: 'pointer', transition: 'all 0.2s', marginBottom: 4,
-      }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.4)'; e.currentTarget.style.background = 'linear-gradient(90deg, var(--void-3), var(--void-2))'; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.15)'; e.currentTarget.style.background = 'linear-gradient(90deg, var(--void-2), var(--void-1))'; }}
-    >
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+    <div className={s.row} onClick={onClick}>
+      <div className={s.rowColors}>
         {deck.colors.map(c => <ManaSymbol key={c} symbol={c} size={16} />)}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="h-display" style={{ fontSize: '1.05rem', fontStyle: 'italic', color: 'var(--cream)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{deck.name}</div>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.88rem', color: 'var(--cream)', opacity: 0.6, fontStyle: 'italic' }}>{deck.archetype}</div>
+      <div className={s.rowInfo}>
+        <div className={`h-display ${s.rowName}`}>{deck.name}</div>
+        <div className={s.rowArchetype}>{deck.archetype}</div>
       </div>
-      <div className="h-ui" style={{ fontSize: '0.58rem', color: 'var(--cream)', opacity: 0.45, flexShrink: 0 }}>{deck.format}</div>
-      <div className="h-ui" style={{ fontSize: '0.55rem', color: 'var(--cream)', opacity: 0.4, flexShrink: 0, minWidth: 100, textAlign: 'right' }}>{deck.savedOn}</div>
-      <span style={{ color: 'var(--accent)', fontSize: '0.85rem', fontFamily: 'var(--font-display)', flexShrink: 0 }}>→</span>
+      <div className={`h-ui ${s.rowFormat}`}>{deck.format}</div>
+      <div className={`h-ui ${s.rowSavedOn}`}>{deck.savedOn}</div>
+      <span className={s.rowArrow}>→</span>
     </div>
   );
-}
-
-function viewToggleBtn(active: boolean): React.CSSProperties {
-  return {
-    width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: active ? 'rgba(var(--accent-glow), 0.15)' : 'transparent',
-    border: '1px solid ' + (active ? 'rgba(var(--accent-glow), 0.5)' : 'rgba(var(--accent-glow), 0.2)'),
-    color: active ? 'var(--accent)' : 'var(--muted)',
-    cursor: 'pointer', transition: 'all 0.2s',
-  };
 }
 
 export default function LibraryPage() {
@@ -327,26 +289,32 @@ export default function LibraryPage() {
   const handleLogout = () => { setUser(null); router.push('/'); };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div className={s.page}>
       {/* Main list/grid area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '48px 32px 80px', minWidth: 0 }}>
-        <div style={{ maxWidth: selectedDeck ? 900 : 1200, margin: '0 auto' }}>
+      <div className={s.mainArea}>
+        <div className={`${s.mainInner} ${selectedDeck ? s.mainInnerNarrow : ''}`}>
+
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 36, borderBottom: '1px solid rgba(var(--accent-glow), 0.15)', paddingBottom: 20, flexWrap: 'wrap', gap: 16 }}>
+          <div className={s.header}>
             <div>
-              <div className="h-ui" style={{ fontSize: '0.65rem', opacity: 0.6, marginBottom: 8 }}>Tome of {user.name} · Chapter II</div>
-              <h1 className="h-display" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', margin: 0, fontStyle: 'italic' }}>Thy Divined Decks</h1>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '1.05rem', fontStyle: 'italic', color: 'var(--cream)', opacity: 0.7, margin: '8px 0 0' }}>
-                {allDecks.length} decks bound to thy grimoire.
-              </p>
+              <div className={`h-ui ${s.headerTagline}`}>Tome of {user.name} · Chapter II</div>
+              <h1 className={`h-display ${s.headerTitle}`}>Thy Divined Decks</h1>
+              <p className={s.headerSubtitle}>{allDecks.length} decks bound to thy grimoire.</p>
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              {/* View toggle */}
-              <div style={{ display: 'flex', gap: 4, marginRight: 6 }}>
-                <button style={viewToggleBtn(view === 'grid')} onClick={() => setView('grid')} title="Grid">
+            <div className={s.headerActions}>
+              <div className={s.viewToggle}>
+                <button
+                  className={`${s.toggleBtn} ${view === 'grid' ? s.toggleBtnActive : ''}`}
+                  onClick={() => setView('grid')}
+                  title="Grid"
+                >
                   <svg width="13" height="13" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" fill="none" stroke="currentColor" strokeWidth="1.2" /><rect x="8" y="1" width="5" height="5" fill="none" stroke="currentColor" strokeWidth="1.2" /><rect x="1" y="8" width="5" height="5" fill="none" stroke="currentColor" strokeWidth="1.2" /><rect x="8" y="8" width="5" height="5" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
                 </button>
-                <button style={viewToggleBtn(view === 'list')} onClick={() => setView('list')} title="List">
+                <button
+                  className={`${s.toggleBtn} ${view === 'list' ? s.toggleBtnActive : ''}`}
+                  onClick={() => setView('list')}
+                  title="List"
+                >
                   <svg width="13" height="13" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="1.5" fill="currentColor" /><rect x="1" y="6" width="12" height="1.5" fill="currentColor" /><rect x="1" y="10" width="12" height="1.5" fill="currentColor" /></svg>
                 </button>
               </div>
@@ -358,7 +326,7 @@ export default function LibraryPage() {
 
           {/* Deck list */}
           {view === 'grid' ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
+            <div className={s.deckGrid}>
               {allDecks.map(d => (
                 <DeckTile key={d.id} deck={d} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)} />
               ))}
@@ -377,32 +345,11 @@ export default function LibraryPage() {
 
       {/* Detail panel */}
       {selectedDeck && (
-        <div style={{
-          width: panelWidth, flexShrink: 0, borderLeft: '1px solid rgba(var(--accent-glow), 0.2)',
-          animation: 'panelIn 0.4s ease',
-          position: 'relative',
-        }}>
-          {/* Resize handle */}
-          <div
-            onMouseDown={handleResizeStart}
-            style={{
-              position: 'absolute', left: 0, top: 0, bottom: 0, width: 6,
-              cursor: 'col-resize', zIndex: 20,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--accent-glow), 0.25)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <div style={{ width: 2, height: 40, borderRadius: 1, background: 'rgba(var(--accent-glow), 0.35)' }} />
+        <div className={s.detailPanel} style={{ width: panelWidth }}>
+          <div className={s.resizeHandle} onMouseDown={handleResizeStart}>
+            <div className={s.resizeBar} />
           </div>
-          <button
-            onClick={() => setSelectedId(null)}
-            style={{
-              position: 'absolute', top: 14, right: 14, zIndex: 10,
-              background: 'transparent', border: 'none', color: 'var(--muted)',
-              cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1,
-            }}
-          >×</button>
+          <button className={s.closeBtn} onClick={() => setSelectedId(null)}>×</button>
           <DeckPanel
             deck={{
               id: selectedDeck.id,
@@ -410,7 +357,7 @@ export default function LibraryPage() {
               format: selectedDeck.format,
               colors: selectedDeck.colors,
               cards: selectedDeck.cards,
-              card_count: selectedDeck.cards.reduce((s, c) => s + c.quantity, 0),
+              card_count: selectedDeck.cards.reduce((sum, c) => sum + c.quantity, 0),
             }}
             isGuest={false}
             onRequestLogin={() => {}}

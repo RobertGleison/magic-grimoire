@@ -8,6 +8,7 @@ import { SealLogo } from '../components/atoms';
 import DeckPanel, { DeckData } from '../components/DeckPanel';
 import { useUser } from '../context/UserContext';
 import { BASIC_COLORS, COLOR_LABEL, ALL_FORMATS, ALL_STRATEGIES } from '../enums';
+import s from './page.module.css';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,17 +56,17 @@ const MOCK_DECK: DeckData = {
   colors: ['G'],
   card_count: 60,
   cards: [
-    { name: 'Llanowar Elves',       quantity: 4,  mana_cost: '{G}',         type_line: 'Creature — Elf Druid' },
-    { name: 'Elvish Mystic',        quantity: 4,  mana_cost: '{G}',         type_line: 'Creature — Elf Druid' },
-    { name: 'Elvish Clancaller',    quantity: 4,  mana_cost: '{G}{G}',      type_line: 'Creature — Elf' },
-    { name: 'Elvish Archdruid',     quantity: 4,  mana_cost: '{1}{G}{G}',   type_line: 'Creature — Elf Druid' },
-    { name: 'Imperious Perfect',    quantity: 4,  mana_cost: '{2}{G}',      type_line: 'Creature — Elf Warrior' },
-    { name: 'Ezuri, Renegade Leader', quantity: 4, mana_cost: '{1}{G}{G}',  type_line: 'Creature — Elf Warrior' },
-    { name: 'Collected Company',    quantity: 4,  mana_cost: '{3}{G}',      type_line: 'Instant' },
-    { name: 'Chord of Calling',     quantity: 4,  mana_cost: '{X}{G}{G}{G}',type_line: 'Instant' },
-    { name: 'Harmonize',            quantity: 4,  mana_cost: '{2}{G}{G}',   type_line: 'Sorcery' },
-    { name: 'Nykthos, Shrine to Nyx', quantity: 4, mana_cost: '',          type_line: 'Land' },
-    { name: 'Forest',               quantity: 20, mana_cost: '',            type_line: 'Basic Land — Forest' },
+    { name: 'Llanowar Elves',         quantity: 4,  mana_cost: '{G}',          type_line: 'Creature — Elf Druid' },
+    { name: 'Elvish Mystic',          quantity: 4,  mana_cost: '{G}',          type_line: 'Creature — Elf Druid' },
+    { name: 'Elvish Clancaller',      quantity: 4,  mana_cost: '{G}{G}',       type_line: 'Creature — Elf' },
+    { name: 'Elvish Archdruid',       quantity: 4,  mana_cost: '{1}{G}{G}',    type_line: 'Creature — Elf Druid' },
+    { name: 'Imperious Perfect',      quantity: 4,  mana_cost: '{2}{G}',       type_line: 'Creature — Elf Warrior' },
+    { name: 'Ezuri, Renegade Leader', quantity: 4,  mana_cost: '{1}{G}{G}',    type_line: 'Creature — Elf Warrior' },
+    { name: 'Collected Company',      quantity: 4,  mana_cost: '{3}{G}',       type_line: 'Instant' },
+    { name: 'Chord of Calling',       quantity: 4,  mana_cost: '{X}{G}{G}{G}', type_line: 'Instant' },
+    { name: 'Harmonize',              quantity: 4,  mana_cost: '{2}{G}{G}',    type_line: 'Sorcery' },
+    { name: 'Nykthos, Shrine to Nyx', quantity: 4,  mana_cost: '',             type_line: 'Land' },
+    { name: 'Forest',                 quantity: 20, mana_cost: '',             type_line: 'Basic Land — Forest' },
   ],
 };
 
@@ -75,25 +76,28 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
   const isSeeker = message.role === 'seeker';
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: isSeeker ? 'flex-end' : 'flex-start',
-      marginBottom: 22,
-      animation: 'messageIn 0.5s ease',
-    }}>
-      <div style={{ maxWidth: '90%', display: 'flex', flexDirection: isSeeker ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-start' }}>
-        <div className="seal" style={{
-          width: 30, height: 30, flexShrink: 0,
-          background: isSeeker
-            ? 'radial-gradient(circle at 35% 30%, var(--void-3), var(--void-1))'
-            : 'radial-gradient(circle at 35% 30%, var(--void-4), var(--void-0))',
-        }}>
+    <div
+      className={s.message}
+      style={{ justifyContent: isSeeker ? 'flex-end' : 'flex-start' }}
+    >
+      <div
+        className={s.messageInner}
+        style={{ flexDirection: isSeeker ? 'row-reverse' : 'row' }}
+      >
+        <div
+          className={`seal ${s.messageSeal}`}
+          style={{
+            background: isSeeker
+              ? 'radial-gradient(circle at 35% 30%, var(--void-3), var(--void-1))'
+              : 'radial-gradient(circle at 35% 30%, var(--void-4), var(--void-0))',
+          }}
+        >
           <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12, fontStyle: 'italic' }}>
             {isSeeker ? 'S' : '✦'}
           </span>
         </div>
         <div>
-          <div className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.5, marginBottom: 4, textAlign: isSeeker ? 'right' : 'left' }}>
+          <div className={`h-ui ${s.messageLabel}`} style={{ textAlign: isSeeker ? 'right' : 'left' }}>
             {isSeeker ? `Seeker · ${message.format ?? 'Modern'}` : 'Oracle'}
           </div>
           <div
@@ -114,10 +118,10 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
             }}
           />
           {isSeeker && message.opts && (
-            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
+            <div className={s.messageOpts} style={{ justifyContent: 'flex-end' }}>
               <span className="chip">{message.opts.size} cards</span>
               {message.opts.colors.length > 0 && (
-                <span className="chip" style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                <span className={`chip ${s.chipColors}`}>
                   {message.opts.colors.map(c => <ManaSymbol key={c} symbol={c} size={10} />)}
                 </span>
               )}
@@ -132,32 +136,28 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
 
 function LoadingBubble({ stage }: { stage: LoadingStage }) {
   return (
-    <div style={{ display: 'flex', marginBottom: 22, animation: 'messageIn 0.5s ease' }}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <div className="seal" style={{ width: 30, height: 30, flexShrink: 0, animation: 'sealPulse 2s ease-in-out infinite' }}>
+    <div className={s.loadingMsg}>
+      <div className={s.loadingInner}>
+        <div className={`seal ${s.loadingSeal}`}>
           <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12 }}>✦</span>
         </div>
         <div>
-          <div className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.5, marginBottom: 4 }}>Oracle · Divining</div>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(28, 22, 40, 0.6), rgba(14, 11, 20, 0.8))',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(var(--accent-glow), 0.25)',
-            padding: '12px 18px',
-            display: 'flex', alignItems: 'center', gap: 14, minWidth: 260,
-          }}>
-            <div style={{ display: 'flex', gap: 4 }}>
+          <div className={`h-ui ${s.loadingLabel}`}>Oracle · Divining</div>
+          <div className={s.loadingBox}>
+            <div className={s.dots}>
               {[0, 1, 2].map(i => (
-                <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'dotPulse 1.4s ease-in-out infinite', animationDelay: `${i * 0.2}s` }} />
+                <span key={i} className={s.dot} style={{ animationDelay: `${i * 0.2}s` }} />
               ))}
             </div>
-            <span style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.95rem', color: 'var(--cream)', opacity: 0.9 }} key={stage}>
-              {LOADING_STAGES[stage]}
-            </span>
+            <span className={s.loadingText} key={stage}>{LOADING_STAGES[stage]}</span>
           </div>
-          <div style={{ display: 'flex', gap: 3, marginTop: 8 }}>
+          <div className={s.progress}>
             {LOADING_STAGES.map((_, i) => (
-              <span key={i} style={{ flex: 1, height: 1, background: i <= stage ? 'var(--accent)' : 'rgba(var(--accent-glow), 0.15)', transition: 'background 0.4s' }} />
+              <span
+                key={i}
+                className={s.progressSeg}
+                style={{ background: i <= stage ? 'var(--accent)' : 'rgba(var(--accent-glow), 0.15)' }}
+              />
             ))}
           </div>
         </div>
@@ -176,8 +176,8 @@ function ChatOptions({
   strategy: string; setStrategy: (v: string) => void;
 }) {
   return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+    <div className={s.optsWrap}>
+      <div className={s.optsChips}>
         <button
           onClick={() => setOpen(!open)}
           style={{
@@ -192,7 +192,7 @@ function ChatOptions({
         <span className="chip">{format}</span>
         <span className="chip">{deckSize} cards</span>
         {colors.length > 0 && (
-          <span className="chip" style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+          <span className={`chip ${s.chipColors}`}>
             {colors.map(c => <ManaSymbol key={c} symbol={c} size={11} />)}
           </span>
         )}
@@ -200,7 +200,7 @@ function ChatOptions({
       </div>
 
       {open && (
-        <div style={{ marginTop: 8, padding: '10px 12px', border: '1px solid rgba(var(--accent-glow), 0.2)', background: 'rgba(14, 11, 20, 0.6)', animation: 'messageIn 0.25s ease' }}>
+        <div className={s.optsPanel}>
           <div className="opt-row">
             <span className="opt-label">Format</span>
             {ALL_FORMATS.map(f => (
@@ -210,7 +210,7 @@ function ChatOptions({
           <div className="opt-row">
             <span className="opt-label">Colors</span>
             {BASIC_COLORS.map(c => (
-              <button key={c} className={`opt-btn${colors.includes(c) ? ' on' : ''}`} onClick={() => toggleColor(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 7px' }}>
+              <button key={c} className={`opt-btn${colors.includes(c) ? ' on' : ''} ${s.optColorBtn}`} onClick={() => toggleColor(c)}>
                 <ManaSymbol symbol={c} size={13} />
                 <span>{COLOR_LABEL[c]}</span>
               </button>
@@ -227,22 +227,17 @@ function ChatOptions({
               value={deckSize}
               disabled={format === 'Commander'}
               onChange={e => setDeckSize(Math.max(60, Number(e.target.value)))}
-              style={{
-                width: 70, background: 'transparent',
-                border: '1px solid rgba(var(--accent-glow), 0.3)',
-                color: 'var(--cream)', fontFamily: 'var(--font-ui)',
-                fontSize: '0.7rem', padding: '3px 6px', textAlign: 'center',
-                opacity: format === 'Commander' ? 0.5 : 1,
-              }}
+              className={s.sizeInput}
+              style={{ opacity: format === 'Commander' ? 0.5 : 1 }}
             />
-            <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.6rem', color: 'var(--cream)', opacity: 0.5 }}>
+            <span className={s.sizeHint}>
               {format === 'Commander' ? 'fixed at 100' : 'cards · 60 – 200+'}
             </span>
           </div>
           <div className="opt-row" style={{ marginBottom: 0 }}>
             <span className="opt-label">Strategy</span>
-            {ALL_STRATEGIES.map(s => (
-              <button key={s} className={`opt-btn${strategy === s ? ' on' : ''}`} onClick={() => setStrategy(s)}>{s}</button>
+            {ALL_STRATEGIES.map(st => (
+              <button key={st} className={`opt-btn${strategy === st ? ' on' : ''}`} onClick={() => setStrategy(st)}>{st}</button>
             ))}
           </div>
         </div>
@@ -284,7 +279,7 @@ function GrimoireInner() {
 
   useEffect(() => {
     if (!loading) return;
-    const t = setInterval(() => setLoadingStage(s => Math.min(s + 1, LOADING_STAGES.length - 1) as LoadingStage), 900);
+    const t = setInterval(() => setLoadingStage(st => Math.min(st + 1, LOADING_STAGES.length - 1) as LoadingStage), 900);
     return () => clearInterval(t);
   }, [loading]);
 
@@ -363,10 +358,10 @@ function GrimoireInner() {
     setLoadingStage(0);
 
     if (MOCK_MODE) {
-      for (let s = 0; s < LOADING_STAGES.length; s++) {
+      for (let st = 0; st < LOADING_STAGES.length; st++) {
         await new Promise<void>(r => setTimeout(r, 750));
         if (cancelRef.current) return;
-        setLoadingStage(s as LoadingStage);
+        setLoadingStage(st as LoadingStage);
       }
       await new Promise<void>(r => setTimeout(r, 400));
       if (cancelRef.current) return;
@@ -453,56 +448,34 @@ function GrimoireInner() {
         position: 'relative',
       }}>
         {/* LEFT: Chat */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: activeDeck ? '1px solid rgba(var(--accent-glow), 0.2)' : 'none',
-          position: 'relative',
-          minWidth: 0,
-        }}>
+        <div
+          className={s.chatCol}
+          style={{ borderRight: activeDeck ? '1px solid rgba(var(--accent-glow), 0.2)' : 'none' }}
+        >
           {/* Header */}
-          <div style={{
-            padding: '16px 24px',
-            borderBottom: '1px solid rgba(var(--accent-glow), 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'linear-gradient(180deg, var(--void-1), transparent)',
-            zIndex: 5,
-            gap: 12,
-            flexShrink: 0,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <div className="seal" style={{ width: 38, height: 38, flexShrink: 0 }}>
+          <div className={s.header}>
+            <div className={s.headerLeft}>
+              <div className={`seal ${s.headerSeal}`}>
                 <SealLogo size={22} />
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.6 }}>The Grimoire</div>
-                <div className="h-display" style={{ fontSize: '0.95rem', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div className={s.headerMeta}>
+                <div className={`h-ui ${s.headerTagline}`}>The Grimoire</div>
+                <div className={`h-display ${s.headerTitle}`}>
                   {activeDeck ? (activeDeck.title ?? 'Arcane Deck') : 'Consulting the tome'}
                 </div>
               </div>
             </div>
             {isGuest && (
-              <button
-                onClick={openAuth}
-                style={{
-                  fontFamily: 'var(--font-ui)', fontSize: '0.6rem', letterSpacing: '0.18em', textTransform: 'uppercase',
-                  padding: '7px 12px', border: '1px solid rgba(var(--accent-glow), 0.4)', background: 'transparent',
-                  color: 'var(--accent)', cursor: 'pointer', flexShrink: 0,
-                }}
-              >
-                ✦ Bind Seeker
-              </button>
+              <button className={s.bindBtn} onClick={openAuth}>✦ Bind Seeker</button>
             )}
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 20px 160px', position: 'relative' }}>
-            <div style={{ position: 'absolute', right: -200, bottom: -200, opacity: 0.06, pointerEvents: 'none', zIndex: 0 }}>
+          <div ref={scrollRef} className={s.messages}>
+            <div className={s.sigilBg}>
               <ArcaneSigil size={600} intensity={0.3} />
             </div>
-            <div style={{ maxWidth: 640, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+            <div className={s.messagesInner}>
               {messages.map((m, i) => (
                 m.loading
                   ? <LoadingBubble key={i} stage={loadingStage} />
@@ -513,23 +486,12 @@ function GrimoireInner() {
 
           {/* Save nudge */}
           {showSaveNudge && isGuest && (
-            <div style={{
-              position: 'absolute', bottom: 170, left: 0, right: 0, zIndex: 20,
-              display: 'flex', justifyContent: 'center', padding: '0 20px',
-              animation: 'messageIn 0.4s ease',
-            }}>
-              <div style={{
-                maxWidth: 540, width: '100%',
-                background: 'linear-gradient(135deg, rgba(28,22,40,0.97), rgba(14,11,20,0.99))',
-                border: '1px solid rgba(var(--accent-glow), 0.45)',
-                boxShadow: '0 0 40px rgba(var(--accent-glow), 0.12)',
-                padding: '14px 18px',
-                display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-              }}>
-                <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.95rem', color: 'var(--cream)', opacity: 0.9 }}>
+            <div className={s.saveNudge}>
+              <div className={s.saveNudgeBox}>
+                <span className={s.saveNudgeText}>
                   ✦ Thy deck awaits — Sign in to bind it to thy grimoire.
                 </span>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <div className={s.saveNudgeActions}>
                   <button className="btn btn-primary" onClick={openAuth} style={{ fontSize: '0.65rem', padding: '7px 14px' }}>Sign In</button>
                   <button className="btn" onClick={() => setShowSaveNudge(false)} style={{ fontSize: '0.65rem', padding: '7px 10px' }}>✕</button>
                 </div>
@@ -538,38 +500,16 @@ function GrimoireInner() {
           )}
 
           {/* Input */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '16px 20px',
-            background: 'linear-gradient(180deg, transparent, var(--void-0) 40%)',
-            zIndex: 10,
-          }}>
-            <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <div className={s.inputArea}>
+            <div className={s.inputInner}>
               {messages.length === 1 && !loading && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, justifyContent: 'center' }}>
+                <div className={s.quickPrompts}>
                   {QUICK_PROMPTS.map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setInput(p)}
-                      style={{
-                        background: 'transparent', border: '1px solid rgba(var(--accent-glow), 0.2)',
-                        color: 'var(--cream)', fontFamily: 'var(--font-body)', fontSize: '0.82rem',
-                        fontStyle: 'italic', padding: '5px 12px', cursor: 'pointer', opacity: 0.75,
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      ❝ {p} ❞
-                    </button>
+                    <button key={p} className={s.quickPrompt} onClick={() => setInput(p)}>❝ {p} ❞</button>
                   ))}
                 </div>
               )}
-              <div style={{
-                background: 'linear-gradient(180deg, rgba(14, 11, 20, 0.95), rgba(8, 6, 10, 0.98))',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(var(--accent-glow), 0.35)',
-                padding: '12px 16px',
-                boxShadow: '0 0 32px rgba(var(--accent-glow), 0.08)',
-              }}>
+              <div className={s.inputBox}>
                 <ChatOptions
                   open={optsOpen} setOpen={setOptsOpen}
                   format={format} setFormat={setFormat}
@@ -579,6 +519,7 @@ function GrimoireInner() {
                 />
                 <textarea
                   ref={textareaRef}
+                  className={s.inputTextarea}
                   value={input}
                   onChange={e => {
                     setInput(e.target.value);
@@ -587,30 +528,22 @@ function GrimoireInner() {
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="Whisper thy desire into the tome…"
-                  style={{
-                    width: '100%', minHeight: 36, maxHeight: 140,
-                    background: 'transparent', border: 'none',
-                    color: 'var(--cream)', fontFamily: 'var(--font-body)',
-                    fontSize: '1.02rem', fontStyle: input ? 'normal' : 'italic',
-                    outline: 'none', resize: 'none',
-                  }}
+                  style={{ fontStyle: input ? 'normal' : 'italic' }}
                   rows={1}
                   disabled={loading}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                  <span className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.4 }}>⏎ to cast</span>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                <div className={s.inputFooter}>
+                  <span className={`h-ui ${s.castHint}`}>⏎ to cast</span>
+                  <div className={s.inputButtons}>
                     {loading && (
                       <button
                         onClick={handleStop}
                         style={{
                           fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
-                          padding: '7px 14px',
-                          background: 'transparent',
+                          padding: '7px 14px', background: 'transparent',
                           border: '1px solid rgba(180, 60, 60, 0.5)',
                           color: 'rgba(220, 100, 100, 0.9)',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
+                          cursor: 'pointer', transition: 'all 0.2s',
                         }}
                       >
                         ✕ Stop
@@ -647,7 +580,6 @@ function GrimoireInner() {
           />
         )}
       </div>
-
     </>
   );
 }

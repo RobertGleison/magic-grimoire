@@ -158,9 +158,6 @@ body::after {
   background: linear-gradient(to right, transparent, rgba(var(--accent-glow), 0.4), transparent);
 }
 
-/* Reveal on scroll */
-.reveal { opacity: 0; transform: translateY(20px); transition: opacity 1s ease, transform 1s ease; }
-.reveal.in { opacity: 1; transform: translateY(0); }
 
 /* Buttons */
 .btn {
@@ -198,72 +195,75 @@ body::after {
   position: fixed;
   left: 0;
   top: 0;
-  bottom: 0;
-  width: 80px;
-  background: linear-gradient(180deg, var(--void-1), var(--void-0));
-  border-right: 1px solid rgba(var(--accent-glow), 0.12);
+  right: 0;
+  height: 56px;
+  background: linear-gradient(to right, var(--void-1), var(--void-0));
+  border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
   z-index: 50;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  padding: 24px 0;
+  padding: 0 32px;
 }
 .spine-logo {
-  width: 36px;
-  height: 36px;
-  margin-bottom: 40px;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 .spine-link {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
   font-family: var(--font-ui);
-  letter-spacing: 0.35em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   color: var(--muted);
-  padding: 20px 0;
+  padding: 0 14px;
+  height: 100%;
+  display: flex;
+  align-items: center;
   cursor: pointer;
   transition: color 0.25s;
-  border-left: 1px solid transparent;
   user-select: none;
+  white-space: nowrap;
 }
 .spine-link.active { color: var(--accent); }
 .spine-link:hover { color: var(--accent); }
-.spine-foot {
-  margin-top: auto;
-  color: var(--faint);
-  font-family: var(--font-mono);
+.spine-btn {
+  font-family: var(--font-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   font-size: 0.6rem;
-  letter-spacing: 0.15em;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  padding: 6px 16px;
+  border: 1px solid rgba(var(--accent-glow), 0.35);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.spine-btn:hover {
+  background: rgba(var(--accent-glow), 0.1);
+  border-color: rgba(var(--accent-glow), 0.6);
+}
+.spine-btn-primary {
+  background: rgba(var(--accent-glow), 0.12);
+  border-color: rgba(var(--accent-glow), 0.5);
+  color: var(--cream);
+}
+.spine-btn-primary:hover {
+  background: rgba(var(--accent-glow), 0.22);
 }
 
 /* Main layout with spine */
 .shell {
-  margin-left: 80px;
+  margin-top: 56px;
   position: relative;
   z-index: 3;
 }
 @media (max-width: 720px) {
-  .spine {
-    width: 100%;
-    height: 56px;
-    bottom: auto;
-    flex-direction: row;
-    padding: 0 16px;
-    border-right: none;
-    border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
-  }
-  .spine-logo { width: 28px; height: 28px; margin: 0 16px 0 0; }
-  .spine-link {
-    writing-mode: horizontal-tb;
-    transform: none;
-    padding: 0 14px;
-    font-size: 0.65rem;
-  }
-  .spine-foot { display: none; }
-  .shell { margin-left: 0; margin-top: 56px; }
+  .spine { padding: 0 16px; }
+  .spine-link { padding: 0 10px; font-size: 0.55rem; }
+  .spine-btn { padding: 5px 10px; font-size: 0.55rem; margin-left: 4px; }
 }
 
 /* Mana pip */
