@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ManaSymbol, ManaCost } from './ManaSymbol';
+import { ManaSymbol, ManaCost } from '../ManaSymbol/ManaSymbol';
 
 // ─── Card hover preview ───────────────────────────────────────────────────────
 

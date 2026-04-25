@@ -1,0 +1,12 @@
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--accent-mid);
+}
+.ornament::before, .ornament::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, transparent, rgba(var(--accent-glow), 0.4), transparent);
+}

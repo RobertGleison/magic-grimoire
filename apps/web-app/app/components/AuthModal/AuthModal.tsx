@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { ArcaneSigil } from './ArcaneSigil';
-import { SealLogo } from './atoms';
-import { User } from '../context/UserContext';
+import { ArcaneSigil } from '../ArcaneSigil/ArcaneSigil';
+import { SealLogo } from '../ArcaneSigilLogo/ArcaneSigilLogo';
+import { User } from '../../context/UserContext';
 
 interface AuthModalProps {
   mode: 'login' | 'signup';

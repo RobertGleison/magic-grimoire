@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArcaneSigil } from '../components/ArcaneSigil';
-import { ManaSymbol } from '../components/ManaSymbol';
-import { SealLogo } from '../components/atoms';
-import DeckPanel, { DeckData } from '../components/DeckPanel';
+import { ArcaneSigil } from '../components/ArcaneSigil/ArcaneSigil';
+import { ManaSymbol } from '../components/ManaSymbol/ManaSymbol';
+import { SealLogo } from '../components/ArcaneSigilLogo/ArcaneSigilLogo';
+import DeckPanel, { DeckData } from '../components/DeckPanel/DeckPanel';
 import { useUser } from '../context/UserContext';
 import { BASIC_COLORS, COLOR_LABEL, ALL_FORMATS, ALL_STRATEGIES } from '../enums';
 import s from './page.module.css';

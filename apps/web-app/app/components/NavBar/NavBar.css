@@ -1,0 +1,67 @@
+.spine {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 56px;
+  background: linear-gradient(to right, var(--void-1), var(--void-0));
+  border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
+  z-index: 50;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 32px;
+}
+.spine-logo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.spine-link {
+  font-family: var(--font-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  color: var(--muted);
+  padding: 0 14px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: color 0.25s;
+  user-select: none;
+  white-space: nowrap;
+}
+.spine-link.active { color: var(--accent); }
+.spine-link:hover { color: var(--accent); }
+.spine-btn {
+  font-family: var(--font-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  padding: 6px 16px;
+  border: 1px solid rgba(var(--accent-glow), 0.35);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.spine-btn:hover {
+  background: rgba(var(--accent-glow), 0.1);
+  border-color: rgba(var(--accent-glow), 0.6);
+}
+.spine-btn-primary {
+  background: rgba(var(--accent-glow), 0.12);
+  border-color: rgba(var(--accent-glow), 0.5);
+  color: var(--cream);
+}
+.spine-btn-primary:hover {
+  background: rgba(var(--accent-glow), 0.22);
+}
+@media (max-width: 720px) {
+  .spine { padding: 0 16px; }
+  .spine-link { padding: 0 10px; font-size: 0.55rem; }
+  .spine-btn { padding: 5px 10px; font-size: 0.55rem; margin-left: 4px; }
+}

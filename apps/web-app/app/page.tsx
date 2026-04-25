@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArcaneSigil } from './components/ArcaneSigil';
-import { ManaSymbol } from './components/ManaSymbol';
+import { ArcaneSigil } from './components/ArcaneSigil/ArcaneSigil';
+import { ManaSymbol } from './components/ManaSymbol/ManaSymbol';
 import { ALL_COLORS } from './enums';
-import { Ornament } from './components/atoms';
+import { Ornament } from './components/ArcaneSigilLogo/ArcaneSigilLogo';
 import { motion } from 'framer-motion';
 import style from './page.module.css';
 

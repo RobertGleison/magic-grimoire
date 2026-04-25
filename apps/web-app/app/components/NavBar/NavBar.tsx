@@ -1,8 +1,8 @@
 'use client';
 
+import './NavBar.css';
 import { usePathname, useRouter } from 'next/navigation';
-import { useUser } from '../context/UserContext';
-import { SealLogo } from './atoms';
+import { useUser } from '../../context/UserContext';
 
 const NAV_LINKS = [
   { path: '/',         label: 'Home' },
@@ -17,8 +17,6 @@ export default function SpineNav() {
 
   return (
     <nav className="spine">
-     
-
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', height: '100%' }}>
         {NAV_LINKS.map(({ path, label }) => (
           <div

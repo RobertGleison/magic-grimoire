@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
-import { ManaSymbol } from '../components/ManaSymbol';
-import DeckPanel, { CardEntry } from '../components/DeckPanel';
+import { ManaSymbol } from '../components/ManaSymbol/ManaSymbol';
+import DeckPanel, { CardEntry } from '../components/DeckPanel/DeckPanel';
 import s from './page.module.css';
 
 interface SavedDeck {

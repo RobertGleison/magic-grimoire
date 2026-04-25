@@ -1,8 +1,9 @@
 'use client';
 
+import './ArcaneSigilLogo.css';
 import { ReactNode, CSSProperties } from 'react';
 
-export function SealLogo({ size = 36 }: { size?: number }) {
+export function ArcaneSigilLogo({ size = 36 }: { size?: number }) {
   return (
     <img
       src="/assets/grimoire_icon.png"
@@ -13,6 +14,8 @@ export function SealLogo({ size = 36 }: { size?: number }) {
     />
   );
 }
+
+export { ArcaneSigilLogo as SealLogo };
 
 export function Ornament({ children, style }: { children?: ReactNode; style?: CSSProperties }) {
   return (
