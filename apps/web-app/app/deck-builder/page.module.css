@@ -1,0 +1,363 @@
+/* ── Layout ── */
+.chatCol {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+}
+
+/* ── Chat header ── */
+.header {
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(var(--accent-glow), 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, var(--void-1), transparent);
+  z-index: 5;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.headerSeal {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.headerMeta {
+  min-width: 0;
+}
+
+.headerTagline {
+  font-size: 0.55rem;
+  opacity: 0.6;
+}
+
+.headerTitle {
+  font-size: 0.95rem;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bindBtn {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  border: 1px solid rgba(var(--accent-glow), 0.4);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Messages area ── */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px 160px;
+  position: relative;
+}
+
+.sigilBg {
+  position: absolute;
+  right: -200px;
+  bottom: -200px;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.messagesInner {
+  max-width: 640px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Message bubble ── */
+.message {
+  display: flex;
+  margin-bottom: 22px;
+  animation: messageIn 0.5s ease;
+}
+
+.messageInner {
+  max-width: 90%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.messageSeal {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.messageLabel {
+  font-size: 0.55rem;
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.messageOpts {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chipColors {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+/* ── Loading bubble ── */
+.loadingMsg {
+  display: flex;
+  margin-bottom: 22px;
+  animation: messageIn 0.5s ease;
+}
+
+.loadingInner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.loadingSeal {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  animation: sealPulse 2s ease-in-out infinite;
+}
+
+.loadingLabel {
+  font-size: 0.55rem;
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.loadingBox {
+  background: linear-gradient(135deg, rgba(28, 22, 40, 0.6), rgba(14, 11, 20, 0.8));
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(var(--accent-glow), 0.25);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 260px;
+}
+
+.dots {
+  display: flex;
+  gap: 4px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.loadingText {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--cream);
+  opacity: 0.9;
+}
+
+.progress {
+  display: flex;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.progressSeg {
+  flex: 1;
+  height: 1px;
+  transition: background 0.4s;
+}
+
+/* ── Save nudge ── */
+.saveNudge {
+  position: absolute;
+  bottom: 170px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+  animation: messageIn 0.4s ease;
+}
+
+.saveNudgeBox {
+  max-width: 540px;
+  width: 100%;
+  background: linear-gradient(135deg, rgba(28, 22, 40, 0.97), rgba(14, 11, 20, 0.99));
+  border: 1px solid rgba(var(--accent-glow), 0.45);
+  box-shadow: 0 0 40px rgba(var(--accent-glow), 0.12);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.saveNudgeText {
+  flex: 1;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--cream);
+  opacity: 0.9;
+}
+
+.saveNudgeActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Input area ── */
+.inputArea {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, transparent, var(--void-0) 40%);
+  z-index: 10;
+}
+
+.inputInner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.quickPrompts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  justify-content: center;
+}
+
+.quickPrompt {
+  background: transparent;
+  border: 1px solid rgba(var(--accent-glow), 0.2);
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-style: italic;
+  padding: 5px 12px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: all 0.2s;
+}
+
+.quickPrompt:hover {
+  opacity: 1;
+  border-color: rgba(var(--accent-glow), 0.4);
+}
+
+.inputBox {
+  background: linear-gradient(180deg, rgba(14, 11, 20, 0.95), rgba(8, 6, 10, 0.98));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(var(--accent-glow), 0.35);
+  padding: 12px 16px;
+  box-shadow: 0 0 32px rgba(var(--accent-glow), 0.08);
+}
+
+.inputTextarea {
+  width: 100%;
+  min-height: 36px;
+  max-height: 140px;
+  background: transparent;
+  border: none;
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  outline: none;
+  resize: none;
+}
+
+.inputFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.castHint {
+  font-size: 0.55rem;
+  opacity: 0.4;
+}
+
+.inputButtons {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Chat options ── */
+.optsWrap {
+  margin-bottom: 8px;
+}
+
+.optsChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.optsPanel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(var(--accent-glow), 0.2);
+  background: rgba(14, 11, 20, 0.6);
+  animation: messageIn 0.25s ease;
+}
+
+.optColorBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+}
+
+.sizeInput {
+  width: 70px;
+  background: transparent;
+  border: 1px solid rgba(var(--accent-glow), 0.3);
+  color: var(--cream);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.sizeHint {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  color: var(--cream);
+  opacity: 0.5;
+}

@@ -3,7 +3,7 @@
   left: 0;
   top: 0;
   right: 0;
-  height: 56px;
+  height: 76px;
   background: linear-gradient(to right, var(--void-1), var(--void-0));
   border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
   z-index: 50;
@@ -21,7 +21,7 @@
   font-family: var(--font-ui);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   color: var(--muted);
   padding: 0 14px;
   height: 100%;
@@ -38,7 +38,7 @@
   font-family: var(--font-ui);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   padding: 6px 16px;
   border: 1px solid rgba(var(--accent-glow), 0.35);
   background: transparent;

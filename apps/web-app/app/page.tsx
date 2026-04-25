@@ -13,7 +13,7 @@ export default function LandingPage() {
   const router = useRouter();
 
   const enterGrimoire = () => {
-    router.push('/grimoire');
+    router.push('/deck-builder');
   };
 
   return (

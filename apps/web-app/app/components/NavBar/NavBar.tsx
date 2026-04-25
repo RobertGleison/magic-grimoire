@@ -6,7 +6,7 @@ import { useUser } from '../../context/UserContext';
 
 const NAV_LINKS = [
   { path: '/',         label: 'Home' },
-  { path: '/grimoire', label: 'Deck Builder' },
+  { path: '/deck-builder', label: 'Deck Builder' },
   { path: '/library',  label: 'Library' },
 ];
 
