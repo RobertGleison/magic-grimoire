@@ -122,6 +122,94 @@ const SAVED_DECKS: SavedDeck[] = [
 
 type LibraryView = 'grid' | 'list';
 
+function parseDeckTxt(txt: string, name: string): SavedDeck {
+  const cards: CardEntry[] = [];
+  for (const line of txt.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('//')) continue;
+    const match = trimmed.match(/^(\d+)\s+(.+)$/);
+    if (match) cards.push({ name: match[2].trim(), quantity: parseInt(match[1], 10) });
+  }
+  return {
+    id: `import-${Date.now()}`,
+    name: name.trim() || 'Imported Deck',
+    archetype: 'Imported',
+    format: '—',
+    colors: [],
+    savedOn: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    prompt: '',
+    cards,
+  };
+}
+
+function ImportModal({ onImport, onClose }: { onImport: (deck: SavedDeck) => void; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const [txt, setTxt] = useState('');
+  const [error, setError] = useState('');
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!name) setName(file.name.replace(/\.txt$/i, ''));
+    file.text().then(setTxt);
+  };
+
+  const handleImport = () => {
+    const deck = parseDeckTxt(txt, name);
+    if (!deck.cards.length) { setError('No valid card lines found. Format: "4 Card Name"'); return; }
+    onImport(deck);
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(8,6,10,0.85)', backdropFilter: 'blur(6px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 500, background: 'linear-gradient(180deg, var(--void-2), var(--void-0))', border: '1px solid rgba(var(--accent-glow), 0.4)', padding: '32px 28px', boxShadow: '0 0 60px rgba(var(--accent-glow), 0.15)', animation: 'messageIn 0.3s ease' }}
+      >
+        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 16, background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '1.3rem' }}>×</button>
+        <div className="h-ui" style={{ fontSize: '0.6rem', opacity: 0.6, marginBottom: 6 }}>Inscribe from without</div>
+        <h2 className="h-display" style={{ fontSize: '1.5rem', margin: '0 0 24px', fontStyle: 'italic' }}>Import Deck</h2>
+
+        <div style={{ marginBottom: 14 }}>
+          <label className="h-ui" style={{ fontSize: '0.58rem', opacity: 0.65, display: 'block', marginBottom: 6 }}>Deck Name</label>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="My Deck"
+            style={{ width: '100%', padding: '10px 12px', background: 'var(--void-0)', border: '1px solid rgba(var(--accent-glow), 0.2)', color: 'var(--cream)', fontFamily: 'var(--font-body)', fontSize: '1rem', outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label className="h-ui" style={{ fontSize: '0.58rem', opacity: 0.65, display: 'block', marginBottom: 6 }}>Decklist · one card per line <span style={{ opacity: 0.5 }}>(e.g. 4 Lightning Bolt)</span></label>
+          <textarea
+            value={txt}
+            onChange={e => { setTxt(e.target.value); setError(''); }}
+            placeholder={'4 Lightning Bolt\n4 Goblin Guide\n20 Mountain'}
+            rows={10}
+            style={{ width: '100%', padding: '10px 12px', background: 'var(--void-0)', border: '1px solid rgba(var(--accent-glow), 0.2)', color: 'var(--cream)', fontFamily: 'var(--font-ui)', fontSize: '0.82rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          <span className="h-ui" style={{ fontSize: '0.58rem', opacity: 0.5 }}>or</span>
+          <label style={{ cursor: 'pointer' }}>
+            <span className="btn" style={{ fontSize: '0.65rem', display: 'inline-block' }}>Upload .txt</span>
+            <input type="file" accept=".txt" onChange={handleFile} style={{ display: 'none' }} />
+          </label>
+        </div>
+
+        {error && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.88rem', color: 'rgba(220,100,100,0.9)', margin: '0 0 14px', fontStyle: 'italic' }}>{error}</p>}
+
+        <button className="btn btn-primary" onClick={handleImport} style={{ width: '100%', fontSize: '0.72rem' }}>Import ✦</button>
+      </div>
+    </div>
+  );
+}
+
 function DeckTile({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
   const firstCard = deck.cards[0];
   const imgSrc = firstCard?.image_uri
@@ -207,6 +295,19 @@ export default function LibraryPage() {
   const { user, setUser } = useUser();
   const [view, setView] = useState<LibraryView>('grid');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [importedDecks, setImportedDecks] = useState<SavedDeck[]>([]);
+  const [showImport, setShowImport] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(460);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = panelWidth;
+    const onMove = (ev: MouseEvent) => setPanelWidth(Math.max(300, Math.min(800, startW + (startX - ev.clientX))));
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
 
   useEffect(() => {
     if (!user) router.replace('/');
@@ -214,7 +315,14 @@ export default function LibraryPage() {
 
   if (!user) return null;
 
-  const selectedDeck = SAVED_DECKS.find(d => d.id === selectedId) ?? null;
+  const allDecks = [...SAVED_DECKS, ...importedDecks];
+  const selectedDeck = allDecks.find(d => d.id === selectedId) ?? null;
+
+  const handleImport = (deck: SavedDeck) => {
+    setImportedDecks(prev => [...prev, deck]);
+    setShowImport(false);
+    setSelectedId(deck.id);
+  };
 
   const handleLogout = () => { setUser(null); router.push('/'); };
 
@@ -229,7 +337,7 @@ export default function LibraryPage() {
               <div className="h-ui" style={{ fontSize: '0.65rem', opacity: 0.6, marginBottom: 8 }}>Tome of {user.name} · Chapter II</div>
               <h1 className="h-display" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', margin: 0, fontStyle: 'italic' }}>Thy Divined Decks</h1>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '1.05rem', fontStyle: 'italic', color: 'var(--cream)', opacity: 0.7, margin: '8px 0 0' }}>
-                {SAVED_DECKS.length} decks bound to thy grimoire.
+                {allDecks.length} decks bound to thy grimoire.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -243,6 +351,7 @@ export default function LibraryPage() {
                 </button>
               </div>
               <button className="btn" onClick={handleLogout} style={{ fontSize: '0.7rem' }}>Log out</button>
+              <button className="btn" onClick={() => setShowImport(true)} style={{ fontSize: '0.72rem' }}>Import .txt</button>
               <button className="btn btn-primary" onClick={() => router.push('/grimoire')} style={{ fontSize: '0.75rem' }}>Generate new deck</button>
             </div>
           </div>
@@ -250,13 +359,13 @@ export default function LibraryPage() {
           {/* Deck list */}
           {view === 'grid' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-              {SAVED_DECKS.map(d => (
+              {allDecks.map(d => (
                 <DeckTile key={d.id} deck={d} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)} />
               ))}
             </div>
           ) : (
             <div>
-              {SAVED_DECKS.map(d => (
+              {allDecks.map(d => (
                 <DeckRow key={d.id} deck={d} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)} />
               ))}
             </div>
@@ -264,13 +373,28 @@ export default function LibraryPage() {
         </div>
       </div>
 
+      {showImport && <ImportModal onImport={handleImport} onClose={() => setShowImport(false)} />}
+
       {/* Detail panel */}
       {selectedDeck && (
         <div style={{
-          width: 460, flexShrink: 0, borderLeft: '1px solid rgba(var(--accent-glow), 0.2)',
+          width: panelWidth, flexShrink: 0, borderLeft: '1px solid rgba(var(--accent-glow), 0.2)',
           animation: 'panelIn 0.4s ease',
           position: 'relative',
         }}>
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            style={{
+              position: 'absolute', left: 0, top: 0, bottom: 0, width: 6,
+              cursor: 'col-resize', zIndex: 20,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--accent-glow), 0.25)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <div style={{ width: 2, height: 40, borderRadius: 1, background: 'rgba(var(--accent-glow), 0.35)' }} />
+          </div>
           <button
             onClick={() => setSelectedId(null)}
             style={{

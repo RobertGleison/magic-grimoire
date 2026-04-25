@@ -82,6 +82,14 @@ function getCardCategory(typeLine = ''): string {
 }
 
 function groupCards(cards: CardEntry[]): CardGroup[] {
+  const hasTypes = cards.some(c => c.type_line);
+  if (!hasTypes) {
+    return [{
+      label: 'Cards',
+      count: cards.reduce((s, c) => s + c.quantity, 0),
+      cards: [...cards],
+    }];
+  }
   const groups: Record<string, CardEntry[]> = {};
   for (const card of cards) {
     const cat = getCardCategory(card.type_line);
