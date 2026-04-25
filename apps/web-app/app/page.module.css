@@ -1,0 +1,239 @@
+/* ── Page wrapper ── */
+.page {
+  position: relative;
+  padding-bottom: 120px;
+}
+
+/* ── Hero ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 80px 48px;
+}
+
+.heroInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  width: 100%;
+  max-width: 1100px;
+  position: relative;
+  z-index: 4;
+}
+
+.heroText {
+  flex: 1 1 auto;
+  max-width: 560px;
+}
+
+.heroTitle {
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  line-height: 1.05;
+  margin: 0 0 12px;
+  text-shadow: 0 0 40px rgba(var(--accent-glow), 0.3);
+}
+
+.heroSubtitle {
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  color: var(--cream);
+  font-style: italic;
+  margin: 0 0 48px;
+  max-width: 480px;
+  opacity: 0.85;
+}
+
+.heroActions {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.heroSigil {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Gradient text (hero title + CTA heading) ── */
+.gradientText {
+  background: linear-gradient(180deg, var(--accent), var(--accent-mid));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Section header ── */
+.sectionHeader {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.sectionHeading {
+  margin: 0;
+}
+
+/* ── Shared section layout ── */
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Card grid (Steps + Features) ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1px;
+  background: rgba(var(--accent-glow), 0.15);
+  border: 1px solid rgba(var(--accent-glow), 0.15);
+}
+
+.card {
+  background: var(--void-1);
+  padding: 40px 28px;
+  transition: background 0.4s;
+  cursor: default;
+}
+
+.card:hover {
+  background: var(--void-2);
+}
+
+.featureCard {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.cardLabel {
+  margin-bottom: 12px;
+}
+
+.cardBody {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--cream);
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
+/* ── Steps ── */
+.stepRoman {
+  font-size: 2.5rem;
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+/* ── Features ── */
+.featureIcons {
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.featureIconGlyph {
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+}
+
+/* ── Incantations marquee ── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes marquee-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+.incantations {
+  padding: 80px 0;
+  overflow: hidden;
+}
+
+.marqueeOuter {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.marqueeFadeLeft,
+.marqueeFadeRight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.marqueeFadeLeft {
+  left: 0;
+  background: linear-gradient(to right, var(--void-0), transparent);
+}
+
+.marqueeFadeRight {
+  right: 0;
+  background: linear-gradient(to left, var(--void-0), transparent);
+}
+
+.marqueeRow {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  animation: marquee 120s linear infinite;
+}
+
+.marqueeRowReverse {
+  animation-name: marquee-reverse;
+}
+
+.marqueeCard {
+  padding: 14px 22px;
+  border: 1px solid rgba(var(--accent-glow), 0.2);
+  background: var(--void-1);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--cream);
+  white-space: normal;
+  width: 400px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.marqueeQuote {
+  color: var(--accent);
+}
+
+/* ── Final CTA ── */
+.cta {
+  padding: 120px;
+  text-align: center;
+  position: relative;
+}
+
+.ctaInner {
+  position: relative;
+  z-index: 2;
+}
+
+.ctaHeading {
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  margin: 0 0 16px;
+  font-style: italic;
+}

@@ -1,67 +1,56 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useUser } from './context/UserContext';
 import { ArcaneSigil } from './components/ArcaneSigil';
 import { ManaSymbol } from './components/ManaSymbol';
 import { ALL_COLORS } from './enums';
 import { Ornament } from './components/atoms';
-import { useReveal } from './hooks/useReveal';
+import { motion } from 'framer-motion';
+import style from './page.module.css';
 
-const COMMENTS = [
-  "Mono-red aggro for Pioneer, burn-heavy with Goblin Guides and Eidolon of the Great Revel, cheap curve topping at three",
-  "Azorius control for Modern, Teferi, Hero of Dominaria as primary win condition with Supreme Verdict sweepers",
-  "Sultai reanimator with Bloodghast recursion, Unearth package, and Griselbrand as the top-end reanimation target",
-  "Mono-green stompy with trample and pump, Steel Leaf Champion and Aspect of Hydra for burst damage",
-  "Boros tokens with Anthem effects, aggressive go-wide strategy using Raise the Alarm and Intangible Virtue",
-  "Dimir mill for Commander, four-color if needed, Persistent Petitioners and Traumatize as core pieces",
-  "Simic flash creatures with Brazen Borrower package, Nightpack Ambusher as the primary threat at instant speed",
-  "Jund midrange with discard, removal, and threats — Liliana of the Veil, Tarmogoyf, and Bloodbraid Elf",
-  "Selesnya aura voltron with hexproof creatures, Slippery Bogle and Kor Spiritdancer carrying Light of Promise",
-  "Orzhov lifegain with token synergies, Ajani's Pridemate and Cruel Celebrant as the engine for Modern",
-  "Izzet spells matter with prowess and cantrips, Monastery Swiftspear and Dragon's Rage Channeler as threats",
-  "Gruul werewolves tribal for Modern, Immerwolf as the anthem lord keeping the pack always transformed",
-];
 
-const STEPS = [
-  { roman: 'I', title: 'Describe', body: 'Type what kind of Magic: The Gathering deck you want: any archetype, format, or playstyle. Plain text works fine.' },
-  { roman: 'II', title: 'Search', body: 'We query the card database and use AI to find cards that match your description.' },
-  { roman: 'III', title: 'Build', body: 'A full deck is assembled with all your requirements but maintaining mana balance, synergy and competitivity.' },
-  { roman: 'IV', title: 'Export', body: 'Your decklist is ready to edit,copy, share, or import directly into your preferred deck builder.' },
-];
+export default function LandingPage() {
+  const router = useRouter();
 
-const FEATURES = [
-  { title: 'All Colors', body: 'Every color combination, every guild, every shard. The tome knows the soul of each.', pips: ALL_COLORS },
-  { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.', icon: '⚔' },
-  { title: 'Synergies', body: 'Not a list of cards — a plan. Mana curves, ratios, and interactions chosen with intent.', icon: '✦' },
-  { title: 'Iteration', body: 'Each inclusion justified. Each ratio defended. Argue with the oracle, refine the result.', icon: '◈' },
-];
+  const enterGrimoire = () => {
+    router.push('/grimoire');
+  };
 
-const gradientText: React.CSSProperties = {
-  background: 'linear-gradient(180deg, var(--accent), var(--accent-mid))',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-};
-
-function RevealSection({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  const ref = useReveal();
   return (
-    <div ref={ref} className="reveal" style={style}>
-      {children}
+    <div className={style.page}>
+      <HeroSection onEnter={enterGrimoire} />
+      <HowToBuildYourDeckSteps />
+      <FeaturesSection />
+      <CommentSection />
+      <CallToAction onEnter={enterGrimoire} />
     </div>
   );
 }
 
-function SectionHeader({ label, heading, ornamentWidth = 220, headingFontSize = 'clamp(2rem, 4vw, 3rem)', style }: {
+
+function RevealSection({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.1 }}
+      transition={{ duration: 1, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function SectionHeader({ label, heading, ornamentWidth = 220, headingFontSize }: {
   label: string;
   heading: string;
   ornamentWidth?: number;
   headingFontSize?: string;
-  style?: React.CSSProperties;
 }) {
   return (
-    <div style={{ textAlign: 'center', marginBottom: 64, ...style }}>
-      <h2 className="h-display" style={{ fontSize: headingFontSize, margin: 0 }}>
+    <div className={style.sectionHeader}>
+      <h2 className={`h-display ${style.sectionHeading}`} style={headingFontSize ? { fontSize: headingFontSize } : undefined}>
         {heading}
       </h2>
       <Ornament style={{ justifyContent: 'center', maxWidth: ornamentWidth, margin: '0 auto 16px' }}>
@@ -71,204 +60,150 @@ function SectionHeader({ label, heading, ornamentWidth = 220, headingFontSize = 
   );
 }
 
-export default function LandingPage() {
-  const router = useRouter();
-  const { user } = useUser();
-
-  const enterGrimoire = () => {
-    router.push(user ? '/library' : '/grimoire');
-  };
-
+function HeroSection({ onEnter }: { onEnter: () => void }) {
   return (
-    <div style={{ position: 'relative', paddingBottom: 120 }}>
-      {/* Hero */}
-      <section style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-        padding: '80px 48px',
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 48,
-          width: '100%',
-          maxWidth: 1100,
-          position: 'relative',
-          zIndex: 4,
-        }}>
-          {/* Left — text */}
-          <div style={{ flex: '1 1 auto', maxWidth: 560 }}>
-            <Ornament style={{ justifyContent: 'flex-start', maxWidth: 320, marginBottom: 32 }}>
-              <span style={{ fontSize: '0.7rem' }}>Codex Arcanum</span>
-            </Ornament>
+    <section className={style.hero}>
+      <div className={style.heroInner}>
+        <div className={style.heroText}>
+          <Ornament style={{ justifyContent: 'flex-start', maxWidth: 320, marginBottom: 32 }}>
+            <span style={{ fontSize: '0.7rem' }}>Codex Arcanum</span>
+          </Ornament>
 
-            <h1 className="h-display" style={{
-              fontSize: 'clamp(3rem, 6vw, 5.5rem)',
-              lineHeight: 1.05,
-              margin: '0 0 12px',
-              textShadow: '0 0 40px rgba(var(--accent-glow), 0.3)',
-            }}>
-              Magic<br />
-              <span style={{ ...gradientText, fontStyle: 'italic' }}>Grimoire</span>
-            </h1>
+          <h1 className={`h-display ${style.heroTitle}`}>
+            Magic<br />
+            <span className={`${style.gradientText}`} style={{ fontStyle: 'italic' }}>Grimoire</span>
+          </h1>
 
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 'clamp(1rem, 1.8vw, 1.25rem)',
-              color: 'var(--cream)',
-              fontStyle: 'italic',
-              margin: '0 0 48px',
-              maxWidth: 480,
-              opacity: 0.85,
-            }}>
-              Whisper your Magic: The Gathering desires and it shall forge for you the perfect deck of cards.
-            </p>
+          <p className={style.heroSubtitle}>
+            Whisper your Magic: The Gathering desires and it shall forge for you the perfect deck of cards.
+          </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 18 }}>
-              <button className="btn btn-primary" onClick={enterGrimoire} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
-                Ask the Grimoire
-              </button>
-              <div style={{ color: 'var(--muted)', fontSize: '0.8rem', fontFamily: 'var(--font-ui)', letterSpacing: '0.2em', opacity: 0.7 }}>
-                No account · No incense · Just intent
-              </div>
-            </div>
-          </div>
-
-          {/* Right — sigil */}
-          <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ArcaneSigil size={560} intensity={0.8} />
+          <div className={style.heroActions}>
+            <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
+              Ask the Grimoire
+            </button>
           </div>
         </div>
-      </section>
 
-      {/* Ritual Steps */}
-      <RevealSection style={{ padding: '80px 24px', maxWidth: 1200, margin: '0 auto' }}>
-        <SectionHeader label="The Rite" heading="Casting Steps" />
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 1,
-          background: 'rgba(var(--accent-glow), 0.15)',
-          border: '1px solid rgba(var(--accent-glow), 0.15)',
-        }}>
-          {STEPS.map((s, i) => (
-            <div
-              key={i}
-              style={{
-                background: 'var(--void-1)',
-                padding: '40px 28px',
-                transition: 'background 0.4s',
-                cursor: 'default',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--void-2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--void-1)')}
-            >
-              <div className="h-display" style={{ fontSize: '2.5rem', color: 'var(--accent)', fontStyle: 'italic', marginBottom: 20, opacity: 0.9 }}>
-                {s.roman}
-              </div>
-              <div className="h-ui" style={{ marginBottom: 12 }}>{s.title}</div>
-              <p style={{ margin: 0, fontSize: '1.05rem', color: 'var(--cream)', opacity: 0.75, lineHeight: 1.5 }}>{s.body}</p>
-            </div>
-          ))}
+        <div className={style.heroSigil}>
+          <ArcaneSigil size={520} intensity={0.8} />
         </div>
-      </RevealSection>
-
-      {/* Features */}
-      <RevealSection style={{ padding: '80px 24px', maxWidth: 1200, margin: '0 auto' }}>
-        <SectionHeader label="The scriptures" heading="What the tome knows" />
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 1,
-          background: 'rgba(var(--accent-glow), 0.15)',
-          border: '1px solid rgba(var(--accent-glow), 0.15)',
-        }}>
-          {FEATURES.map((f, i) => (
-            <div
-              key={i}
-              style={{
-                background: 'var(--void-1)',
-                padding: '40px 28px',
-                transition: 'background 0.4s',
-                cursor: 'default',
-                height: '100%',
-                boxSizing: 'border-box',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--void-2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--void-1)')}
-            >
-              <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-                {f.pips
-                  ? f.pips.map(p => <ManaSymbol key={p} symbol={p} size={22} />)
-                  : <span style={{ fontSize: '2rem', color: 'var(--accent)', fontFamily: 'var(--font-display)' }}>{f.icon}</span>}
-              </div>
-              <div className="h-ui" style={{ marginBottom: 12 }}>{f.title}</div>
-              <p style={{ margin: 0, fontSize: '1.05rem', color: 'var(--cream)', opacity: 0.75, lineHeight: 1.5 }}>{f.body}</p>
-            </div>
-          ))}
-        </div>
-      </RevealSection>
-
-      {/* INCANTATIONS */}
-      <RevealSection style={{ padding: '80px 0', overflow: 'hidden' }}>
-        <SectionHeader
-          label="Sample Incantations"
-          heading="Others have whispered…"
-          ornamentWidth={280}
-          headingFontSize="clamp(1.8rem, 3.5vw, 2.5rem)"
-          style={{ padding: '0 24px', marginBottom: 48 }}
-        />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 120, background: 'linear-gradient(to right, var(--void-0), transparent)', zIndex: 2, pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 120, background: 'linear-gradient(to left, var(--void-0), transparent)', zIndex: 2, pointerEvents: 'none' }} />
-          {[
-            { items: [...COMMENTS.slice(0, 6), ...COMMENTS.slice(0, 6)], animation: 'marquee 120s linear infinite' },
-            { items: [...COMMENTS.slice(6), ...COMMENTS.slice(6)], animation: 'marquee-reverse 120s linear infinite' },
-          ].map((row, ri) => (
-            <div key={ri} style={{ display: 'flex', gap: 16, animation: row.animation, width: 'max-content' }}>
-              {row.items.map((inc, i) => (
-                <div key={i} style={{
-                  padding: '14px 22px',
-                  border: '1px solid rgba(var(--accent-glow), 0.2)',
-                  background: 'var(--void-1)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '1.05rem',
-                  fontStyle: 'italic',
-                  color: 'var(--cream)',
-                  whiteSpace: 'normal',
-                  width: 400,
-                  flexShrink: 0,
-                  opacity: 0.85,
-                }}>
-                  <span style={{ color: 'var(--accent)', marginRight: 10 }}>❝</span>
-                  {inc}
-                  <span style={{ color: 'var(--accent)', marginLeft: 10 }}>❞</span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </RevealSection>
-
-      {/* Final CTA */}
-      <RevealSection style={{ padding: '120px', textAlign: 'center', position: 'relative' }}>
-
-        <div style={{ position: 'relative', zIndex: 2 }}>
-          <h2 className="h-display" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)', margin: '0 0 16px', fontStyle: 'italic' }}>
-            <span style={gradientText}>The tome awaits</span>
-          </h2>
-          <button className="btn btn-primary" onClick={enterGrimoire} style={{ fontSize: '0.9rem', padding: '18px 40px' }}>
-            Ask the Grimoire
-          </button>
-        </div>
-      </RevealSection>
-    </div>
+      </div>
+    </section>
   );
 }
+
+const STEPS = [
+  { roman: 'I',   title: 'Describe', body: 'Type what kind of Magic: The Gathering deck you want. Any archetype, format, or playstyle. Plain text works fine.' },
+  { roman: 'II',  title: 'Search',   body: 'We query the card database and use AI to find cards that match your description.' },
+  { roman: 'III', title: 'Build',    body: 'A full deck is assembled with all your requirements but maintaining mana balance, synergy and competitivity.' },
+  { roman: 'IV',  title: 'Revision',   body: 'You can rebuild the entire deck or just the cards you dislike until reach your preferences.' },
+];
+
+function HowToBuildYourDeckSteps() {
+  return (
+    <RevealSection className={style.section}>
+      <SectionHeader label="The Rite" heading="How to build your deck" />
+      <div className={style.grid}>
+        {STEPS.map((step, i) => (
+          <div key={i} className={style.card}>
+            <div className={`h-display ${style.stepRoman}`}>{step.roman}</div>
+            <div className={`h-ui ${style.cardLabel}`}>{step.title}</div>
+            <p className={style.cardBody}>{step.body}</p>
+          </div>
+        ))}
+      </div>
+    </RevealSection>
+  );
+}
+
+const FEATURES = [
+  { title: 'All Colors', body: 'Every color combination, every guild, every card. The tome knows the soul of each.', pips: ALL_COLORS },
+  { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.',  icon: '⚔' },
+  { title: 'Synergies',   body: 'Mana curves, ratios and interactions are important.', icon: '✦' },
+  { title: 'Iteration',   body: 'Each inclusion justified. Each ratio defended. Argue with the oracle, refine the result.', icon: '↻' },
+];
+
+function FeaturesSection() {
+  return (
+    <RevealSection className={style.section}>
+      <SectionHeader label="The scriptures" heading="What the grimoire knows" />
+      <div className={style.grid}>
+        {FEATURES.map((feature, i) => (
+          <div key={i} className={`${style.card} ${style.featureCard}`}>
+            <div className={style.featureIcons}>
+              {feature.pips
+                ? feature.pips.map(p => <ManaSymbol key={p} symbol={p} size={28} />)
+                : <span className={style.featureIconGlyph}>{feature.icon}</span>}
+            </div>
+            <div className={`h-ui ${style.cardLabel}`}>{feature.title}</div>
+            <p className={style.cardBody}>{feature.body}</p>
+          </div>
+        ))}
+      </div>
+    </RevealSection>
+  );
+}
+
+const INCANTATIONS = [
+  "I want a fast red deck for Pioneer that just kills people on turn four, lots of burn and cheap creatures",
+  "Build me a control deck for Modern, heavy on counterspells and wraths, Teferi as the main win con",
+  "A reanimator deck that cheats Griselbrand into play as early as possible, doesn't matter the format",
+  "Green stompy for Standard, I just want big creatures with trample that are hard to block",
+  "Tokens going wide in Modern, white and red, pump them all at once and swing for lethal",
+  "A Commander mill deck, something political that slowly grinds everyone's libraries away",
+  "Simic tempo for Modern, I want to hold up counterspells and flash in creatures at end of turn",
+  "Jund for Modern, the classic — discard, removal, threats. I want Tarmogoyf and Liliana",
+  "Aura voltron with hexproof creatures, pile enchantments on one creature and make it huge",
+  "Lifegain synergy in white/black, tokens and drain effects, something that snowballs fast",
+  "Izzet prowess for Modern, cantrips and cheap spells, Swiftspear as the main threat",
+  "Werewolf tribal in red/green, keep the pressure so they never transform back. Add enchatments if possible",
+];
+
+const MARQUEE_ROWS = [
+  { items: [...INCANTATIONS.slice(0, 6), ...INCANTATIONS.slice(0, 6)], reverse: false },
+  { items: [...INCANTATIONS.slice(6),    ...INCANTATIONS.slice(6)],    reverse: true  },
+];
+
+function CommentSection() {
+  return (
+    <RevealSection className={style.incantations}>
+      <SectionHeader
+        label="Sample Incantations"
+        heading="Examples of Deck Ideas"
+        ornamentWidth={280}
+      />
+      <div className={style.marqueeOuter}>
+        <div className={style.marqueeFadeLeft} />
+        <div className={style.marqueeFadeRight} />
+        {MARQUEE_ROWS.map((row, ri) => (
+          <div key={ri} className={`${style.marqueeRow} ${row.reverse ? style.marqueeRowReverse : ''}`}>
+            {row.items.map((text, i) => (
+              <div key={i} className={style.marqueeCard}>
+                <span className={style.marqueeQuote} style={{ marginRight: 10 }}>❝</span>
+                {text}
+                <span className={style.marqueeQuote} style={{ marginLeft: 10 }}>❞</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </RevealSection>
+  );
+}
+
+function CallToAction({ onEnter }: { onEnter: () => void }) {
+  return (
+    <RevealSection className={style.cta}>
+      <div className={style.ctaInner}>
+        <h2 className={`h-display ${style.ctaHeading}`}>
+          <span className={style.gradientText}>The grimoire awaits</span>
+        </h2>
+        <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.9rem', padding: '18px 40px' }}>
+          Ask the Grimoire
+        </button>
+      </div>
+    </RevealSection>
+  );
+}
+

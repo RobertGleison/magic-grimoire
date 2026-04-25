@@ -154,17 +154,6 @@ export function ArcaneSigil({ size = 280, intensity = 1 }: ArcaneSigilProps) {
           opacity="0.55"
         />
       </g>
-
-      {/* Center pulse */}
-      <circle
-        cx="200"
-        cy="200"
-        r="8"
-        fill="var(--accent)"
-        opacity="0.9"
-        style={{ animation: 'pulse 3s ease-in-out infinite' }}
-      />
-      <circle cx="200" cy="200" r="3" fill="var(--cream)" opacity="1" />
     </svg>
   );
 }
