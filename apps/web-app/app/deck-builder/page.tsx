@@ -21,6 +21,7 @@ interface ChatMessage {
   opts?: { colors: string[]; strategy: string; size: number };
   loading?: boolean;
   loadingStage?: LoadingStage;
+  chatLoading?: boolean;
 }
 
 const LOADING_STAGES = [
@@ -37,6 +38,14 @@ const STATUS_TO_STAGE: Record<string, LoadingStage> = {
   composing_deck: 2,
   enriching: 3,
 };
+
+const MOCK_CHAT_RESPONSES = [
+  'Interesting direction! Are you leaning towards an aggressive early-game strategy, or would you prefer to control the board and win in the late game?',
+  'Got it — that helps narrow things down. Do you have a budget in mind, or should I prioritize the strongest available cards?',
+  'Noted. Any cards you absolutely want included, or should I have full creative freedom to build around the archetype?',
+  'Perfect. Would you like disruption pieces like counterspells or removal, or focus entirely on your own win condition?',
+  'Understood. Is this for competitive play or a more casual kitchen-table game? That\'ll help me tune the power level.',
+];
 
 const QUICK_PROMPTS = [
   'Mono-green elf tribal for Modern, aggressive',
@@ -231,6 +240,28 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+function ChatTypingBubble() {
+  return (
+    <div className={s.loadingMsg}>
+      <div className={s.loadingInner}>
+        <div className={`seal ${s.loadingSeal}`}>
+          <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12 }}>✦</span>
+        </div>
+        <div>
+          <div className={`h-ui ${s.loadingLabel}`}>Grimoire</div>
+          <div className={s.loadingBox}>
+            <div className={s.dots}>
+              {[0, 1, 2].map(i => (
+                <span key={i} className={s.dot} style={{ animationDelay: `${i * 0.2}s` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoadingBubble({ stage }: { stage: LoadingStage }) {
   return (
     <div className={s.loadingMsg}>
@@ -272,7 +303,7 @@ function GrimoireInner() {
   const initialPrompt = searchParams.get('prompt') ?? '';
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'oracle', content: 'Hello! Describe the deck you want — an archetype, a format, a playstyle. I\'ll build your sixty cards.' },
+    { role: 'oracle', content: 'Welcome, Seeker. Describe the kind of deck you envision — archetype, format, playstyle. Chat to refine your vision, then hit **Generate Deck** when you\'re ready.' },
   ]);
   const [activeDeck, setActiveDeck] = useState<DeckData | null>(null);
   const [input, setInput] = useState(initialPrompt);
@@ -281,6 +312,7 @@ function GrimoireInner() {
   const [deckSize, setDeckSize] = useState(60);
   const [strategy, setStrategy] = useState('Balanced');
   const [loading, setLoading] = useState(false);
+  const [chatBusy, setChatBusy] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>(0);
   const [showSaveNudge, setShowSaveNudge] = useState(false);
   const [optionsCollapsed, setOptionsCollapsed] = useState(false);
@@ -370,7 +402,36 @@ function GrimoireInner() {
     }
   }, [updateLastOracleMessage]);
 
-  const handleSend = useCallback(async () => {
+  const handleChat = useCallback(async () => {
+    if (loading || chatBusy || !input.trim()) return;
+
+    const prompt = input.trim();
+    const opts = { colors: [...colors], size: deckSize, strategy };
+
+    setMessages(m => [
+      ...m,
+      { role: 'seeker', content: prompt, format, opts },
+      { role: 'oracle', content: '', loading: true, chatLoading: true },
+    ]);
+    setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    setChatBusy(true);
+
+    await new Promise<void>(r => setTimeout(r, 750));
+
+    const oracleCount = messages.filter(m => m.role === 'oracle').length;
+    const response = MOCK_CHAT_RESPONSES[oracleCount % MOCK_CHAT_RESPONSES.length];
+
+    setMessages(prev => {
+      const copy = [...prev];
+      const idx = copy.map(m => m.chatLoading).lastIndexOf(true);
+      if (idx !== -1) copy[idx] = { role: 'oracle', content: response };
+      return copy;
+    });
+    setChatBusy(false);
+  }, [input, format, colors, deckSize, strategy, loading, chatBusy, messages]);
+
+  const handleGenerateDeck = useCallback(async () => {
     if (loading) return;
 
     const prompt = input.trim();
@@ -473,7 +534,7 @@ function GrimoireInner() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleChat();
     }
   };
 
@@ -533,7 +594,9 @@ function GrimoireInner() {
           <div className={s.messagesInner}>
             {messages.map((m, i) => (
               m.loading
-                ? <LoadingBubble key={i} stage={loadingStage} />
+                ? m.chatLoading
+                  ? <ChatTypingBubble key={i} />
+                  : <LoadingBubble key={i} stage={loadingStage} />
                 : <ChatMessageBubble key={i} message={m} />
             ))}
           </div>
@@ -581,7 +644,7 @@ function GrimoireInner() {
                 disabled={loading}
               />
               <div className={s.inputFooter}>
-                <span className={`h-ui ${s.castHint}`}>⏎ to send</span>
+                <span className={`h-ui ${s.castHint}`}>⏎ to chat · Generate Deck when ready</span>
                 <div className={s.inputButtons}>
                   {loading && (
                     <button
@@ -598,19 +661,34 @@ function GrimoireInner() {
                     </button>
                   )}
                   <button
-                    onClick={handleSend}
-                    disabled={loading}
+                    onClick={handleChat}
+                    disabled={loading || chatBusy || !input.trim()}
                     style={{
                       fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
                       padding: '7px 16px',
-                      background: !loading ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.3), rgba(var(--accent-glow), 0.1))' : 'transparent',
-                      border: '1px solid ' + (!loading ? 'rgba(var(--accent-glow), 0.6)' : 'rgba(var(--accent-glow), 0.15)'),
-                      color: !loading ? 'var(--accent)' : 'var(--muted)',
-                      cursor: !loading ? 'pointer' : 'not-allowed',
+                      background: (!loading && !chatBusy && input.trim()) ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.15), rgba(var(--accent-glow), 0.05))' : 'transparent',
+                      border: '1px solid ' + ((!loading && !chatBusy && input.trim()) ? 'rgba(var(--accent-glow), 0.4)' : 'rgba(var(--accent-glow), 0.15)'),
+                      color: (!loading && !chatBusy && input.trim()) ? 'var(--accent)' : 'var(--muted)',
+                      cursor: (!loading && !chatBusy && input.trim()) ? 'pointer' : 'not-allowed',
                       transition: 'all 0.2s',
                     }}
                   >
                     Send ✦
+                  </button>
+                  <button
+                    onClick={handleGenerateDeck}
+                    disabled={loading || chatBusy}
+                    style={{
+                      fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
+                      padding: '7px 16px',
+                      background: (!loading && !chatBusy) ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.35), rgba(var(--accent-glow), 0.15))' : 'transparent',
+                      border: '1px solid ' + ((!loading && !chatBusy) ? 'rgba(var(--accent-glow), 0.7)' : 'rgba(var(--accent-glow), 0.15)'),
+                      color: (!loading && !chatBusy) ? 'var(--cream)' : 'var(--muted)',
+                      cursor: (!loading && !chatBusy) ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Generate Deck ⚡
                   </button>
                 </div>
               </div>

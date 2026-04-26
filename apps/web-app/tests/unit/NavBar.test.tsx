@@ -25,7 +25,7 @@ function mockUser(user: { email: string; name: string } | null) {
 }
 
 beforeEach(() => {
-  vi.mocked(useRouter).mockReturnValue({ push: vi.fn() } as ReturnType<typeof useRouter>);
+  vi.mocked(useRouter).mockReturnValue({ push: vi.fn() } as unknown as ReturnType<typeof useRouter>);
 });
 
 // ─── Guest (not logged in) ────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ describe('NavBar — logged in', () => {
     const setUser = vi.fn();
     const push = vi.fn();
     vi.mocked(useUser).mockReturnValue({ user: { email: 'gandalf@shire.com', name: 'Gandalf' }, setUser, openAuth: vi.fn(), closeAuth: vi.fn(), authOpen: false });
-    vi.mocked(useRouter).mockReturnValue({ push } as ReturnType<typeof useRouter>);
+    vi.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<typeof useRouter>);
     render(<NavBar />);
     fireEvent.click(screen.getByRole('button', { name: 'Log Out' }));
     expect(setUser).toHaveBeenCalledWith(null);
