@@ -335,9 +335,7 @@ export default function LibraryPage() {
       {/* Fullscreen deck overlay */}
       {selectedDeck && (
         <div className={s.deckOverlay}>
-          <div className={s.deckToolbar}>
-            <button className={s.deckToolbarBtn} onClick={() => setSelectedId(null)}>⊡ Close</button>
-          </div>
+          <button className={s.deckBackBtn} onClick={() => setSelectedId(null)}>← Back to Library</button>
           <DeckPanel
             deck={{
               id: selectedDeck.id,

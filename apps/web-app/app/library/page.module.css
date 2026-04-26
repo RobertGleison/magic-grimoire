@@ -268,22 +268,16 @@
   animation: panelIn 0.25s ease;
 }
 
-.deckToolbar {
+.deckBackBtn {
   position: absolute;
-  top: 10px;
-  right: 14px;
+  top: 12px;
+  left: 20px;
   z-index: 20;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.deckToolbarBtn {
   font-family: var(--font-ui);
-  font-size: 0.55rem;
-  letter-spacing: 0.15em;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 5px 10px;
+  padding: 6px 14px;
   background: rgba(8, 6, 10, 0.85);
   border: 1px solid rgba(var(--accent-glow), 0.3);
   color: var(--accent);
@@ -292,7 +286,7 @@
   backdrop-filter: blur(4px);
 }
 
-.deckToolbarBtn:hover {
+.deckBackBtn:hover {
   background: rgba(var(--accent-glow), 0.1);
   border-color: rgba(var(--accent-glow), 0.55);
 }
