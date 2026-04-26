@@ -76,12 +76,12 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
           </h1>
 
           <p className={style.heroSubtitle}>
-            Whisper your Magic: The Gathering desires and it shall forge for you the perfect deck of cards.
+            Write your Magic: The Gathering desires and it shall create for you the perfect deck of cards.
           </p>
 
           <div className={style.heroActions}>
             <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
-              Ask the Grimoire
+              Build your deck
             </button>
           </div>
         </div>
@@ -97,7 +97,7 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
 const STEPS = [
   { roman: 'I',   title: 'Describe', body: 'Type what kind of Magic: The Gathering deck you want. Any archetype, format, or playstyle. Plain text works fine.' },
   { roman: 'II',  title: 'Search',   body: 'We query the card database and use AI to find cards that match your description.' },
-  { roman: 'III', title: 'Build',    body: 'A full deck is assembled with all your requirements but maintaining mana balance, synergy and competitivity.' },
+  { roman: 'III', title: 'Build',    body: 'A full deck is created with all your requirements but maintaining mana balance, synergy and competitivity.' },
   { roman: 'IV',  title: 'Revision',   body: 'You can rebuild the entire deck or just the cards you dislike until you reach your preferences.' },
 ];
 
@@ -119,10 +119,10 @@ function HowToBuildYourDeckSteps() {
 }
 
 const FEATURES = [
-  { title: 'All Colors', body: 'Every color combination, every guild, every card. The tome knows the soul of each.', pips: ALL_COLORS },
+  { title: 'All Colors', body: 'Every color combination, every mechanic, every card.', pips: ALL_COLORS },
   { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.',  icon: '⚔' },
-  { title: 'Synergies',   body: 'Mana curves, ratios and interactions are important.', icon: '✦' },
-  { title: 'Iteration',   body: 'Each inclusion justified. Each ratio defended. Argue with the oracle, refine the result.', icon: '↻' },
+  { title: 'Synergies',   body: 'Mana curves, ratios and interactions are important to a strong deck.', icon: '✦' },
+  { title: 'Iteration',   body: 'Each inclusion justified. Each ratio defended. Argue with the grimoire, refine the result.', icon: '↻' },
 ];
 
 function FeaturesSection() {
@@ -201,7 +201,7 @@ function CallToAction({ onEnter }: { onEnter: () => void }) {
           <span className={style.gradientText}>The grimoire awaits</span>
         </h2>
         <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.9rem', padding: '18px 40px' }}>
-          Ask the Grimoire
+          Build your deck
         </button>
       </div>
     </RevealSection>

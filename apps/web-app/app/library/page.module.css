@@ -1,7 +1,7 @@
 /* ── Layout ── */
 .page {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 76px);
   overflow: hidden;
 }
 
@@ -260,7 +260,7 @@
 /* ── Fullscreen deck overlay ── */
 .deckOverlay {
   position: fixed;
-  top: 56px;
+  top: 76px;
   left: 0;
   right: 0;
   bottom: 0;

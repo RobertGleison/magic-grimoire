@@ -130,12 +130,12 @@ function computeStats(cards: CardEntry[]) {
     byCat[cat] = (byCat[cat] ?? 0) + card.quantity;
   }
 
-  const curve: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5+': 0 };
+  const curve: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10+': 0 };
   for (const card of cards) {
     if (getCardCategory(card.type_line) === 'Lands') continue;
     const cmc = parseCmc(card.mana_cost ?? '');
     if (cmc === 0) continue;
-    const bucket = cmc >= 5 ? '5+' : String(cmc);
+    const bucket = cmc >= 10 ? '10+' : String(cmc);
     curve[bucket] += card.quantity;
   }
 
@@ -282,7 +282,7 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
         <div className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.6, marginBottom: 4 }}>
           ✦ Divined Decklist · {deck.format}
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 12 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <h3 className="h-display" style={{ fontSize: '1.5rem', margin: 0, fontStyle: 'italic', background: 'linear-gradient(180deg, var(--cream), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {deck.title ?? 'Arcane Deck'}
@@ -329,19 +329,19 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
 
         {/* Mana curve */}
         {(() => {
-          const buckets = ['1', '2', '3', '4', '5+'];
+          const buckets = ['1', '2', '3', '4', '5','6','7','8','9','10+'];
           const maxVal = Math.max(...buckets.map(b => stats.curve[b]), 1);
           return (
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(var(--accent-glow), 0.1)' }}>
               <div className="h-ui" style={{ fontSize: '0.5rem', opacity: 0.55, marginBottom: 8 }}>Mana Curve</div>
-              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 52 }}>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 70 }}>
                 {buckets.map(b => {
                   const val = stats.curve[b];
                   const barH = Math.max(val > 0 ? 3 : 1, Math.round((val / maxVal) * 36));
                   return (
                     <div key={b} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, height: '100%', justifyContent: 'flex-end' }}>
                       {val > 0 && (
-                        <div className="h-ui" style={{ fontSize: '0.44rem', color: 'var(--accent)', opacity: 0.9 }}>{val}</div>
+                        <div className="h-ui" style={{ fontSize: '0.7rem', color: 'var(--accent)', opacity: 0.9 }}>{val}</div>
                       )}
                       <div style={{
                         width: '100%',
@@ -351,7 +351,7 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
                           : 'rgba(var(--accent-glow), 0.07)',
                         borderTop: val > 0 ? '1px solid rgba(var(--accent-glow), 0.6)' : 'none',
                       }} />
-                      <div className="h-ui" style={{ fontSize: '0.44rem', color: 'var(--muted)', opacity: 0.55 }}>{b}</div>
+                      <div className="h-ui" style={{ fontSize: '0.7rem', color: 'var(--muted)', opacity: 1 }}>{b}</div>
                     </div>
                   );
                 })}
@@ -393,9 +393,8 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
       {/* Footer actions */}
       <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(var(--accent-glow), 0.15)', background: 'linear-gradient(180deg, transparent, var(--void-0))', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
         {isGuest ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '0.9rem', color: 'var(--cream)', opacity: 0.75 }}>
-            </div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => exportTxt(deck)} style={{ fontSize: '0.68rem' }}>Export .txt</button>
             <button className="btn btn-primary" onClick={onRequestLogin} style={{ fontSize: '0.68rem' }}>Save Deck</button>
           </div>
         ) : (

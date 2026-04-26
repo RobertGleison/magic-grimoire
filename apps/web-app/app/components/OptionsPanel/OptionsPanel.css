@@ -1,0 +1,117 @@
+.options-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.options-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 44px 14px 16px;
+  border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
+  flex-shrink: 0;
+}
+
+.options-panel-title {
+  font-size: 0.6rem;
+  opacity: 0.75;
+}
+
+.options-panel-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(var(--accent-glow), 0.1), transparent);
+  margin: 0 20px;
+  flex-shrink: 0;
+}
+
+.options-panel-section {
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+
+.options-panel-section-label {
+  font-size: 0.52rem;
+  opacity: 0.6;
+  margin-bottom: 10px;
+}
+
+.options-panel-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.options-panel-side-btn {
+  font-size: 0.58rem;
+  padding: 4px 9px;
+  border-radius: 8px;
+}
+
+.options-panel-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.options-panel-color-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.options-panel-color-btn:hover {
+  border-color: rgba(var(--accent-glow), 0.4);
+  transform: translateY(-1px);
+}
+
+.options-panel-color-btn-on {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(var(--accent-glow), 0.35), inset 0 0 6px rgba(var(--accent-glow), 0.1);
+}
+
+.options-panel-clear-btn {
+  font-size: 0.52rem;
+  padding: 3px 8px;
+  opacity: 0.6;
+  margin-top: 2px;
+  border-radius: 8px;
+}
+
+.options-panel-clear-btn:hover {
+  opacity: 1;
+}
+
+.options-panel-size-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.options-panel-size-input {
+  width: 68px;
+  background: transparent;
+  border: 1px solid rgba(var(--accent-glow), 0.3);
+  color: var(--cream);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  padding: 4px 6px;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.options-panel-size-hint {
+  font-family: var(--font-ui);
+  font-size: 0.55rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
