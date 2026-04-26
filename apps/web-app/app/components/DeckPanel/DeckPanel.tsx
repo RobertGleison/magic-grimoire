@@ -108,8 +108,17 @@ function parseCmc(manaCost: string): number {
   let cmc = 0;
   for (const token of (manaCost.match(/\{[^}]+\}/g) ?? [])) {
     const inner = token.slice(1, -1);
-    if (/^\d+$/.test(inner)) cmc += parseInt(inner, 10);
-    else if (inner !== 'X') cmc += 1;
+    if (/^\d+$/.test(inner)) {
+      cmc += parseInt(inner, 10);
+    } else if (inner === 'X') {
+      // X contributes 0
+    } else if (inner.includes('/')) {
+      const num = inner.split('/')[0];
+      if (/^\d+$/.test(num)) cmc += parseInt(num, 10); // numeric hybrid e.g. {2/W}
+      else cmc += 1;                                    // color/phyrexian hybrid e.g. {W/U}, {W/P}
+    } else {
+      cmc += 1;
+    }
   }
   return cmc;
 }

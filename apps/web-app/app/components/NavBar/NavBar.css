@@ -18,6 +18,7 @@
   flex-shrink: 0;
 }
 .spine-link {
+  text-decoration: none;
   font-family: var(--font-ui);
   letter-spacing: 0.2em;
   text-transform: uppercase;

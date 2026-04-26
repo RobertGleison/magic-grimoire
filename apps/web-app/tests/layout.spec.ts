@@ -8,12 +8,11 @@ test.describe('Layout / SpineNav', () => {
 
   // --- Presence ---
 
-  test('renders nav with all 3 links', async ({ page }) => {
+  test('renders nav with public links when logged out', async ({ page }) => {
     const nav = page.locator('nav.spine');
     await expect(nav).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Home' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Deck Builder' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Library' })).toBeVisible();
   });
 
   test('renders Log In and Sign Up buttons when logged out', async ({ page }) => {

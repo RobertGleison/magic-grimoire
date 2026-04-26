@@ -306,7 +306,7 @@ export default function LibraryPage() {
                 </button>
               </div>
 <button className="btn" onClick={() => setShowImport(true)} style={{ fontSize: '0.72rem' }}>Import .txt</button>
-              <button className="btn btn-primary" onClick={() => router.push('/grimoire')} style={{ fontSize: '0.75rem' }}>Generate new deck</button>
+              <button className="btn btn-primary" onClick={() => router.push('/deck-builder')} style={{ fontSize: '0.75rem' }}>Generate new deck</button>
             </div>
           </div>
 

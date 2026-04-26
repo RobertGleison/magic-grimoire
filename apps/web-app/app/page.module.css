@@ -202,6 +202,13 @@
   animation-name: marquee-reverse;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .marqueeRow,
+  .marqueeRowReverse {
+    animation: none;
+  }
+}
+
 .marqueeCard {
   padding: 14px 22px;
   border: 1px solid rgba(var(--accent-glow), 0.2);

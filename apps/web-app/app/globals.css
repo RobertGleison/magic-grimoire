@@ -261,9 +261,14 @@ body::after {
   z-index: 3;
 }
 @media (max-width: 720px) {
-  .spine { padding: 0 16px; }
-  .spine-link { padding: 0 10px; font-size: 0.55rem; }
-  .spine-btn { padding: 5px 10px; font-size: 0.55rem; margin-left: 4px; }
+  .spine { padding: 0 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .spine::-webkit-scrollbar { display: none; }
+  .spine-link { padding: 0 10px; font-size: 0.55rem; white-space: nowrap; }
+  .spine-btn { padding: 5px 10px; font-size: 0.55rem; margin-left: 4px; white-space: nowrap; }
+}
+@media (max-width: 480px) {
+  .spine-link { padding: 0 7px; font-size: 0.5rem; }
+  .spine-btn { padding: 4px 7px; font-size: 0.5rem; margin-left: 2px; }
 }
 
 /* Mana pip */

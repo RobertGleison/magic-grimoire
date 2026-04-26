@@ -5,7 +5,7 @@ import { ArcaneSigil } from './components/ArcaneSigil/ArcaneSigil';
 import { ManaSymbol } from './components/ManaSymbol/ManaSymbol';
 import { ALL_COLORS } from './enums';
 import { Ornament } from './components/ArcaneSigilLogo/ArcaneSigilLogo';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import style from './page.module.css';
 
 
@@ -29,13 +29,14 @@ export default function LandingPage() {
 
 
 function RevealSection({ children, className }: { children: React.ReactNode; className?: string }) {
+  const reducedMotion = useReducedMotion();
   return (
     <motion.div
       className={className}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.1 }}
-      transition={{ duration: 1, ease: 'easeOut' }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 1, ease: 'easeOut' }}
     >
       {children}
     </motion.div>
@@ -97,7 +98,7 @@ const STEPS = [
   { roman: 'I',   title: 'Describe', body: 'Type what kind of Magic: The Gathering deck you want. Any archetype, format, or playstyle. Plain text works fine.' },
   { roman: 'II',  title: 'Search',   body: 'We query the card database and use AI to find cards that match your description.' },
   { roman: 'III', title: 'Build',    body: 'A full deck is assembled with all your requirements but maintaining mana balance, synergy and competitivity.' },
-  { roman: 'IV',  title: 'Revision',   body: 'You can rebuild the entire deck or just the cards you dislike until reach your preferences.' },
+  { roman: 'IV',  title: 'Revision',   body: 'You can rebuild the entire deck or just the cards you dislike until you reach your preferences.' },
 ];
 
 function HowToBuildYourDeckSteps() {
@@ -157,7 +158,7 @@ const INCANTATIONS = [
   "Aura voltron with hexproof creatures, pile enchantments on one creature and make it huge",
   "Lifegain synergy in white/black, tokens and drain effects, something that snowballs fast",
   "Izzet prowess for Modern, cantrips and cheap spells, Swiftspear as the main threat",
-  "Werewolf tribal in red/green, keep the pressure so they never transform back. Add enchatments if possible",
+  "Werewolf tribal in red/green, keep the pressure so they never transform back. Add enchantments if possible",
 ];
 
 const MARQUEE_ROWS = [

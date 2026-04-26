@@ -117,9 +117,7 @@ export default function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: Au
         </button>
 
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ margin: '0 auto 18px', width: 56, height: 56 }}>
-            <SealLogo size={60} />
-          </div>
+          <SealLogo size={60} />
           <div className="h-ui" style={{ fontSize: '0.65rem', opacity: 0.6, marginBottom: 8 }}>
             {mode === 'signup' ? 'Inscribe Thy Name' : 'Return to the Tome'}
           </div>

@@ -219,10 +219,13 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
               lineHeight: 1.5,
               color: 'var(--cream)',
             }}
-            dangerouslySetInnerHTML={{
-              __html: message.content.replace(/\*\*(.+?)\*\*/g, '<strong style="color: var(--accent); font-weight: 600;">$1</strong>'),
-            }}
-          />
+          >
+            {message.content.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+              i % 2 === 1
+                ? <strong key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</strong>
+                : part
+            )}
+          </div>
           {isSeeker && message.opts && (
             <div className={s.messageOpts} style={{ justifyContent: 'flex-end' }}>
               <span className="chip">{message.opts.size} cards</span>

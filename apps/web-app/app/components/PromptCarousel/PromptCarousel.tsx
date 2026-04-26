@@ -33,7 +33,7 @@ export function PromptCarousel() {
     <div className="carousel">
       <div className="carousel-track" ref={trackRef} onScroll={onScroll}>
         {PROMPTS.map((ex, i) => (
-          <Link key={i} href="/grimoire" className="prompt-card">
+          <Link key={i} href="/deck-builder" className="prompt-card">
             <div className="prompt-colors">
               {ex.colors.map((c) => (
                 <div key={c} className={`color-pip ${c}`} aria-hidden="true">{c}</div>

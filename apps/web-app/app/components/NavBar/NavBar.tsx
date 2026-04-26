@@ -1,6 +1,7 @@
 'use client';
 
 import './NavBar.css';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 
@@ -19,16 +20,13 @@ export default function SpineNav() {
     <nav className="spine">
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', height: '100%' }}>
         {NAV_LINKS.filter(({ authOnly }) => !authOnly || user).map(({ path, label }) => (
-          <div
+          <Link
             key={path}
+            href={path}
             className={`spine-link${pathname === path ? ' active' : ''}`}
-            onClick={() => router.push(path)}
-            role="link"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && router.push(path)}
           >
             {label}
-          </div>
+          </Link>
         ))}
 
         {user ? (
