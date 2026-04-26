@@ -5,20 +5,20 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 
 const NAV_LINKS = [
-  { path: '/',         label: 'Home' },
-  { path: '/deck-builder', label: 'Deck Builder' },
-  { path: '/library',  label: 'Library' },
+  { path: '/',            label: 'Home',         authOnly: false },
+  { path: '/deck-builder', label: 'Deck Builder', authOnly: false },
+  { path: '/library',     label: 'Library',      authOnly: true },
 ];
 
 export default function SpineNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, openAuth } = useUser();
+  const { user, setUser, openAuth } = useUser();
 
   return (
     <nav className="spine">
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', height: '100%' }}>
-        {NAV_LINKS.map(({ path, label }) => (
+        {NAV_LINKS.filter(({ authOnly }) => !authOnly || user).map(({ path, label }) => (
           <div
             key={path}
             className={`spine-link${pathname === path ? ' active' : ''}`}
@@ -31,7 +31,9 @@ export default function SpineNav() {
           </div>
         ))}
 
-        {!user && (
+        {user ? (
+          <button className="spine-btn" onClick={() => { setUser(null); router.push('/'); }}>Log Out</button>
+        ) : (
           <>
             <button className="spine-btn" onClick={openAuth}>Log In</button>
             <button className="spine-btn spine-btn-primary" onClick={openAuth}>Sign Up</button>

@@ -254,7 +254,7 @@ function DeckRow({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { user, setUser } = useUser();
+  const { user } = useUser();
   const [view, setView] = useState<LibraryView>('grid');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importedDecks, setImportedDecks] = useState<SavedDeck[]>([]);
@@ -274,8 +274,6 @@ export default function LibraryPage() {
     setShowImport(false);
     setSelectedId(deck.id);
   };
-
-  const handleLogout = () => { setUser(null); router.push('/'); };
 
   return (
     <div className={s.page}>
@@ -307,8 +305,7 @@ export default function LibraryPage() {
                   <svg width="13" height="13" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="1.5" fill="currentColor" /><rect x="1" y="6" width="12" height="1.5" fill="currentColor" /><rect x="1" y="10" width="12" height="1.5" fill="currentColor" /></svg>
                 </button>
               </div>
-              <button className="btn" onClick={handleLogout} style={{ fontSize: '0.7rem' }}>Log out</button>
-              <button className="btn" onClick={() => setShowImport(true)} style={{ fontSize: '0.72rem' }}>Import .txt</button>
+<button className="btn" onClick={() => setShowImport(true)} style={{ fontSize: '0.72rem' }}>Import .txt</button>
               <button className="btn btn-primary" onClick={() => router.push('/grimoire')} style={{ fontSize: '0.75rem' }}>Generate new deck</button>
             </div>
           </div>
