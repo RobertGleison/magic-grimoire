@@ -1,26 +1,21 @@
 'use client';
 
+import './ArcaneSigilLogo.css';
 import { ReactNode, CSSProperties } from 'react';
 
-export function SealLogo({ size = 36 }: { size?: number }) {
+export function ArcaneSigilLogo({ size = 36 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
-      <circle cx="20" cy="20" r="18" fill="none" stroke="var(--accent)" strokeWidth="1" opacity="0.7" />
-      <circle cx="20" cy="20" r="14" fill="none" stroke="var(--accent)" strokeWidth="0.5" opacity="0.5" />
-      <polygon
-        points={[...Array(5)].map((_, i) => {
-          const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-          return `${20 + Math.cos(a) * 10},${20 + Math.sin(a) * 10}`;
-        }).join(' ')}
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth="0.8"
-        opacity="0.9"
-      />
-      <circle cx="20" cy="20" r="2" fill="var(--accent)" />
-    </svg>
+    <img
+      src="/assets/grimoire_icon.png"
+      width={size}
+      height={size}
+      alt="Magic Grimoire"
+      style={{ display: 'block', objectFit: 'contain' }}
+    />
   );
 }
+
+export { ArcaneSigilLogo as SealLogo };
 
 export function Ornament({ children, style }: { children?: ReactNode; style?: CSSProperties }) {
   return (

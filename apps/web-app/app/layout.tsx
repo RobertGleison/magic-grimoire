@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
-import SpineNav from "./components/SpineNav";
-import AuthGate from "./components/AuthGate";
+import SpineNav from "./components/NavBar/NavBar";
+import AuthGate from "./components/AuthGate/AuthGate";
 
 export const metadata: Metadata = {
   title: "Magic Grimoire",
   description: "AI-powered Magic: The Gathering deck builder. Describe your playstyle in plain language and get a balanced 60-card deck with real MTG cards — instantly.",
+  icons: { icon: '/assets/grimoire_icon.png' },
 };
 
 export default function RootLayout({

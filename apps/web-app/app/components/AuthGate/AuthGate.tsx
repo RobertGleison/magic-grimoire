@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useUser } from '../context/UserContext';
-import AuthModal from './AuthModal';
+import { useUser } from '../../context/UserContext';
+import AuthModal from '../AuthModal/AuthModal';
 
 export default function AuthGate() {
   const { authOpen, closeAuth, setUser } = useUser();

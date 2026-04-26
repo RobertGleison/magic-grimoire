@@ -88,7 +88,7 @@ apps/web-app/app/
 │   ├── ManaSymbol.tsx       # MTG mana cost display
 │   ├── DeckPanel.tsx        # Right panel: deck list/grid view
 │   ├── AuthModal.tsx        # Login/signup modal
-│   └── atoms.tsx            # SealLogo, Ornament, Frame
+│   └── ArcaneSigilLogo.tsx            # SealLogo, Ornament, Frame
 └── hooks/
     ├── useReveal.ts         # Intersection observer reveal animation
     └── useAutoScroll.ts     # Auto-scroll on new content

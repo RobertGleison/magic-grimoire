@@ -1,6 +1,7 @@
 'use client';
 
-// Expands single-char MTG codes to full color names used in asset filenames
+import './ManaSymbol.css';
+
 const MTG_CODE: Record<string, string> = {
   W: 'WHITE', U: 'BLUE', B: 'BLACK', R: 'RED', G: 'GREEN', C: 'COLORLESS',
 };
