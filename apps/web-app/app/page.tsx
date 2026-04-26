@@ -17,13 +17,13 @@ export default function LandingPage() {
   };
 
   return (
-    <div className={style.page}>
+    <main className={style.page}>
       <HeroSection onEnter={enterGrimoire} />
       <HowToBuildYourDeckSteps />
       <FeaturesSection />
       <CommentSection />
       <CallToAction onEnter={enterGrimoire} />
-    </div>
+    </main>
   );
 }
 

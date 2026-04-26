@@ -259,17 +259,6 @@ export default function LibraryPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importedDecks, setImportedDecks] = useState<SavedDeck[]>([]);
   const [showImport, setShowImport] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(460);
-
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = panelWidth;
-    const onMove = (ev: MouseEvent) => setPanelWidth(Math.max(300, Math.min(800, startW + (startX - ev.clientX))));
-    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
 
   useEffect(() => {
     if (!user) router.replace('/');
@@ -292,7 +281,7 @@ export default function LibraryPage() {
     <div className={s.page}>
       {/* Main list/grid area */}
       <div className={s.mainArea}>
-        <div className={`${s.mainInner} ${selectedDeck ? s.mainInnerNarrow : ''}`}>
+        <div className={s.mainInner}>
 
           {/* Header */}
           <div className={s.header}>
@@ -343,13 +332,12 @@ export default function LibraryPage() {
 
       {showImport && <ImportModal onImport={handleImport} onClose={() => setShowImport(false)} />}
 
-      {/* Detail panel */}
+      {/* Fullscreen deck overlay */}
       {selectedDeck && (
-        <div className={s.detailPanel} style={{ width: panelWidth }}>
-          <div className={s.resizeHandle} onMouseDown={handleResizeStart}>
-            <div className={s.resizeBar} />
+        <div className={s.deckOverlay}>
+          <div className={s.deckToolbar}>
+            <button className={s.deckToolbarBtn} onClick={() => setSelectedId(null)}>⊡ Close</button>
           </div>
-          <button className={s.closeBtn} onClick={() => setSelectedId(null)}>×</button>
           <DeckPanel
             deck={{
               id: selectedDeck.id,

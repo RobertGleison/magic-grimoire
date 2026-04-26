@@ -72,6 +72,103 @@ const MOCK_DECK: DeckData = {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+interface OptionsPanelProps {
+  format: string;
+  setFormat: (v: string) => void;
+  colors: string[];
+  toggleColor: (c: string) => void;
+  deckSize: number;
+  setDeckSize: (v: number) => void;
+  strategy: string;
+  setStrategy: (v: string) => void;
+}
+
+function OptionsPanel({ format, setFormat, colors, toggleColor, deckSize, setDeckSize, strategy, setStrategy }: OptionsPanelProps) {
+  return (
+    <div className={s.optionsPane}>
+      <div className={s.optionsHeader}>
+        <SealLogo size={20} />
+        <span className={`h-ui ${s.optionsTitle}`}>The Rites</span>
+      </div>
+
+      <div className={s.optsSection}>
+        <div className={`h-ui ${s.optsSectionLabel}`}>Format</div>
+        <div className={s.optsBtnGroup}>
+          {ALL_FORMATS.map(f => (
+            <button
+              key={f}
+              className={`opt-btn${format === f ? ' on' : ''} ${s.optsSideBtn}`}
+              onClick={() => { setFormat(f); if (f === 'Commander') setDeckSize(100); }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={s.optsDivider} />
+
+      <div className={s.optsSection}>
+        <div className={`h-ui ${s.optsSectionLabel}`}>Colors</div>
+        <div className={s.colorRow}>
+          {BASIC_COLORS.map(c => (
+            <button
+              key={c}
+              className={`${s.colorBtn}${colors.includes(c) ? ` ${s.colorBtnOn}` : ''}`}
+              onClick={() => toggleColor(c)}
+              title={COLOR_LABEL[c]}
+            >
+              <ManaSymbol symbol={c} size={16} />
+            </button>
+          ))}
+        </div>
+        {colors.length > 0 && (
+          <button className={`opt-btn ${s.clearBtn}`} onClick={() => colors.forEach(c => toggleColor(c))}>
+            clear selection
+          </button>
+        )}
+      </div>
+
+      <div className={s.optsDivider} />
+
+      <div className={s.optsSection}>
+        <div className={`h-ui ${s.optsSectionLabel}`}>Strategy</div>
+        <div className={s.optsBtnGroup}>
+          {ALL_STRATEGIES.map(st => (
+            <button
+              key={st}
+              className={`opt-btn${strategy === st ? ' on' : ''} ${s.optsSideBtn}`}
+              onClick={() => setStrategy(st)}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={s.optsDivider} />
+
+      <div className={s.optsSection}>
+        <div className={`h-ui ${s.optsSectionLabel}`}>Deck Size</div>
+        <div className={s.sizeRow}>
+          <input
+            type="number"
+            min={60}
+            value={deckSize}
+            disabled={format === 'Commander'}
+            onChange={e => setDeckSize(Math.max(60, Number(e.target.value)))}
+            className={s.sizeInput}
+            style={{ opacity: format === 'Commander' ? 0.5 : 1 }}
+          />
+          <span className={s.sizeHint}>
+            {format === 'Commander' ? 'fixed at 100' : 'cards'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChatMessageBubble({ message }: { message: ChatMessage }) {
   const isSeeker = message.role === 'seeker';
 
@@ -89,7 +186,7 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
           style={{
             background: isSeeker
               ? 'radial-gradient(circle at 35% 30%, var(--void-3), var(--void-1))'
-              : 'radial-gradient(circle at 35% 30%, var(--void-4), var(--void-0))',
+              : 'radial-gradient(circle at 35% 30%, var(--void-2), var(--void-0))',
           }}
         >
           <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12, fontStyle: 'italic' }}>
@@ -98,7 +195,7 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
         </div>
         <div>
           <div className={`h-ui ${s.messageLabel}`} style={{ textAlign: isSeeker ? 'right' : 'left' }}>
-            {isSeeker ? `Seeker · ${message.format ?? 'Modern'}` : 'Oracle'}
+            {isSeeker ? `You · ${message.format ?? 'Modern'}` : 'Grimoire'}
           </div>
           <div
             style={{
@@ -142,7 +239,7 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
           <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12 }}>✦</span>
         </div>
         <div>
-          <div className={`h-ui ${s.loadingLabel}`}>Oracle · Divining</div>
+          <div className={`h-ui ${s.loadingLabel}`}>Grimoire · Building</div>
           <div className={s.loadingBox}>
             <div className={s.dots}>
               {[0, 1, 2].map(i => (
@@ -166,86 +263,6 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
   );
 }
 
-function ChatOptions({
-  open, setOpen, format, setFormat, colors, toggleColor, deckSize, setDeckSize, strategy, setStrategy,
-}: {
-  open: boolean; setOpen: (v: boolean) => void;
-  format: string; setFormat: (v: string) => void;
-  colors: string[]; toggleColor: (c: string) => void;
-  deckSize: number; setDeckSize: (v: number) => void;
-  strategy: string; setStrategy: (v: string) => void;
-}) {
-  return (
-    <div className={s.optsWrap}>
-      <div className={s.optsChips}>
-        <button
-          onClick={() => setOpen(!open)}
-          style={{
-            fontFamily: 'var(--font-ui)', fontSize: '0.58rem', letterSpacing: '0.15em', textTransform: 'uppercase',
-            padding: '4px 10px', border: '1px solid rgba(var(--accent-glow), 0.3)',
-            background: open ? 'rgba(var(--accent-glow), 0.15)' : 'transparent',
-            color: open ? 'var(--accent)' : 'var(--cream)', cursor: 'pointer',
-          }}
-        >
-          ⚙ Options {open ? '▾' : '▸'}
-        </button>
-        <span className="chip">{format}</span>
-        <span className="chip">{deckSize} cards</span>
-        {colors.length > 0 && (
-          <span className={`chip ${s.chipColors}`}>
-            {colors.map(c => <ManaSymbol key={c} symbol={c} size={11} />)}
-          </span>
-        )}
-        {strategy !== 'Balanced' && <span className="chip">{strategy}</span>}
-      </div>
-
-      {open && (
-        <div className={s.optsPanel}>
-          <div className="opt-row">
-            <span className="opt-label">Format</span>
-            {ALL_FORMATS.map(f => (
-              <button key={f} className={`opt-btn${format === f ? ' on' : ''}`} onClick={() => { setFormat(f); if (f === 'Commander') setDeckSize(100); }}>{f}</button>
-            ))}
-          </div>
-          <div className="opt-row">
-            <span className="opt-label">Colors</span>
-            {BASIC_COLORS.map(c => (
-              <button key={c} className={`opt-btn${colors.includes(c) ? ' on' : ''} ${s.optColorBtn}`} onClick={() => toggleColor(c)}>
-                <ManaSymbol symbol={c} size={13} />
-                <span>{COLOR_LABEL[c]}</span>
-              </button>
-            ))}
-            {colors.length > 0 && (
-              <button className="opt-btn" onClick={() => colors.forEach(c => toggleColor(c))} style={{ opacity: 0.7 }}>Clear</button>
-            )}
-          </div>
-          <div className="opt-row">
-            <span className="opt-label">Size</span>
-            <input
-              type="number"
-              min={60}
-              value={deckSize}
-              disabled={format === 'Commander'}
-              onChange={e => setDeckSize(Math.max(60, Number(e.target.value)))}
-              className={s.sizeInput}
-              style={{ opacity: format === 'Commander' ? 0.5 : 1 }}
-            />
-            <span className={s.sizeHint}>
-              {format === 'Commander' ? 'fixed at 100' : 'cards · 60 – 200+'}
-            </span>
-          </div>
-          <div className="opt-row" style={{ marginBottom: 0 }}>
-            <span className="opt-label">Strategy</span>
-            {ALL_STRATEGIES.map(st => (
-              <button key={st} className={`opt-btn${strategy === st ? ' on' : ''}`} onClick={() => setStrategy(st)}>{st}</button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Inner page (needs useSearchParams) ─────────────────────────────────────
 
 function GrimoireInner() {
@@ -255,7 +272,7 @@ function GrimoireInner() {
   const initialPrompt = searchParams.get('prompt') ?? '';
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'oracle', content: 'The tome stirs. Speak thy desire, Seeker — an archetype, a format, a feeling. I shall divine thy sixty cards.' },
+    { role: 'oracle', content: 'Hello! Describe the deck you want — an archetype, a format, a playstyle. I\'ll build your sixty cards.' },
   ]);
   const [activeDeck, setActiveDeck] = useState<DeckData | null>(null);
   const [input, setInput] = useState(initialPrompt);
@@ -263,15 +280,38 @@ function GrimoireInner() {
   const [colors, setColors] = useState<string[]>([]);
   const [deckSize, setDeckSize] = useState(60);
   const [strategy, setStrategy] = useState('Balanced');
-  const [optsOpen, setOptsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>(0);
   const [showSaveNudge, setShowSaveNudge] = useState(false);
+  const [optionsCollapsed, setOptionsCollapsed] = useState(false);
+  const [deckFullscreen, setDeckFullscreen] = useState(false);
+  const [deckWidth, setDeckWidth] = useState(460);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const esRef = useRef<EventSource | null>(null);
   const cancelRef = useRef(false);
+
+  const handleResizeDrag = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = deckWidth;
+    const onMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX;
+      const maxWidth = Math.floor(window.innerWidth * 2 / 3);
+      setDeckWidth(Math.min(Math.max(360, startWidth + delta), maxWidth));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [deckWidth]);
 
   const toggleColor = (c: string) => {
     setColors(cs => cs.includes(c) ? cs.filter(x => x !== c) : [...cs, c]);
@@ -304,7 +344,7 @@ function GrimoireInner() {
       esRef.current.close();
       esRef.current = null;
     }
-    updateLastOracleMessage({ loading: false, content: 'The ritual was interrupted.' });
+    updateLastOracleMessage({ loading: false, content: 'Deck generation was stopped.' });
     setLoading(false);
   }, [updateLastOracleMessage]);
 
@@ -316,13 +356,13 @@ function GrimoireInner() {
       setActiveDeck(deck);
       updateLastOracleMessage({
         loading: false,
-        content: `So it shall be. The tome has divined **${deck.title ?? 'thy deck'}** for **${deck.format}** — ${deck.card_count ?? 0} cards of purpose, balanced and ready for battle.`,
+        content: `Your deck **${deck.title ?? 'Untitled'}** is ready — ${deck.card_count ?? 0} cards built for **${deck.format}**.`,
       });
       if (!user) setShowSaveNudge(true);
     } catch {
       updateLastOracleMessage({
         loading: false,
-        content: 'The deck was forged, but its details could not be retrieved from the archives.',
+        content: 'Your deck was built, but we couldn\'t load the details. Please try again.',
       });
     } finally {
       esRef.current = null;
@@ -368,7 +408,7 @@ function GrimoireInner() {
       setActiveDeck(MOCK_DECK);
       updateLastOracleMessage({
         loading: false,
-        content: `So it shall be. The tome has divined **${MOCK_DECK.title}** for **${MOCK_DECK.format}** — ${MOCK_DECK.card_count} cards of purpose, balanced and ready for battle.`,
+        content: `Your deck **${MOCK_DECK.title}** is ready — ${MOCK_DECK.card_count} cards built for **${MOCK_DECK.format}**.`,
       });
       setLoading(false);
       if (!user) setShowSaveNudge(true);
@@ -383,7 +423,7 @@ function GrimoireInner() {
       });
 
       if (initRes.status === 429) {
-        updateLastOracleMessage({ loading: false, content: 'The free ritual is spent. Bind thyself to the tome to continue casting.' });
+        updateLastOracleMessage({ loading: false, content: 'You\'ve used your free build. Sign in to keep generating decks.' });
         setLoading(false);
         openAuth();
         return;
@@ -409,7 +449,7 @@ function GrimoireInner() {
           } else if (data.status === 'failed') {
             es.close();
             esRef.current = null;
-            updateLastOracleMessage({ loading: false, content: 'The ritual has failed. The arcane forces could not be contained. Please try again.' });
+            updateLastOracleMessage({ loading: false, content: 'Deck generation failed. Please try again.' });
             setLoading(false);
           }
         } catch {
@@ -425,7 +465,7 @@ function GrimoireInner() {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      updateLastOracleMessage({ loading: false, content: `Could not reach the arcane server. ${message}` });
+      updateLastOracleMessage({ loading: false, content: `Could not reach the server. ${message}` });
       setLoading(false);
     }
   }, [input, format, colors, deckSize, strategy, loading, fetchDeck, updateLastOracleMessage]);
@@ -438,149 +478,173 @@ function GrimoireInner() {
   };
 
   const isGuest = !user;
+  const leftWidth = optionsCollapsed ? 40 : 256;
+  const gridCols = activeDeck && !deckFullscreen
+    ? `${leftWidth}px 1fr ${deckWidth}px`
+    : `${leftWidth}px 1fr`;
 
   return (
-    <>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: activeDeck ? 'minmax(380px, 1fr) minmax(460px, 1fr)' : '1fr',
-        height: '100vh',
-        position: 'relative',
-      }}>
-        {/* LEFT: Chat */}
-        <div
-          className={s.chatCol}
-          style={{ borderRight: activeDeck ? '1px solid rgba(var(--accent-glow), 0.2)' : 'none' }}
+    <div className={s.layout} style={{ gridTemplateColumns: gridCols }}>
+
+      {/* LEFT: Options panel */}
+      <aside className={`${s.optionsCol} ${optionsCollapsed ? s.optionsColCollapsed : ''}`}>
+        <button
+          className={s.collapseBtn}
+          onClick={() => setOptionsCollapsed(v => !v)}
+          title={optionsCollapsed ? 'Expand options' : 'Collapse options'}
         >
-          {/* Header */}
-          <div className={s.header}>
-            <div className={s.headerLeft}>
-              <div className={`seal ${s.headerSeal}`}>
-                <SealLogo size={22} />
-              </div>
-              <div className={s.headerMeta}>
-                <div className={`h-ui ${s.headerTagline}`}>The Grimoire</div>
-                <div className={`h-display ${s.headerTitle}`}>
-                  {activeDeck ? (activeDeck.title ?? 'Arcane Deck') : 'Consulting the tome'}
-                </div>
-              </div>
-            </div>
-            {isGuest && (
-              <button className={s.bindBtn} onClick={openAuth}>✦ Bind Seeker</button>
-            )}
-          </div>
+          {optionsCollapsed ? '›' : '‹'}
+        </button>
+        {!optionsCollapsed && (
+          <OptionsPanel
+            format={format} setFormat={setFormat}
+            colors={colors} toggleColor={toggleColor}
+            deckSize={deckSize} setDeckSize={setDeckSize}
+            strategy={strategy} setStrategy={setStrategy}
+          />
+        )}
+      </aside>
 
-          {/* Messages */}
-          <div ref={scrollRef} className={s.messages}>
-            <div className={s.sigilBg}>
-              <ArcaneSigil size={600} intensity={0.3} />
+      {/* MIDDLE: Chat */}
+      <div className={s.chatCol}>
+        {/* Header */}
+        <div className={s.header}>
+          <div className={s.headerLeft}>
+            <div className={`seal ${s.headerSeal}`}>
+              <SealLogo size={22} />
             </div>
-            <div className={s.messagesInner}>
-              {messages.map((m, i) => (
-                m.loading
-                  ? <LoadingBubble key={i} stage={loadingStage} />
-                  : <ChatMessageBubble key={i} message={m} />
-              ))}
+            <div className={s.headerMeta}>
+              <div className={`h-ui ${s.headerTagline}`}>The Grimoire</div>
+              <div className={`h-display ${s.headerTitle}`}>
+                {activeDeck ? (activeDeck.title ?? 'Arcane Deck') : 'Consulting the tome'}
+              </div>
             </div>
           </div>
-
-          {/* Save nudge */}
-          {showSaveNudge && isGuest && (
-            <div className={s.saveNudge}>
-              <div className={s.saveNudgeBox}>
-                <span className={s.saveNudgeText}>
-                  ✦ Thy deck awaits — Sign in to bind it to thy grimoire.
-                </span>
-                <div className={s.saveNudgeActions}>
-                  <button className="btn btn-primary" onClick={openAuth} style={{ fontSize: '0.65rem', padding: '7px 14px' }}>Sign In</button>
-                  <button className="btn" onClick={() => setShowSaveNudge(false)} style={{ fontSize: '0.65rem', padding: '7px 10px' }}>✕</button>
-                </div>
-              </div>
-            </div>
+          {isGuest && (
+            <button className={s.bindBtn} onClick={openAuth}>✦ Sign In</button>
           )}
+        </div>
 
-          {/* Input */}
-          <div className={s.inputArea}>
-            <div className={s.inputInner}>
-              {messages.length === 1 && !loading && (
-                <div className={s.quickPrompts}>
-                  {QUICK_PROMPTS.map(p => (
-                    <button key={p} className={s.quickPrompt} onClick={() => setInput(p)}>❝ {p} ❞</button>
-                  ))}
-                </div>
-              )}
-              <div className={s.inputBox}>
-                <ChatOptions
-                  open={optsOpen} setOpen={setOptsOpen}
-                  format={format} setFormat={setFormat}
-                  colors={colors} toggleColor={toggleColor}
-                  deckSize={deckSize} setDeckSize={setDeckSize}
-                  strategy={strategy} setStrategy={setStrategy}
-                />
-                <textarea
-                  ref={textareaRef}
-                  className={s.inputTextarea}
-                  value={input}
-                  onChange={e => {
-                    setInput(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px';
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Whisper thy desire into the tome…"
-                  style={{ fontStyle: input ? 'normal' : 'italic' }}
-                  rows={1}
-                  disabled={loading}
-                />
-                <div className={s.inputFooter}>
-                  <span className={`h-ui ${s.castHint}`}>⏎ to cast</span>
-                  <div className={s.inputButtons}>
-                    {loading && (
-                      <button
-                        onClick={handleStop}
-                        style={{
-                          fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
-                          padding: '7px 14px', background: 'transparent',
-                          border: '1px solid rgba(180, 60, 60, 0.5)',
-                          color: 'rgba(220, 100, 100, 0.9)',
-                          cursor: 'pointer', transition: 'all 0.2s',
-                        }}
-                      >
-                        ✕ Stop
-                      </button>
-                    )}
+        {/* Messages */}
+        <div ref={scrollRef} className={s.messages}>
+          <div className={s.sigilBg}>
+            <ArcaneSigil size={560} intensity={0.25} />
+          </div>
+          <div className={s.messagesInner}>
+            {messages.map((m, i) => (
+              m.loading
+                ? <LoadingBubble key={i} stage={loadingStage} />
+                : <ChatMessageBubble key={i} message={m} />
+            ))}
+          </div>
+        </div>
+
+        {/* Save nudge */}
+        {showSaveNudge && isGuest && (
+          <div className={s.saveNudge}>
+            <div className={s.saveNudgeBox}>
+              <span className={s.saveNudgeText}>
+                ✦ Sign in to save this deck to your library.
+              </span>
+              <div className={s.saveNudgeActions}>
+                <button className="btn btn-primary" onClick={openAuth} style={{ fontSize: '0.65rem', padding: '7px 14px' }}>Sign In</button>
+                <button className="btn" onClick={() => setShowSaveNudge(false)} style={{ fontSize: '0.65rem', padding: '7px 10px' }}>✕</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Input */}
+        <div className={s.inputArea}>
+          <div className={s.inputInner}>
+            {messages.length === 1 && !loading && (
+              <div className={s.quickPrompts}>
+                {QUICK_PROMPTS.map(p => (
+                  <button key={p} className={s.quickPrompt} onClick={() => setInput(p)}>❝ {p} ❞</button>
+                ))}
+              </div>
+            )}
+            <div className={s.inputBox}>
+              <textarea
+                ref={textareaRef}
+                className={s.inputTextarea}
+                value={input}
+                onChange={e => {
+                  setInput(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px';
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Talk with the grimoire…"
+                style={{ fontStyle: input ? 'normal' : 'italic' }}
+                rows={1}
+                disabled={loading}
+              />
+              <div className={s.inputFooter}>
+                <span className={`h-ui ${s.castHint}`}>⏎ to send</span>
+                <div className={s.inputButtons}>
+                  {loading && (
                     <button
-                      onClick={handleSend}
-                      disabled={loading}
+                      onClick={handleStop}
                       style={{
                         fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
-                        padding: '7px 16px',
-                        background: !loading ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.3), rgba(var(--accent-glow), 0.1))' : 'transparent',
-                        border: '1px solid ' + (!loading ? 'rgba(var(--accent-glow), 0.6)' : 'rgba(var(--accent-glow), 0.15)'),
-                        color: !loading ? 'var(--accent)' : 'var(--muted)',
-                        cursor: !loading ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.2s',
+                        padding: '7px 14px', background: 'transparent',
+                        border: '1px solid rgba(180, 60, 60, 0.5)',
+                        color: 'rgba(220, 100, 100, 0.9)',
+                        cursor: 'pointer', transition: 'all 0.2s',
                       }}
                     >
-                      Cast ✦
+                      ✕ Stop
                     </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={handleSend}
+                    disabled={loading}
+                    style={{
+                      fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
+                      padding: '7px 16px',
+                      background: !loading ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.3), rgba(var(--accent-glow), 0.1))' : 'transparent',
+                      border: '1px solid ' + (!loading ? 'rgba(var(--accent-glow), 0.6)' : 'rgba(var(--accent-glow), 0.15)'),
+                      color: !loading ? 'var(--accent)' : 'var(--muted)',
+                      cursor: !loading ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Send ✦
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* RIGHT: Deck panel */}
-        {activeDeck && (
+      {/* RIGHT: Deck panel */}
+      {activeDeck && (
+        <div className={`${s.deckWrapper} ${deckFullscreen ? s.deckFullscreen : ''}`}>
+          {!deckFullscreen && (
+            <div className={s.resizeHandle} onMouseDown={handleResizeDrag} />
+          )}
+          <div className={s.deckToolbar}>
+            {isGuest && (
+              <button className={s.deckToolbarBtn} onClick={openAuth}>✦ Save Deck</button>
+            )}
+            <button
+              className={s.deckToolbarBtn}
+              onClick={() => setDeckFullscreen(f => !f)}
+              title={deckFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {deckFullscreen ? '⊡' : '⤢'}
+            </button>
+          </div>
           <DeckPanel
             deck={activeDeck}
             isGuest={isGuest}
             onRequestLogin={openAuth}
           />
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
 

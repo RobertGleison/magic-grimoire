@@ -5,8 +5,8 @@ import { ManaSymbol, ManaCost } from '../ManaSymbol/ManaSymbol';
 
 // ─── Card hover preview ───────────────────────────────────────────────────────
 
-const PREVIEW_W = 200;
-const PREVIEW_H = 279; // MTG card aspect ratio
+const PREVIEW_W = 200 * 1.5;
+const PREVIEW_H = 279 * 1.5; // MTG card aspect ratio
 
 function CardImageTooltip({ name, image_uri, pos }: {
   name: string;
@@ -104,10 +104,41 @@ function groupCards(cards: CardEntry[]): CardGroup[] {
     }));
 }
 
+function parseCmc(manaCost: string): number {
+  let cmc = 0;
+  for (const token of (manaCost.match(/\{[^}]+\}/g) ?? [])) {
+    const inner = token.slice(1, -1);
+    if (/^\d+$/.test(inner)) cmc += parseInt(inner, 10);
+    else if (inner !== 'X') cmc += 1;
+  }
+  return cmc;
+}
+
 function computeStats(cards: CardEntry[]) {
-  const creatureCount = cards.filter(c => (c.type_line ?? '').toLowerCase().includes('creature')).reduce((s, c) => s + c.quantity, 0);
-  const manaBase = cards.filter(c => (c.type_line ?? '').toLowerCase().includes('land')).reduce((s, c) => s + c.quantity, 0);
-  return { creatureCount, manaBase };
+  const byCat: Record<string, number> = {};
+  for (const card of cards) {
+    const cat = getCardCategory(card.type_line);
+    byCat[cat] = (byCat[cat] ?? 0) + card.quantity;
+  }
+
+  const curve: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5+': 0 };
+  for (const card of cards) {
+    if (getCardCategory(card.type_line) === 'Lands') continue;
+    const cmc = parseCmc(card.mana_cost ?? '');
+    if (cmc === 0) continue;
+    const bucket = cmc >= 5 ? '5+' : String(cmc);
+    curve[bucket] += card.quantity;
+  }
+
+  return {
+    creatureCount: byCat['Creatures'] ?? 0,
+    manaBase: byCat['Lands'] ?? 0,
+    instantCount: byCat['Instants'] ?? 0,
+    sorceryCount: byCat['Sorceries'] ?? 0,
+    enchantmentCount: byCat['Enchantments'] ?? 0,
+    artifactCount: byCat['Artifacts'] ?? 0,
+    curve,
+  };
 }
 
 function viewBtn(active: boolean): React.CSSProperties {
@@ -274,6 +305,10 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
           {[
             ['Total', deck.card_count ?? cards.reduce((s, c) => s + c.quantity, 0)],
             ['Creat.', stats.creatureCount],
+            ['Instant', stats.instantCount],
+            ['Sorcery', stats.sorceryCount],
+            ['Enchant.', stats.enchantmentCount],
+            ['Artifact', stats.artifactCount],
             ['Lands', stats.manaBase],
           ].map(([label, val]) => (
             <div key={label}>
@@ -282,6 +317,39 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
             </div>
           ))}
         </div>
+
+        {/* Mana curve */}
+        {(() => {
+          const buckets = ['1', '2', '3', '4', '5+'];
+          const maxVal = Math.max(...buckets.map(b => stats.curve[b]), 1);
+          return (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(var(--accent-glow), 0.1)' }}>
+              <div className="h-ui" style={{ fontSize: '0.5rem', opacity: 0.55, marginBottom: 8 }}>Mana Curve</div>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 52 }}>
+                {buckets.map(b => {
+                  const val = stats.curve[b];
+                  const barH = Math.max(val > 0 ? 3 : 1, Math.round((val / maxVal) * 36));
+                  return (
+                    <div key={b} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, height: '100%', justifyContent: 'flex-end' }}>
+                      {val > 0 && (
+                        <div className="h-ui" style={{ fontSize: '0.44rem', color: 'var(--accent)', opacity: 0.9 }}>{val}</div>
+                      )}
+                      <div style={{
+                        width: '100%',
+                        height: barH,
+                        background: val > 0
+                          ? 'linear-gradient(to top, rgba(var(--accent-glow), 0.65), rgba(var(--accent-glow), 0.25))'
+                          : 'rgba(var(--accent-glow), 0.07)',
+                        borderTop: val > 0 ? '1px solid rgba(var(--accent-glow), 0.6)' : 'none',
+                      }} />
+                      <div className="h-ui" style={{ fontSize: '0.44rem', color: 'var(--muted)', opacity: 0.55 }}>{b}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Card list */}
