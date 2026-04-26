@@ -49,6 +49,8 @@
   flex-direction: column;
   position: relative;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ── Chat header ── */

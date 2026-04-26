@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ManaSymbol, ManaCost } from '../ManaSymbol/ManaSymbol';
 
 // ─── Card hover preview ───────────────────────────────────────────────────────
@@ -202,7 +202,13 @@ function CardRow({ card, isGuest }: { card: CardEntry; isGuest: boolean }) {
   );
 }
 
-function MiniCardTile({ card }: { card: CardEntry }) {
+interface MiniCardTileProps {
+  card: CardEntry;
+  checked?: boolean;
+  onCheck?: () => void;
+}
+
+function MiniCardTile({ card, checked, onCheck }: MiniCardTileProps) {
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const imgSrc = card.image_uri
     ?? `https://api.scryfall.com/cards/named?format=image&version=normal&exact=${encodeURIComponent(card.name)}`;
@@ -210,23 +216,33 @@ function MiniCardTile({ card }: { card: CardEntry }) {
   return (
     <>
       <div
+        onClick={onCheck}
         style={{
           aspectRatio: '0.72 / 1',
           position: 'relative',
-          border: '1px solid rgba(var(--accent-glow), 0.22)',
-          cursor: 'default',
+          border: `1px solid ${checked ? 'rgba(var(--accent-glow), 0.7)' : 'rgba(var(--accent-glow), 0.22)'}`,
+          cursor: onCheck ? 'pointer' : 'default',
           transition: 'all 0.25s',
           overflow: 'hidden',
+          boxShadow: checked ? '0 0 16px rgba(var(--accent-glow), 0.25)' : 'none',
+          transform: checked ? 'translateY(-2px)' : undefined,
         }}
-        onMouseEnter={e => { setHoverPos({ x: e.clientX, y: e.clientY }); e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.5)'; }}
+        onMouseEnter={e => { setHoverPos({ x: e.clientX, y: e.clientY }); if (!checked) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.5)'; } }}
         onMouseMove={e => setHoverPos({ x: e.clientX, y: e.clientY })}
-        onMouseLeave={e => { setHoverPos(null); e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.22)'; }}
+        onMouseLeave={e => { setHoverPos(null); if (!checked) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(var(--accent-glow), 0.22)'; } }}
       >
         <img
           src={imgSrc}
           alt={card.name}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
+        {checked && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(var(--accent-glow), 0.15)',
+            pointerEvents: 'none',
+          }} />
+        )}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           padding: '16px 6px 5px',
@@ -246,6 +262,7 @@ interface DeckPanelProps {
   deck: DeckData;
   isGuest: boolean;
   onRequestLogin: () => void;
+  onReplaceCards?: (cards: CardEntry[]) => void;
 }
 
 function exportTxt(deck: DeckData) {
@@ -260,9 +277,50 @@ function exportTxt(deck: DeckData) {
   URL.revokeObjectURL(url);
 }
 
-export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelProps) {
+export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCards }: DeckPanelProps) {
   const [layout, setLayout] = useState<DeckLayout>('list');
-  const cards = deck.cards ?? [];
+  const [localCards, setLocalCards] = useState<CardEntry[]>(deck.cards ?? []);
+  const [checkedCards, setCheckedCards] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLocalCards(deck.cards ?? []);
+    setCheckedCards(new Set());
+  }, [deck.id]);
+
+  const toggleCardCheck = (key: string) => {
+    setCheckedCards(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const removeCheckedCards = () => {
+    setLocalCards(prev => prev
+      .map(card => {
+        const selectedCount = [...Array(Math.min(card.quantity, 4))]
+          .filter((_, qi) => checkedCards.has(`${card.name}-${qi}`)).length;
+        return { ...card, quantity: card.quantity - selectedCount };
+      })
+      .filter(card => card.quantity > 0)
+    );
+    setCheckedCards(new Set());
+  };
+
+  const handleReplaceViaChat = () => {
+    const countByName: Record<string, number> = {};
+    for (const key of checkedCards) {
+      const name = key.replace(/-\d+$/, '');
+      countByName[name] = (countByName[name] ?? 0) + 1;
+    }
+    const selectedCards = localCards
+      .filter(c => countByName[c.name])
+      .map(c => ({ ...c, quantity: countByName[c.name] }));
+    onReplaceCards?.(selectedCards);
+    setCheckedCards(new Set());
+  };
+
+  const cards = localCards;
   const groups = groupCards(cards);
   const stats = computeStats(cards);
 
@@ -381,7 +439,12 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
                 {group.cards.flatMap((card, ci) =>
                   [...Array(Math.min(card.quantity, 4))].map((_, qi) => (
-                    <MiniCardTile key={`${ci}-${qi}`} card={card} />
+                    <MiniCardTile
+                      key={`${ci}-${qi}`}
+                      card={card}
+                      checked={checkedCards.has(`${card.name}-${qi}`)}
+                      onCheck={() => toggleCardCheck(`${card.name}-${qi}`)}
+                    />
                   ))
                 )}
               </div>
@@ -392,7 +455,18 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin }: DeckPanelPr
 
       {/* Footer actions */}
       <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(var(--accent-glow), 0.15)', background: 'linear-gradient(180deg, transparent, var(--void-0))', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
-        {isGuest ? (
+        {checkedCards.size > 0 ? (
+          <>
+            <span className="h-ui" style={{ fontSize: '0.6rem', color: 'var(--accent)', flex: 1 }}>{checkedCards.size} selected</span>
+            <button className="btn" onClick={() => setCheckedCards(new Set())} style={{ fontSize: '0.65rem' }}>Clear</button>
+            {onReplaceCards && (
+              <button className="btn btn-primary" onClick={handleReplaceViaChat} style={{ fontSize: '0.65rem' }}>Replace via Chat</button>
+            )}
+            <button className="btn" onClick={removeCheckedCards} style={{ fontSize: '0.65rem', color: 'rgba(220, 100, 100, 0.9)', borderColor: 'rgba(220, 100, 100, 0.35)' }}>
+              Remove {checkedCards.size}
+            </button>
+          </>
+        ) : isGuest ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => exportTxt(deck)} style={{ fontSize: '0.68rem' }}>Export .txt</button>
             <button className="btn btn-primary" onClick={onRequestLogin} style={{ fontSize: '0.68rem' }}>Save Deck</button>

@@ -148,36 +148,24 @@ export default function GrimoirePage() {
   const esRef = useRef<EventSource | null>(null);
   const cancelRef = useRef(false);
 
-  const handleResizeDrag = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
+  const handleResizeDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
     const startX = e.clientX;
     const startWidth = deckWidth;
-    const onMove = (ev: MouseEvent) => {
-      const delta = startX - ev.clientX;
+
+    const onMove = (ev: PointerEvent) => {
       const maxWidth = Math.floor(window.innerWidth * 2 / 3);
-      setDeckWidth(Math.min(Math.max(360, startWidth + delta), maxWidth));
+      setDeckWidth(Math.min(Math.max(360, startWidth + (startX - ev.clientX)), maxWidth));
     };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', () => el.removeEventListener('pointermove', onMove), { once: true });
   }, [deckWidth]);
 
-  const toggleColor = (c: string) => {
-    setColors(cs => cs.includes(c) ? cs.filter(x => x !== c) : [...cs, c]);
+  const toggleColor = (color: string) => {
+    setColors(prev => prev.includes(color) ? prev.filter(selected => selected !== color) : [...prev, color]);
   };
-
-  useEffect(() => {
-    if (!loading) return;
-    const t = setInterval(() => setLoadingStage(st => Math.min(st + 1, LOADING_STAGES.length - 1) as LoadingStage), 900);
-    return () => clearInterval(t);
-  }, [loading]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -185,6 +173,8 @@ export default function GrimoirePage() {
     }
   }, [messages, loading]);
 
+  // Patches the last oracle message in-place (e.g. replaces a loading bubble with the final response)
+  // Example: Your deck Verdant Storm is ready — 60 cards built for Modern.
   const updateLastOracleMessage = useCallback((patch: Partial<GrimoireMessage>) => {
     setMessages(prev => {
       const idx = [...prev].reverse().findIndex(m => m.role === 'oracle');
@@ -204,6 +194,7 @@ export default function GrimoirePage() {
     setLoading(false);
   }, [updateLastOracleMessage]);
 
+
   const fetchDeck = useCallback(async (deckId: string) => {
     try {
       const res = await fetch(`/api/v1/decks/${deckId}`);
@@ -212,7 +203,7 @@ export default function GrimoirePage() {
       setActiveDeck(deck);
       updateLastOracleMessage({
         loading: false,
-        content: `Your deck **${deck.title ?? 'Untitled'}** is ready — ${deck.card_count ?? 0} cards built for **${deck.format}**.`,
+        content: `Your deck **${deck.title ?? 'Untitled'}** is ready, ${deck.card_count ?? 0} cards built for **${deck.format}**.`,
       });
       if (!user) setShowSaveNudge(true);
     } catch {
@@ -225,6 +216,7 @@ export default function GrimoirePage() {
       setLoading(false);
     }
   }, [updateLastOracleMessage]);
+
 
   const handleChat = useCallback(async () => {
     if (loading || chatBusy || !input.trim()) return;
@@ -252,6 +244,7 @@ export default function GrimoirePage() {
     });
     setChatBusy(false);
   }, [input, format, colors, deckSize, loading, chatBusy, messages]);
+
 
   const handleGenerateDeck = useCallback(async () => {
     if (loading) return;
@@ -287,7 +280,7 @@ export default function GrimoirePage() {
       setActiveDeck(MOCK_DECK);
       updateLastOracleMessage({
         loading: false,
-        content: `Your deck **${MOCK_DECK.title}** is ready — ${MOCK_DECK.card_count} cards built for **${MOCK_DECK.format}**.`,
+        content: `Your deck **${MOCK_DECK.title}** is ready, ${MOCK_DECK.card_count} cards built for **${MOCK_DECK.format}**.`,
       });
       setLoading(false);
       if (!user) setShowSaveNudge(true);
@@ -443,7 +436,7 @@ export default function GrimoirePage() {
       {activeDeck && (
         <div className={`${style.deckWrapper} ${deckFullscreen ? style.deckFullscreen : ''}`}>
           {!deckFullscreen && (
-            <div className={style.resizeHandle} onMouseDown={handleResizeDrag} />
+            <div className={style.resizeHandle} onPointerDown={handleResizeDrag} />
           )}
           <div className={style.deckToolbar}>
 
@@ -459,6 +452,10 @@ export default function GrimoirePage() {
             deck={activeDeck}
             isGuest={isGuest}
             onRequestLogin={openAuth}
+            onReplaceCards={cards => {
+              const names = cards.map(c => `${c.quantity}x ${c.name}`).join(', ');
+              setInput(`Replace ${names} — `);
+            }}
           />
         </div>
       )}
