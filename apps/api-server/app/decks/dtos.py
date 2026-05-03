@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.core.enums import DeckFormat, DeckStatus
+
 
 class CardInDeckDTO(BaseModel):
     name: str
@@ -16,13 +18,13 @@ class CardInDeckDTO(BaseModel):
 
 class DeckGenerateRequestDTO(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
-    format: str = "standard"
+    format: DeckFormat = DeckFormat.STANDARD
 
 
 class DeckGenerateResponseDTO(BaseModel):
     task_id: str
     deck_id: uuid.UUID
-    status: str
+    status: DeckStatus
 
 
 class DeckResponseDTO(BaseModel):
@@ -33,7 +35,7 @@ class DeckResponseDTO(BaseModel):
     colors: list[str] | None
     cards: list[CardInDeckDTO] | None
     card_count: int
-    status: str
+    status: DeckStatus
     error_message: str | None
     created_at: datetime
     completed_at: datetime | None
