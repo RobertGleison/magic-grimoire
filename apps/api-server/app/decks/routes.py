@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user, get_optional_user
 from app.core.database import get_db
+from app.core.enums import DeckStatus, TaskStatus
+from app.core.guards import sanitize_prompt
 from app.decks.dtos import (
     DeckGenerateRequestDTO,
     DeckGenerateResponseDTO,
@@ -19,7 +22,6 @@ from app.tasks.model import Task
 
 router = APIRouter()
 
-# 30-day TTL for guest rate limit keys
 _GUEST_RATE_LIMIT_TTL = 30 * 24 * 60 * 60
 
 
@@ -28,13 +30,15 @@ async def generate_deck(
     request: DeckGenerateRequestDTO,
     req: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str | None, Depends(get_optional_user)],
 ) -> DeckGenerateResponseDTO:
     from app.decks.worker import generate_deck_task
 
-    auth_header = req.headers.get("Authorization", "")
-    is_authenticated = auth_header.startswith("Bearer ")
+    valid, rejection = sanitize_prompt(request.prompt)
+    if not valid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=rejection)
 
-    if not is_authenticated:
+    if not user_id:
         client_ip = req.client.host if req.client else "unknown"
         rate_key = f"ratelimit:ip:{client_ip}"
         if await redis_cache.get(rate_key):
@@ -47,47 +51,49 @@ async def generate_deck(
     deck = Deck(
         prompt=request.prompt,
         format=request.format,
-        status="pending",
+        status=DeckStatus.PENDING,
+        user_id=user_id,
     )
     db.add(deck)
     await db.flush()
 
-    celery_result = generate_deck_task.delay(
-        str(deck.id),
-        request.prompt,
-        request.format,
-    )
-
-    task = Task(
-        id=celery_result.id,
-        deck_id=deck.id,
-        status="queued",
-    )
+    # Generate task_id here so we can commit before apply_async — eliminates the race
+    # condition where the worker tries to read the Task record before it's committed.
+    task_id = str(uuid.uuid4())
+    task = Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED)
     db.add(task)
-    await db.flush()
+
+    await db.commit()
+
+    generate_deck_task.apply_async(
+        args=[str(deck.id), request.prompt, request.format],
+        task_id=task_id,
+    )
 
     return DeckGenerateResponseDTO(
-        task_id=celery_result.id,
+        task_id=task_id,
         deck_id=deck.id,
-        status="queued",
+        status=DeckStatus.PENDING,
     )
 
 
 @router.get("/decks", response_model=DeckListResponseDTO)
 async def list_decks(
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> DeckListResponseDTO:
     offset = (page - 1) * limit
 
     count_result = await db.execute(
-        select(func.count()).select_from(Deck)
+        select(func.count()).select_from(Deck).where(Deck.user_id == user_id)
     )
     total = count_result.scalar_one()
 
     result = await db.execute(
         select(Deck)
+        .where(Deck.user_id == user_id)
         .order_by(Deck.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -108,14 +114,16 @@ async def list_decks(
 async def get_deck(
     deck_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str | None, Depends(get_optional_user)],
 ) -> DeckResponseDTO:
-    result = await db.execute(
-        select(Deck).where(Deck.id == deck_id)
-    )
+    result = await db.execute(select(Deck).where(Deck.id == deck_id))
     deck = result.scalar_one_or_none()
 
     if deck is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
+
+    if deck.user_id is not None and deck.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     return DeckResponseDTO.model_validate(deck)
 
@@ -124,13 +132,15 @@ async def get_deck(
 async def delete_deck(
     deck_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
 ) -> None:
-    result = await db.execute(
-        select(Deck).where(Deck.id == deck_id)
-    )
+    result = await db.execute(select(Deck).where(Deck.id == deck_id))
     deck = result.scalar_one_or_none()
 
     if deck is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
 
-    await db.delete(deck)
+    if deck.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    db.delete(deck)

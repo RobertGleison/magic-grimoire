@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -18,28 +18,16 @@ class Task(Base):
         nullable=False,
         index=True,
     )
-
     status: Mapped[str] = mapped_column(
-        String,
-        server_default="queued",
-        default="queued",
-        nullable=False
+        String, server_default="queued", default="queued", nullable=False
     )
-
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("now()"),
-        nullable=False,
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
     )
-
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("now()"),
-        onupdate=datetime.utcnow,
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
-
-    failed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

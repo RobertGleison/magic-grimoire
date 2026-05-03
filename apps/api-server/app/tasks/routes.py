@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.enums import TaskStatus
 from app.tasks.model import Task
 
 router = APIRouter()
@@ -41,7 +42,7 @@ async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
 
                 try:
                     payload = json.loads(data_str)
-                    if payload.get("status") in ("completed", "failed"):
+                    if payload.get("status") in (TaskStatus.COMPLETED, TaskStatus.FAILED):
                         break
                 except (json.JSONDecodeError, AttributeError):
                     pass
@@ -65,7 +66,7 @@ async def stream_task(
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
-    if task.status in ("completed", "failed"):
+    if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
         async def _already_done() -> AsyncGenerator[str]:
             yield f"data: {json.dumps({'status': task.status, 'message': 'Task already ' + task.status})}\n\n"
 

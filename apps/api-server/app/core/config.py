@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     REDIS_URL: str
     ENVIRONMENT: str
 
+    SUPABASE_JWT_SECRET: str = ""
+    JWT_ALGORITHM: str = "HS256"
+
     # LLM provider: "claude" or "ollama"
     LLM_PROVIDER: str = "ollama"
 

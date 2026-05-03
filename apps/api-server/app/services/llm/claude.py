@@ -4,10 +4,17 @@ import anthropic
 
 from app.services.llm.base import LLMService
 
+_OFF_TOPIC_INSTRUCTION = (
+    "If the message is not about Magic: The Gathering deck-building, cards, formats, or strategy, "
+    "respond ONLY with this JSON and nothing else: "
+    '{"error": "off_topic", "message": "I only discuss Magic: The Gathering. How can I help you build a deck?"}'
+)
+
 PARSE_INTENT_SYSTEM = (
     "You are a Magic: The Gathering deck-building assistant. "
     "Given a user's deck description, extract structured intent. "
-    "Respond ONLY with valid JSON, no markdown fences."
+    f"{_OFF_TOPIC_INSTRUCTION} "
+    "Otherwise respond ONLY with valid JSON, no markdown fences."
 )
 
 PARSE_INTENT_TEMPLATE = (
@@ -30,6 +37,15 @@ COMPOSE_DECK_TEMPLATE = (
     "Candidate cards:\n{cards}\n\n"
     "Return JSON with keys: title (string), cards (list of objects with name, quantity, section). "
     "Sections: creatures, spells, lands. Total quantity must equal 60."
+)
+
+CHAT_SYSTEM = (
+    "You are the Grimoire, a Magic: The Gathering deck-building oracle. "
+    "Help the user refine their deck idea through focused questions about strategy, "
+    "format, colors, playstyle, and budget. Keep responses to 2–4 sentences. "
+    "Speak with a slightly mystical tone. "
+    f"{_OFF_TOPIC_INSTRUCTION} "
+    "Otherwise respond in plain text — no JSON, no markdown."
 )
 
 
@@ -63,3 +79,12 @@ class ClaudeService(LLMService):
             ],
         )
         return json.loads(message.content[0].text)
+
+    def chat(self, messages: list[dict], system: str) -> str:
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=512,
+            system=system,
+            messages=messages,
+        )
+        return response.content[0].text
