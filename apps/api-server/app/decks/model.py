@@ -28,6 +28,12 @@ class Deck(Base):
         nullable=False
     )
 
+    user_id: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        index=True,
+    )
+
     format: Mapped[str] = mapped_column(
         String,
         server_default="standard",
