@@ -25,5 +25,5 @@ async def chat(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=rejection)
 
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
-    reply = chat_with_grimoire(messages, request.context)
+    reply = await chat_with_grimoire(messages, request.context)
     return ChatResponseDTO(message=reply)
