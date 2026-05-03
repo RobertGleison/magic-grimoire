@@ -1,8 +1,19 @@
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.enums import DeckFormat
+
+_ManaColor = Literal["W", "U", "B", "R", "G"]
+
+
+class ChatStrategy(StrEnum):
+    BALANCED   = "Balanced"
+    AGGRESSIVE = "Aggressive"
+    DEFENSIVE  = "Defensive"
+    BUDGET     = "Budget"
+    SPICY      = "Spicy"
 
 
 class ChatMessageDTO(BaseModel):
@@ -12,8 +23,8 @@ class ChatMessageDTO(BaseModel):
 
 class ChatContextDTO(BaseModel):
     format: DeckFormat | None = None
-    colors: list[str] | None = None
-    strategy: str | None = None
+    colors: list[_ManaColor] | None = None
+    strategy: ChatStrategy | None = None
 
 
 class ChatRequestDTO(BaseModel):
