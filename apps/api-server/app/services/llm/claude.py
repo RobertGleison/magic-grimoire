@@ -6,7 +6,8 @@ from app.services.llm.base import LLMService
 
 _OFF_TOPIC_INSTRUCTION = (
     "If the message is not about Magic: The Gathering deck-building, cards, formats, or strategy, "
-    'respond ONLY with this JSON and nothing else: {"error": "off_topic", "message": "I only discuss Magic: The Gathering. How can I help you build a deck?"}'
+    "respond ONLY with this JSON and nothing else: "
+    '{"error": "off_topic", "message": "I only discuss Magic: The Gathering. How can I help you build a deck?"}'
 )
 
 PARSE_INTENT_SYSTEM = (
