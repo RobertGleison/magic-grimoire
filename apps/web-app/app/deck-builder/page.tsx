@@ -38,38 +38,17 @@ const STATUS_TO_STAGE: Record<string, LoadingStage> = {
   enriching: 3,
 };
 
-const MOCK_CHAT_RESPONSES = [
-  'Interesting direction! Are you leaning towards an aggressive early-game strategy, or would you prefer to control the board and win in the late game?',
-  'Got it — that helps narrow things down. Do you have a budget in mind, or should I prioritize the strongest available cards?',
-  'Noted. Any cards you absolutely want included, or should I have full creative freedom to build around the archetype?',
-  'Perfect. Would you like disruption pieces like counterspells or removal, or focus entirely on your own win condition?',
-  'Understood. Is this for competitive play or a more casual kitchen-table game? That\'ll help me tune the power level.',
-];
-
-// ─── Mock ────────────────────────────────────────────────────────────────────
-
-const MOCK_MODE = true;
-
-const MOCK_DECK: DeckData = {
-  id: 'mock-001',
-  title: 'Verdant Storm',
-  format: 'Modern',
-  colors: ['G'],
-  card_count: 60,
-  cards: [
-    { name: 'Llanowar Elves',         quantity: 4,  mana_cost: '{G}',          type_line: 'Creature — Elf Druid' },
-    { name: 'Elvish Mystic',          quantity: 4,  mana_cost: '{G}',          type_line: 'Creature — Elf Druid' },
-    { name: 'Elvish Clancaller',      quantity: 4,  mana_cost: '{G}{G}',       type_line: 'Creature — Elf' },
-    { name: 'Elvish Archdruid',       quantity: 4,  mana_cost: '{1}{G}{G}',    type_line: 'Creature — Elf Druid' },
-    { name: 'Imperious Perfect',      quantity: 4,  mana_cost: '{2}{G}',       type_line: 'Creature — Elf Warrior' },
-    { name: 'Ezuri, Renegade Leader', quantity: 4,  mana_cost: '{1}{G}{G}',    type_line: 'Creature — Elf Warrior' },
-    { name: 'Collected Company',      quantity: 4,  mana_cost: '{3}{G}',       type_line: 'Instant' },
-    { name: 'Chord of Calling',       quantity: 4,  mana_cost: '{X}{G}{G}{G}', type_line: 'Instant' },
-    { name: 'Harmonize',              quantity: 4,  mana_cost: '{2}{G}{G}',    type_line: 'Sorcery' },
-    { name: 'Nykthos, Shrine to Nyx', quantity: 4,  mana_cost: '',             type_line: 'Land' },
-    { name: 'Forest',                 quantity: 20, mana_cost: '',             type_line: 'Basic Land — Forest' },
-  ],
+// Maps frontend ManaColor names to single-letter codes the backend expects.
+const COLOR_CODE: Record<string, string> = {
+  WHITE: 'W', BLUE: 'U', BLACK: 'B', RED: 'R', GREEN: 'G',
 };
+
+const QUICK_PROMPTS = [
+  'Mono-green elf tribal for Modern, aggressive',
+  'Azorius control with Teferi',
+  'Burn deck for Pioneer',
+  'Dimir mill for Commander',
+];
 
 
 function ChatTypingBubble() {
@@ -231,20 +210,48 @@ export default function GrimoirePage() {
     setInput('');
     setChatBusy(true);
 
-    await new Promise<void>(r => setTimeout(r, 750));
+    try {
+      const history = [
+        ...messages.filter(m => !m.loading && m.content),
+        { role: 'seeker' as const, content: prompt },
+      ].map(m => ({
+        role: m.role === 'seeker' ? 'user' : 'assistant' as const,
+        content: m.content,
+      }));
 
-    const oracleCount = messages.filter(m => m.role === 'oracle').length;
-    const response = MOCK_CHAT_RESPONSES[oracleCount % MOCK_CHAT_RESPONSES.length];
+      const res = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: history,
+          context: {
+            format: format.toLowerCase(),
+            colors: colors.length > 0 ? colors.map(c => COLOR_CODE[c] ?? c) : undefined,
+            strategy: strategy !== 'Balanced' ? strategy : undefined,
+          },
+        }),
+      });
 
-    setMessages(prev => {
-      const copy = [...prev];
-      const idx = copy.map(m => m.chatLoading).lastIndexOf(true);
-      if (idx !== -1) copy[idx] = { role: 'oracle', content: response };
-      return copy;
-    });
-    setChatBusy(false);
-  }, [input, format, colors, deckSize, loading, chatBusy, messages]);
+      const data = await res.json();
+      const reply = res.ok ? data.message : 'Something went wrong. Please try again.';
 
+      setMessages(prev => {
+        const copy = [...prev];
+        const idx = copy.map(m => m.chatLoading).lastIndexOf(true);
+        if (idx !== -1) copy[idx] = { role: 'oracle', content: reply };
+        return copy;
+      });
+    } catch {
+      setMessages(prev => {
+        const copy = [...prev];
+        const idx = copy.map(m => m.chatLoading).lastIndexOf(true);
+        if (idx !== -1) copy[idx] = { role: 'oracle', content: 'Could not reach the server. Please try again.' };
+        return copy;
+      });
+    } finally {
+      setChatBusy(false);
+    }
+  }, [input, format, colors, deckSize, strategy, loading, chatBusy, messages]);
 
   const handleGenerateDeck = useCallback(async () => {
     if (loading) return;
@@ -268,24 +275,6 @@ export default function GrimoirePage() {
     setInput('');
     setLoading(true);
     setLoadingStage(0);
-
-    if (MOCK_MODE) {
-      for (let st = 0; st < LOADING_STAGES.length; st++) {
-        await new Promise<void>(r => setTimeout(r, 750));
-        if (cancelRef.current) return;
-        setLoadingStage(st as LoadingStage);
-      }
-      await new Promise<void>(r => setTimeout(r, 400));
-      if (cancelRef.current) return;
-      setActiveDeck(MOCK_DECK);
-      updateLastOracleMessage({
-        loading: false,
-        content: `Your deck **${MOCK_DECK.title}** is ready, ${MOCK_DECK.card_count} cards built for **${MOCK_DECK.format}**.`,
-      });
-      setLoading(false);
-      if (!user) setShowSaveNudge(true);
-      return;
-    }
 
     try {
       const initRes = await fetch('/api/v1/decks/generate', {
