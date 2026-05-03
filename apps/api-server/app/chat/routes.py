@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth.dependencies import get_optional_user
@@ -22,5 +23,21 @@ async def chat(
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=rejection)
 
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
-    reply = await chat_with_grimoire(messages, request.context)
+    try:
+        reply = chat_with_grimoire(messages, request.context)
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cannot connect to Ollama. Is it running on port 11434?",
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Ollama model not found. Run: ollama pull llama3.2:3b",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Ollama error: {exc.response.status_code}",
+        )
     return ChatResponseDTO(message=reply)
