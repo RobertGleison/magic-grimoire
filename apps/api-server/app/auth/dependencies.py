@@ -1,8 +1,17 @@
+import logging as _logging
+
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
+
+_log = _logging.getLogger(__name__)
+
+if not settings.SUPABASE_JWT_SECRET:
+    _log.warning(
+        "SUPABASE_JWT_SECRET is not configured — all auth requests will be treated as unauthenticated"
+    )
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -11,7 +20,7 @@ def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> str | None:
     """Return the Supabase user UUID from a valid JWT, or None for guests."""
-    if credentials is None:
+    if not settings.SUPABASE_JWT_SECRET or credentials is None:
         return None
     try:
         payload = jwt.decode(
