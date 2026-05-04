@@ -162,30 +162,41 @@ function viewBtn(active: boolean): React.CSSProperties {
   };
 }
 
-function CardRow({ card, isGuest }: { card: CardEntry; isGuest: boolean }) {
+interface CardRowProps {
+  card: CardEntry;
+  isGuest: boolean;
+  checked?: boolean;
+  onCheck?: () => void;
+}
+
+function CardRow({ card, isGuest, checked, onCheck }: CardRowProps) {
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
 
   return (
     <>
       <div
+        onClick={onCheck}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           padding: '6px 0',
+          paddingLeft: checked ? '8px' : undefined,
           fontFamily: 'var(--font-body)',
           fontSize: '0.98rem',
           color: 'var(--cream)',
           borderBottom: '1px dotted rgba(var(--accent-glow), 0.08)',
+          background: checked ? 'rgba(var(--accent-glow), 0.08)' : 'transparent',
           transition: 'background 0.2s, padding 0.2s',
-          cursor: isGuest ? 'default' : 'pointer',
-          opacity: isGuest ? 0.85 : 1,
+          cursor: 'pointer',
+          opacity: isGuest && !onCheck ? 0.85 : 1,
+          outline: checked ? '1px solid rgba(var(--accent-glow), 0.3)' : 'none',
         }}
-        onMouseEnter={e => { setHoverPos({ x: e.clientX, y: e.clientY }); if (!isGuest) { e.currentTarget.style.background = 'rgba(var(--accent-glow), 0.06)'; e.currentTarget.style.paddingLeft = '8px'; } }}
+        onMouseEnter={e => { setHoverPos({ x: e.clientX, y: e.clientY }); if (!checked) { e.currentTarget.style.background = 'rgba(var(--accent-glow), 0.06)'; e.currentTarget.style.paddingLeft = '8px'; } }}
         onMouseMove={e => setHoverPos({ x: e.clientX, y: e.clientY })}
-        onMouseLeave={e => { setHoverPos(null); if (!isGuest) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.paddingLeft = '0'; } }}
+        onMouseLeave={e => { setHoverPos(null); if (!checked) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.paddingLeft = '0'; } }}
       >
-        <span style={{ width: 24, textAlign: 'right', color: 'var(--accent)', fontFamily: 'var(--font-ui)', fontSize: '0.78rem', flexShrink: 0 }}>
+        <span style={{ width: 24, textAlign: 'right', color: checked ? 'var(--cream)' : 'var(--accent)', fontFamily: 'var(--font-ui)', fontSize: '0.78rem', flexShrink: 0 }}>
           {card.quantity}×
         </span>
         <span style={{ flex: 1, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -298,8 +309,9 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
   const removeCheckedCards = () => {
     setLocalCards(prev => prev
       .map(card => {
+        if (checkedCards.has(card.name)) return { ...card, quantity: 0 };
         const selectedCount = [...Array(Math.min(card.quantity, 4))]
-          .filter((_, qi) => checkedCards.has(`${card.name}-${qi}`)).length;
+          .filter((_, qi) => checkedCards.has(`${card.name}::${qi}`)).length;
         return { ...card, quantity: card.quantity - selectedCount };
       })
       .filter(card => card.quantity > 0)
@@ -310,8 +322,13 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
   const handleReplaceViaChat = () => {
     const countByName: Record<string, number> = {};
     for (const key of checkedCards) {
-      const name = key.replace(/-\d+$/, '');
-      countByName[name] = (countByName[name] ?? 0) + 1;
+      const [name, copyIndex] = key.split('::');
+      if (copyIndex !== undefined) {
+        countByName[name] = (countByName[name] ?? 0) + 1;
+      } else {
+        const card = localCards.find(c => c.name === name);
+        if (card) countByName[name] = card.quantity;
+      }
     }
     const selectedCards = localCards
       .filter(c => countByName[c.name])
@@ -432,7 +449,13 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
             {layout === 'list' ? (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {group.cards.map((card, ci) => (
-                  <CardRow key={ci} card={card} isGuest={isGuest} />
+                  <CardRow
+                    key={ci}
+                    card={card}
+                    isGuest={isGuest}
+                    checked={checkedCards.has(card.name)}
+                    onCheck={() => toggleCardCheck(card.name)}
+                  />
                 ))}
               </div>
             ) : (
@@ -442,8 +465,8 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
                     <MiniCardTile
                       key={`${ci}-${qi}`}
                       card={card}
-                      checked={checkedCards.has(`${card.name}-${qi}`)}
-                      onCheck={() => toggleCardCheck(`${card.name}-${qi}`)}
+                      checked={checkedCards.has(`${card.name}::${qi}`)}
+                      onCheck={() => toggleCardCheck(`${card.name}::${qi}`)}
                     />
                   ))
                 )}
