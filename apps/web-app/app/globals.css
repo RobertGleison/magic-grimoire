@@ -256,7 +256,7 @@ body::after {
 
 /* Main layout with spine */
 .shell {
-  margin-top: 56px;
+  margin-top: 76px;
   position: relative;
   z-index: 3;
 }

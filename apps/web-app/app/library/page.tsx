@@ -208,13 +208,20 @@ function ImportModal({ onImport, onClose }: { onImport: (deck: SavedDeck) => voi
   );
 }
 
-function DeckTile({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
+interface DeckTileProps {
+  deck: SavedDeck;
+  checked: boolean;
+  onCheck: (e: React.MouseEvent) => void;
+  onClick: () => void;
+}
+
+function DeckTile({ deck, checked, onCheck, onClick }: DeckTileProps) {
   const firstCard = deck.cards[0];
   const imgSrc = firstCard?.image_uri
     ?? `https://api.scryfall.com/cards/named?format=image&version=art_crop&exact=${encodeURIComponent(firstCard?.name ?? '')}`;
 
   return (
-    <div className={s.tile} onClick={onClick}>
+    <div className={`${s.tile} ${checked ? s.tileChecked : ''}`} onClick={onClick}>
       <div className={s.tileImageWrapper}>
         <img className={s.tileImage} src={imgSrc} alt={firstCard?.name} />
         <div className={s.tileImageOverlay} />
@@ -222,6 +229,9 @@ function DeckTile({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
           {deck.colors.map(c => <ManaSymbol key={c} symbol={c} size={20} />)}
         </div>
         <div className={s.tileFormat}>{deck.format}</div>
+        <div className={`${s.tileCheckbox} ${checked ? s.tileCheckboxChecked : ''}`} onClick={onCheck}>
+          {checked && <span className={s.checkMark}>✓</span>}
+        </div>
       </div>
       <div className={s.tileBody}>
         <h3 className={`h-display ${s.tileName}`}>{deck.name}</h3>
@@ -235,9 +245,19 @@ function DeckTile({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
   );
 }
 
-function DeckRow({ deck, onClick }: { deck: SavedDeck; onClick: () => void }) {
+interface DeckRowProps {
+  deck: SavedDeck;
+  checked: boolean;
+  onCheck: (e: React.MouseEvent) => void;
+  onClick: () => void;
+}
+
+function DeckRow({ deck, checked, onCheck, onClick }: DeckRowProps) {
   return (
-    <div className={s.row} onClick={onClick}>
+    <div className={`${s.row} ${checked ? s.rowChecked : ''}`} onClick={onClick}>
+      <div className={`${s.rowCheckbox} ${checked ? s.rowCheckboxChecked : ''}`} onClick={onCheck}>
+        {checked && <span className={s.checkMark}>✓</span>}
+      </div>
       <div className={s.rowColors}>
         {deck.colors.map(c => <ManaSymbol key={c} symbol={c} size={16} />)}
       </div>
@@ -259,6 +279,8 @@ export default function LibraryPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importedDecks, setImportedDecks] = useState<SavedDeck[]>([]);
   const [showImport, setShowImport] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) router.replace('/');
@@ -266,13 +288,27 @@ export default function LibraryPage() {
 
   if (!user) return null;
 
-  const allDecks = [...SAVED_DECKS, ...importedDecks];
+  const allDecks = [...SAVED_DECKS, ...importedDecks].filter(d => !deletedIds.has(d.id));
   const selectedDeck = allDecks.find(d => d.id === selectedId) ?? null;
 
   const handleImport = (deck: SavedDeck) => {
     setImportedDecks(prev => [...prev, deck]);
     setShowImport(false);
     setSelectedId(deck.id);
+  };
+
+  const toggleCheck = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleRemoveChecked = () => {
+    setDeletedIds(prev => new Set([...prev, ...checkedIds]));
+    setCheckedIds(new Set());
   };
 
   return (
@@ -285,8 +321,8 @@ export default function LibraryPage() {
           <div className={s.header}>
             <div>
               <div className={`h-ui ${s.headerTagline}`}>Tome of {user.name} · Chapter II</div>
-              <h1 className={`h-display ${s.headerTitle}`}>Thy Divined Decks</h1>
-              <p className={s.headerSubtitle}>{allDecks.length} decks bound to thy grimoire.</p>
+              <h1 className={`h-display ${s.headerTitle}`}>Your Decks</h1>
+              <p className={s.headerSubtitle}>{allDecks.length} decks created by grimoire.</p>
             </div>
             <div className={s.headerActions}>
               <div className={s.viewToggle}>
@@ -305,22 +341,45 @@ export default function LibraryPage() {
                   <svg width="13" height="13" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="1.5" fill="currentColor" /><rect x="1" y="6" width="12" height="1.5" fill="currentColor" /><rect x="1" y="10" width="12" height="1.5" fill="currentColor" /></svg>
                 </button>
               </div>
-<button className="btn" onClick={() => setShowImport(true)} style={{ fontSize: '0.72rem' }}>Import .txt</button>
+              <button className="btn" onClick={() => setShowImport(true)} style={{ fontSize: '0.72rem' }}>Import .txt</button>
               <button className="btn btn-primary" onClick={() => router.push('/deck-builder')} style={{ fontSize: '0.75rem' }}>Generate new deck</button>
             </div>
           </div>
+
+          {/* Selection bar */}
+          {checkedIds.size > 0 && (
+            <div className={s.selectionBar}>
+              <span className={`h-ui ${s.selectionCount}`}>{checkedIds.size} selected</span>
+              <div className={s.selectionActions}>
+                <button className="btn" onClick={() => setCheckedIds(new Set())} style={{ fontSize: '0.65rem' }}>Clear</button>
+                <button className={`btn ${s.removeBtn}`} onClick={handleRemoveChecked} style={{ fontSize: '0.65rem' }}>Remove {checkedIds.size}</button>
+              </div>
+            </div>
+          )}
 
           {/* Deck list */}
           {view === 'grid' ? (
             <div className={s.deckGrid}>
               {allDecks.map(d => (
-                <DeckTile key={d.id} deck={d} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)} />
+                <DeckTile
+                  key={d.id}
+                  deck={d}
+                  checked={checkedIds.has(d.id)}
+                  onCheck={e => toggleCheck(d.id, e)}
+                  onClick={() => setSelectedId(selectedId === d.id ? null : d.id)}
+                />
               ))}
             </div>
           ) : (
             <div>
               {allDecks.map(d => (
-                <DeckRow key={d.id} deck={d} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)} />
+                <DeckRow
+                  key={d.id}
+                  deck={d}
+                  checked={checkedIds.has(d.id)}
+                  onCheck={e => toggleCheck(d.id, e)}
+                  onClick={() => setSelectedId(selectedId === d.id ? null : d.id)}
+                />
               ))}
             </div>
           )}
