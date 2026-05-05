@@ -1,10 +1,13 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 
 export interface User {
   email: string;
   name: string;
+  accessToken: string;
 }
 
 interface UserContextType {
@@ -23,24 +26,34 @@ const UserContext = createContext<UserContextType>({
   closeAuth: () => {},
 });
 
+function userFromSession(session: Session): User {
+  return {
+    email: session.user.email ?? '',
+    name:
+      (session.user.user_metadata?.full_name as string | undefined) ??
+      session.user.email?.split('@')[0] ??
+      '',
+    accessToken: session.access_token,
+  };
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('mg_user');
-      if (stored) setUserState(JSON.parse(stored));
-    } catch {}
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserState(session ? userFromSession(session) : null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserState(session ? userFromSession(session) : null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const setUser = (u: User | null) => {
-    setUserState(u);
-    try {
-      if (u) localStorage.setItem('mg_user', JSON.stringify(u));
-      else localStorage.removeItem('mg_user');
-    } catch {}
-  };
+  const setUser = (u: User | null) => setUserState(u);
 
   return (
     <UserContext.Provider value={{

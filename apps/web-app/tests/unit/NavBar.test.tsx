@@ -11,10 +11,16 @@ vi.mock('../../app/context/UserContext', () => ({
   useUser: vi.fn(),
 }));
 
+const mockSignOut = vi.fn();
+vi.mock('../../lib/supabase', () => ({
+  supabase: { auth: { signOut: mockSignOut } },
+}));
+
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../app/context/UserContext';
+import type { User } from '../../app/context/UserContext';
 
-function mockUser(user: { email: string; name: string } | null) {
+function mockUser(user: User | null) {
   vi.mocked(useUser).mockReturnValue({
     user,
     setUser: vi.fn(),
@@ -26,6 +32,7 @@ function mockUser(user: { email: string; name: string } | null) {
 
 beforeEach(() => {
   vi.mocked(useRouter).mockReturnValue({ push: vi.fn() } as unknown as ReturnType<typeof useRouter>);
+  mockSignOut.mockReset();
 });
 
 // ─── Guest (not logged in) ────────────────────────────────────────────────────
@@ -82,8 +89,10 @@ describe('NavBar — guest', () => {
 
 // ─── Logged in ────────────────────────────────────────────────────────────────
 
+const authedUser: User = { email: 'gandalf@shire.com', name: 'Gandalf', accessToken: 'tok' };
+
 describe('NavBar — logged in', () => {
-  beforeEach(() => mockUser({ email: 'gandalf@shire.com', name: 'Gandalf' }));
+  beforeEach(() => mockUser(authedUser));
 
   it('shows Library link', () => {
     render(<NavBar />);
@@ -115,14 +124,13 @@ describe('NavBar — logged in', () => {
     expect(screen.queryByRole('button', { name: 'Sign Up' })).not.toBeInTheDocument();
   });
 
-  it('Log Out button calls setUser(null) and redirects to /', () => {
-    const setUser = vi.fn();
+  it('Log Out button calls signOut and redirects to /', () => {
     const push = vi.fn();
-    vi.mocked(useUser).mockReturnValue({ user: { email: 'gandalf@shire.com', name: 'Gandalf' }, setUser, openAuth: vi.fn(), closeAuth: vi.fn(), authOpen: false });
+    vi.mocked(useUser).mockReturnValue({ user: authedUser, setUser: vi.fn(), openAuth: vi.fn(), closeAuth: vi.fn(), authOpen: false });
     vi.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<typeof useRouter>);
     render(<NavBar />);
     fireEvent.click(screen.getByRole('button', { name: 'Log Out' }));
-    expect(setUser).toHaveBeenCalledWith(null);
+    expect(mockSignOut).toHaveBeenCalledOnce();
     expect(push).toHaveBeenCalledWith('/');
   });
 });

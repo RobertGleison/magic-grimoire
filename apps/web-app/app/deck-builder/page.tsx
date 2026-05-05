@@ -176,7 +176,9 @@ export default function GrimoirePage() {
 
   const fetchDeck = useCallback(async (deckId: string) => {
     try {
-      const res = await fetch(`/api/v1/decks/${deckId}`);
+      const res = await fetch(`/api/v1/decks/${deckId}`, {
+        headers: user?.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {},
+      });
       if (!res.ok) throw new Error('Could not retrieve deck');
       const deck: DeckData = await res.json();
       setActiveDeck(deck);
@@ -194,7 +196,7 @@ export default function GrimoirePage() {
       esRef.current = null;
       setLoading(false);
     }
-  }, [updateLastOracleMessage]);
+  }, [updateLastOracleMessage, user]);
 
 
   const handleChat = useCallback(async () => {
@@ -221,7 +223,10 @@ export default function GrimoirePage() {
 
       const res = await fetch('/api/v1/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {}),
+        },
         body: JSON.stringify({
           messages: history,
           context: {
@@ -279,7 +284,10 @@ export default function GrimoirePage() {
     try {
       const initRes = await fetch('/api/v1/decks/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {}),
+        },
         body: JSON.stringify({ prompt: enhancedPrompt, format: format.toLowerCase() }),
       });
 

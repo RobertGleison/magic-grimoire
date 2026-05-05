@@ -4,6 +4,7 @@ import './NavBar.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
+import { supabase } from '../../../lib/supabase';
 
 const NAV_LINKS = [
   { path: '/',            label: 'Home',         authOnly: false },
@@ -14,7 +15,7 @@ const NAV_LINKS = [
 export default function SpineNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, setUser, openAuth } = useUser();
+  const { user, openAuth } = useUser();
 
   return (
     <nav className="spine">
@@ -30,7 +31,7 @@ export default function SpineNav() {
         ))}
 
         {user ? (
-          <button className="spine-btn" onClick={() => { setUser(null); router.push('/'); }}>Log Out</button>
+          <button className="spine-btn" onClick={() => { supabase.auth.signOut(); router.push('/'); }}>Log Out</button>
         ) : (
           <>
             <button className="spine-btn" onClick={openAuth}>Log In</button>
