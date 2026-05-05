@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -15,13 +16,18 @@ from app.services.llm import create_llm_service
 from app.tasks.model import Task
 from app.workers.celery_app import celery_app
 
+_log = logging.getLogger(__name__)
+
 # Created once when the worker process starts — not on every task call.
 _engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
 _session_factory = async_sessionmaker(bind=_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def _publish(redis_client: aioredis.Redis, channel: str, status: str, message: str) -> None:
-    await redis_client.publish(channel, json.dumps({"status": status, "message": message}))
+    try:
+        await redis_client.publish(channel, json.dumps({"status": status, "message": message}))
+    except Exception:
+        _log.warning("SSE publish failed (channel=%s, status=%s) — notification dropped", channel, status)
 
 
 async def _update_and_publish(
