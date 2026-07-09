@@ -66,9 +66,6 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
     <section className={style.hero}>
       <div className={style.heroInner}>
         <div className={style.heroText}>
-          <Ornament style={{ justifyContent: 'flex-start', maxWidth: 320, marginBottom: 32 }}>
-            <span style={{ fontSize: '0.7rem' }}>Codex Arcanum</span>
-          </Ornament>
 
           <h1 className={`h-display ${style.heroTitle}`}>
             Magic<br />
@@ -77,20 +74,19 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
 
           <p className={style.heroSubtitle}>
             Tuning a Magic: The Gathering deck means hours of netdecking and mana-curve math.
-            Describe what you want in one sentence — get a balanced 60-card deck in under a minute.
+            Describe what you want in few sentences and get a balanced deck in under a minute.
           </p>
 
           <div className={style.heroActions}>
             <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
-              Build your deck — free
+              Build your deck
             </button>
-            <p className={style.ctaTrigger}>No signup. Your first deck in under a minute.</p>
           </div>
 
           <ul className={style.trustBar}>
             <li>Real MTG cards via Scryfall</li>
-            <li>5 formats</li>
-            <li>Balanced 60-card decks</li>
+            <li>All game formats</li>
+            <li>Balanced decks</li>
           </ul>
         </div>
 
@@ -209,9 +205,8 @@ function CallToAction({ onEnter }: { onEnter: () => void }) {
           <span className={style.gradientText}>The grimoire awaits</span>
         </h2>
         <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.9rem', padding: '18px 40px' }}>
-          Build your deck — free
+          Build your deck
         </button>
-        <p className={style.ctaTrigger}>No signup to start. First deck in under a minute.</p>
       </div>
     </RevealSection>
   );
