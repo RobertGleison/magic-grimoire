@@ -8,7 +8,7 @@ import httpx
 from app.services import redis_cache
 
 SCRYFALL_BASE = "https://api.scryfall.com"
-REQUEST_DELAY = 0.1  # 100ms between requests per Scryfall rate-limit policy
+REQUEST_DELAY = 0.5  # 500ms between requests — Scryfall hard limit is 2 req/s
 CACHE_TTL = 86400  # 24 hours
 
 

@@ -35,7 +35,6 @@
   font-size: clamp(3rem, 6vw, 5.5rem);
   line-height: 1.05;
   margin: 0 0 12px;
-  text-shadow: 0 0 40px rgba(var(--accent-glow), 0.3);
 }
 
 .heroSubtitle {
@@ -52,7 +51,42 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+}
+
+/* ── CTA trigger (microcopy that shortens the path to action below the path to doubt) ── */
+.ctaTrigger {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Hero trust / spec bar (verifiable facts, not fabricated social proof) ── */
+.trustBar {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.trustBar li {
+  position: relative;
+  padding-left: 18px;
+}
+
+.trustBar li::before {
+  content: '\2726';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  opacity: 0.7;
 }
 
 .heroSigil {

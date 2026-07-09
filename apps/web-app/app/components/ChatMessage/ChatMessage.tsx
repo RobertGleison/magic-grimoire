@@ -1,4 +1,3 @@
-import { ManaSymbol } from '../ManaSymbol/ManaSymbol';
 import './ChatMessage.css';
 
 interface ChatMessageProps {
@@ -44,7 +43,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 : 'linear-gradient(135deg, rgba(28, 22, 40, 0.6), rgba(14, 11, 20, 0.8))',
               backdropFilter: isUser ? 'none' : 'blur(8px)',
               border: isUser ? '1px solid rgba(var(--accent-glow), 0.3)' : '1px solid rgba(var(--accent-glow), 0.18)',
-              borderRadius: '8px',
+              borderRadius: 'var(--radius)',
               padding: '12px 16px',
               fontFamily: 'var(--font-body)',
               fontSize: '1rem',

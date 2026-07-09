@@ -3,6 +3,7 @@
 import './NavBar.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { SealLogo } from '../ArcaneSigilLogo/ArcaneSigilLogo';
 import { useUser } from '../../context/UserContext';
 
 const NAV_LINKS = [
@@ -11,14 +12,19 @@ const NAV_LINKS = [
   { path: '/library',     label: 'Library',      authOnly: true },
 ];
 
-export default function SpineNav() {
+export function SpineNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, setUser, openAuth } = useUser();
 
   return (
     <nav className="spine">
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', height: '100%' }}>
+      <Link href="/" className="spine-brand">
+        <SealLogo size={32} />
+        <span className="h-display spine-brand-name">Magic Grimoire</span>
+      </Link>
+
+      <div className="spine-links">
         {NAV_LINKS.filter(({ authOnly }) => !authOnly || user).map(({ path, label }) => (
           <Link
             key={path}

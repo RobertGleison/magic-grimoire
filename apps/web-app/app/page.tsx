@@ -66,9 +66,6 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
     <section className={style.hero}>
       <div className={style.heroInner}>
         <div className={style.heroText}>
-          <Ornament style={{ justifyContent: 'flex-start', maxWidth: 320, marginBottom: 32 }}>
-            <span style={{ fontSize: '0.7rem' }}>Codex Arcanum</span>
-          </Ornament>
 
           <h1 className={`h-display ${style.heroTitle}`}>
             Magic<br />
@@ -76,7 +73,8 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
           </h1>
 
           <p className={style.heroSubtitle}>
-            Write your Magic: The Gathering desires and it shall create for you the perfect deck of cards.
+            Tuning a Magic: The Gathering deck means hours of netdecking and mana-curve math.
+            Describe what you want in few sentences and get a balanced deck in under a minute.
           </p>
 
           <div className={style.heroActions}>
@@ -84,6 +82,12 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
               Build your deck
             </button>
           </div>
+
+          <ul className={style.trustBar}>
+            <li>Real MTG cards via Scryfall</li>
+            <li>All game formats</li>
+            <li>Balanced decks</li>
+          </ul>
         </div>
 
         <div className={style.heroSigil}>
@@ -120,8 +124,8 @@ function HowToBuildYourDeckSteps() {
 
 const FEATURES = [
   { title: 'All Colors', body: 'Every color combination, every mechanic, every card.', pips: ALL_COLORS },
-  { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.',  icon: '⚔' },
-  { title: 'Synergies',   body: 'Mana curves, ratios and interactions are important to a strong deck.', icon: '✦' },
+  { title: 'Every Format', body: 'Standard, Modern, Pioneer, Legacy, and Commander — budget or boundless.',  icon: '⚔' },
+  { title: 'Synergies',   body: 'Mana curve, color ratios, and card interactions tuned so the deck actually functions.', icon: '✦' },
   { title: 'Iteration',   body: 'Each inclusion justified. Each ratio defended. Argue with the grimoire, refine the result.', icon: '↻' },
 ];
 
@@ -171,7 +175,7 @@ function CommentSection() {
     <RevealSection className={style.incantations}>
       <SectionHeader
         label="Sample Incantations"
-        heading="Examples of Deck Ideas"
+        heading="Speak plainly — it understands"
         ornamentWidth={280}
       />
       <div className={style.marqueeOuter}>

@@ -85,6 +85,7 @@ export function ChatInput({
                     fontFamily: 'var(--font-ui)', fontSize: '0.65rem', letterSpacing: '0.18em', textTransform: 'uppercase',
                     padding: '7px 14px', background: 'transparent',
                     border: '1px solid rgba(180, 60, 60, 0.5)',
+                    borderRadius: 'var(--radius)',
                     color: 'rgba(220, 100, 100, 0.9)',
                     cursor: 'pointer', transition: 'all 0.2s',
                   }}
@@ -100,6 +101,7 @@ export function ChatInput({
                   padding: '7px 16px',
                   background: canSend ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.15), rgba(var(--accent-glow), 0.05))' : 'transparent',
                   border: '1px solid ' + (canSend ? 'rgba(var(--accent-glow), 0.4)' : 'rgba(var(--accent-glow), 0.15)'),
+                  borderRadius: 'var(--radius)',
                   color: canSend ? 'var(--accent)' : 'var(--muted)',
                   cursor: canSend ? 'pointer' : 'not-allowed',
                   transition: 'all 0.2s',
@@ -115,6 +117,7 @@ export function ChatInput({
                   padding: '7px 16px',
                   background: canGenerate ? 'linear-gradient(180deg, rgba(var(--accent-glow), 0.35), rgba(var(--accent-glow), 0.15))' : 'transparent',
                   border: '1px solid ' + (canGenerate ? 'rgba(var(--accent-glow), 0.7)' : 'rgba(var(--accent-glow), 0.15)'),
+                  borderRadius: 'var(--radius)',
                   color: canGenerate ? 'var(--cream)' : 'var(--muted)',
                   cursor: canGenerate ? 'pointer' : 'not-allowed',
                   transition: 'all 0.2s',
