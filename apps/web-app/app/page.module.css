@@ -35,7 +35,6 @@
   font-size: clamp(3rem, 6vw, 5.5rem);
   line-height: 1.05;
   margin: 0 0 12px;
-  text-shadow: 0 0 40px rgba(var(--accent-glow), 0.3);
 }
 
 .heroSubtitle {
@@ -70,9 +69,6 @@
   list-style: none;
   margin: 28px 0 0;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
   font-family: var(--font-ui);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
