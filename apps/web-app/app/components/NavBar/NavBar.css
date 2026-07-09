@@ -5,18 +5,41 @@
   right: 0;
   height: 76px;
   background: linear-gradient(to right, var(--void-1), var(--void-0));
-  border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
+  border-bottom: 1px solid var(--line);
   z-index: 50;
   display: flex;
   flex-direction: row;
   align-items: center;
   padding: 0 32px;
 }
-.spine-logo {
-  width: 28px;
-  height: 28px;
+
+.spine-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
   flex-shrink: 0;
 }
+
+.spine-brand-name {
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  color: var(--cream);
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+
+.spine-brand:hover .spine-brand-name {
+  color: var(--accent);
+}
+
+.spine-links {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
 .spine-link {
   text-decoration: none;
   font-family: var(--font-ui);
@@ -33,8 +56,10 @@
   user-select: none;
   white-space: nowrap;
 }
+
 .spine-link.active { color: var(--accent); }
 .spine-link:hover { color: var(--accent); }
+
 .spine-btn {
   font-family: var(--font-ui);
   letter-spacing: 0.2em;
@@ -42,6 +67,7 @@
   font-size: 0.8rem;
   padding: 6px 16px;
   border: 1px solid rgba(var(--accent-glow), 0.35);
+  border-radius: var(--radius);
   background: transparent;
   color: var(--accent);
   cursor: pointer;
@@ -49,20 +75,36 @@
   margin-left: 8px;
   white-space: nowrap;
 }
+
 .spine-btn:hover {
   background: rgba(var(--accent-glow), 0.1);
   border-color: rgba(var(--accent-glow), 0.6);
 }
+
 .spine-btn-primary {
   background: rgba(var(--accent-glow), 0.12);
   border-color: rgba(var(--accent-glow), 0.5);
   color: var(--cream);
 }
+
 .spine-btn-primary:hover {
   background: rgba(var(--accent-glow), 0.22);
 }
+
 @media (max-width: 720px) {
-  .spine { padding: 0 16px; }
-  .spine-link { padding: 0 10px; font-size: 0.55rem; }
-  .spine-btn { padding: 5px 10px; font-size: 0.55rem; margin-left: 4px; }
+  .spine {
+    padding: 0 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .spine::-webkit-scrollbar { display: none; }
+  .spine-brand-name { display: none; }
+  .spine-link { padding: 0 10px; font-size: 0.65rem; }
+  .spine-btn { padding: 5px 10px; font-size: 0.65rem; margin-left: 4px; }
+}
+
+@media (max-width: 480px) {
+  .spine-link { padding: 0 7px; font-size: 0.6rem; }
+  .spine-btn { padding: 4px 7px; font-size: 0.6rem; margin-left: 2px; }
 }
