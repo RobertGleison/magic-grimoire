@@ -6,7 +6,10 @@ import { SpineNav } from "./components/NavBar/NavBar";
 import AuthGate from "./components/AuthGate/AuthGate";
 
 export const metadata: Metadata = {
-  title: "Magic Grimoire",
+  title: {
+    default: "Magic Grimoire",
+    template: "Magic Grimoire | %s",
+  },
   description: "AI-powered Magic: The Gathering deck builder. Describe your playstyle in plain language and get a balanced 60-card deck with real MTG cards — instantly.",
   icons: { icon: '/assets/mini_logo.png' },
 };
