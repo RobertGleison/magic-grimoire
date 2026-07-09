@@ -6,7 +6,7 @@ import { ReactNode, CSSProperties } from 'react';
 export function ArcaneSigilLogo({ size = 36 }: { size?: number }) {
   return (
     <img
-      src="/assets/grimoire_icon.png"
+      src="/assets/mini_logo.png"
       width={size}
       height={size}
       alt="Magic Grimoire"
