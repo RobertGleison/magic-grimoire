@@ -1,0 +1,139 @@
+/* ── Header back button (shown when onBack is provided) ── */
+.deck-panel-back-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(var(--accent-glow), 0.3);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deck-panel-back-btn:hover {
+  background: rgba(var(--accent-glow), 0.1);
+  border-color: rgba(var(--accent-glow), 0.55);
+}
+
+/* ── Stats section ── */
+.deck-stats {
+  padding: 14px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.deck-stats-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deck-stat-tile {
+  flex: 1;
+  min-width: 72px;
+  padding: 8px 10px;
+  background: rgba(var(--accent-glow), 0.04);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.deck-stat-label {
+  display: block;
+  font-size: 0.48rem;
+  opacity: 0.55;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.deck-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--cream);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Mana curve ── */
+.deck-curve {
+  margin-top: 14px;
+}
+
+.deck-curve-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.deck-curve-title {
+  font-size: 0.5rem;
+  opacity: 0.55;
+}
+
+.deck-curve-avg {
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-curve-bars {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 72px;
+  border-bottom: 1px solid var(--line);
+}
+
+.deck-curve-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.deck-curve-count {
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  line-height: 1;
+  min-height: 0.62rem;
+  color: var(--cream);
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-curve-bar {
+  width: 100%;
+  max-width: 26px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(to top, rgba(var(--accent-glow), 0.55), rgba(var(--accent-glow), 0.3));
+}
+
+.deck-curve-bar-empty {
+  background: rgba(var(--accent-glow), 0.08);
+  border-radius: 0;
+}
+
+.deck-curve-labels {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.deck-curve-label {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  color: var(--muted);
+}

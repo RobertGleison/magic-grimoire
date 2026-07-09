@@ -5,6 +5,11 @@
   overflow: hidden;
 }
 
+/* Single radius token for shared button styles on this page */
+.page :global(.btn) {
+  border-radius: var(--radius);
+}
+
 .mainArea {
   flex: 1;
   overflow-y: auto;
@@ -23,7 +28,7 @@
   justify-content: space-between;
   align-items: flex-end;
   margin-bottom: 36px;
-  border-bottom: 1px solid rgba(var(--accent-glow), 0.15);
+  border-bottom: 1px solid var(--line);
   padding-bottom: 20px;
   flex-wrap: wrap;
   gap: 16px;
@@ -71,6 +76,7 @@
   justify-content: center;
   background: transparent;
   border: 1px solid rgba(var(--accent-glow), 0.2);
+  border-radius: var(--radius);
   color: var(--muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -95,6 +101,7 @@
   cursor: pointer;
   background: linear-gradient(180deg, var(--void-2), var(--void-1));
   border: 1px solid rgba(var(--accent-glow), 0.2);
+  border-radius: var(--radius);
   overflow: hidden;
   transition: all 0.3s;
 }
@@ -147,6 +154,7 @@
   opacity: 0.9;
   background: rgba(0, 0, 0, 0.55);
   padding: 3px 8px;
+  border-radius: var(--radius);
 }
 
 .tileBody {
@@ -196,6 +204,7 @@
   width: 18px;
   height: 18px;
   border: 1px solid rgba(var(--accent-glow), 0.5);
+  border-radius: var(--radius);
   background: rgba(8, 6, 10, 0.75);
   display: flex;
   align-items: center;
@@ -237,6 +246,7 @@
   margin-bottom: 20px;
   background: linear-gradient(90deg, rgba(28, 22, 40, 0.95), rgba(14, 11, 20, 0.98));
   border: 1px solid rgba(var(--accent-glow), 0.35);
+  border-radius: var(--radius);
   animation: messageIn 0.2s ease;
 }
 
@@ -269,6 +279,7 @@
   padding: 14px 18px;
   background: linear-gradient(90deg, var(--void-2), var(--void-1));
   border: 1px solid rgba(var(--accent-glow), 0.15);
+  border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 4px;
@@ -283,6 +294,7 @@
   width: 18px;
   height: 18px;
   border: 1px solid rgba(var(--accent-glow), 0.3);
+  border-radius: var(--radius);
   background: transparent;
   display: flex;
   align-items: center;
@@ -370,29 +382,6 @@
   animation: panelIn 0.25s ease;
 }
 
-.deckBackBtn {
-  position: absolute;
-  top: 12px;
-  left: 20px;
-  z-index: 20;
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  background: rgba(8, 6, 10, 0.85);
-  border: 1px solid rgba(var(--accent-glow), 0.3);
-  color: var(--accent);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
-}
-
-.deckBackBtn:hover {
-  background: rgba(var(--accent-glow), 0.1);
-  border-color: rgba(var(--accent-glow), 0.55);
-}
-
 /* ── Import modal ── */
 .modalOverlay {
   position: fixed;
@@ -412,6 +401,7 @@
   max-width: 500px;
   background: linear-gradient(180deg, var(--void-2), var(--void-0));
   border: 1px solid rgba(var(--accent-glow), 0.4);
+  border-radius: var(--radius);
   padding: 32px 28px;
   box-shadow: 0 0 60px rgba(var(--accent-glow), 0.15);
   animation: messageIn 0.1s ease;
@@ -426,6 +416,12 @@
   color: var(--muted);
   cursor: pointer;
   font-size: 1.3rem;
+  line-height: 1;
+  transition: color 0.25s ease;
+}
+
+.modalClose:hover {
+  color: var(--accent);
 }
 
 .modalTagline {
@@ -460,11 +456,13 @@
   padding: 10px 12px;
   background: var(--void-0);
   border: 1px solid rgba(var(--accent-glow), 0.2);
+  border-radius: var(--radius);
   color: var(--cream);
   font-family: var(--font-body);
   font-size: 1rem;
   outline: none;
   box-sizing: border-box;
+  transition: border-color 0.25s ease;
 }
 
 .modalTextarea {
@@ -472,12 +470,19 @@
   padding: 10px 12px;
   background: var(--void-0);
   border: 1px solid rgba(var(--accent-glow), 0.2);
+  border-radius: var(--radius);
   color: var(--cream);
   font-family: var(--font-ui);
   font-size: 0.82rem;
   outline: none;
   resize: vertical;
   box-sizing: border-box;
+  transition: border-color 0.25s ease;
+}
+
+.modalInput:focus,
+.modalTextarea:focus {
+  border-color: rgba(var(--accent-glow), 0.5);
 }
 
 .modalUploadRow {

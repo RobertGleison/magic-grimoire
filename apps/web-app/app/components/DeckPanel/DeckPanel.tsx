@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ManaSymbol, ManaCost } from '../ManaSymbol/ManaSymbol';
+import './DeckPanel.css';
 
 // ─── Card hover preview ───────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function CardImageTooltip({ name, image_uri, pos }: {
         height={PREVIEW_H}
         style={{
           display: 'block',
-          borderRadius: 11,
+          borderRadius: 'var(--radius)',
           objectFit: 'cover',
           boxShadow: '0 16px 48px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.07)',
         }}
@@ -123,6 +124,8 @@ function parseCmc(manaCost: string): number {
   return cmc;
 }
 
+const CURVE_BUCKETS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
+
 function computeStats(cards: CardEntry[]) {
   const byCat: Record<string, number> = {};
   for (const card of cards) {
@@ -130,24 +133,72 @@ function computeStats(cards: CardEntry[]) {
     byCat[cat] = (byCat[cat] ?? 0) + card.quantity;
   }
 
-  const curve: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10+': 0 };
+  const curve: Record<string, number> = Object.fromEntries(CURVE_BUCKETS.map(b => [b, 0]));
+  let spellCount = 0;
+  let manaValueSum = 0;
   for (const card of cards) {
     if (getCardCategory(card.type_line) === 'Lands') continue;
     const cmc = parseCmc(card.mana_cost ?? '');
+    spellCount += card.quantity;
+    manaValueSum += cmc * card.quantity;
     if (cmc === 0) continue;
     const bucket = cmc >= 10 ? '10+' : String(cmc);
     curve[bucket] += card.quantity;
   }
 
-  return {
-    creatureCount: byCat['Creatures'] ?? 0,
-    manaBase: byCat['Lands'] ?? 0,
-    instantCount: byCat['Instants'] ?? 0,
-    sorceryCount: byCat['Sorceries'] ?? 0,
-    enchantmentCount: byCat['Enchantments'] ?? 0,
-    artifactCount: byCat['Artifacts'] ?? 0,
-    curve,
-  };
+  return { byCat, curve, avgManaValue: spellCount ? manaValueSum / spellCount : 0 };
+}
+
+const CURVE_BAR_MAX = 48;
+
+function DeckStats({ cards, total }: { cards: CardEntry[]; total: number }) {
+  const { byCat, curve, avgManaValue } = computeStats(cards);
+
+  const tiles: [string, number][] = [
+    ['Total', total],
+    ...TYPE_ORDER.filter(t => byCat[t]).map(t => [t, byCat[t]] as [string, number]),
+  ];
+
+  // Trim trailing empty buckets, but always show at least 1–5
+  const lastFilled = CURVE_BUCKETS.reduce((last, b, i) => (curve[b] > 0 ? i : last), -1);
+  const buckets = CURVE_BUCKETS.slice(0, Math.max(lastFilled + 1, 5));
+  const maxVal = Math.max(...buckets.map(b => curve[b]), 1);
+
+  return (
+    <div className="deck-stats">
+      <div className="deck-stats-tiles">
+        {tiles.map(([label, value]) => (
+          <div key={label} className="deck-stat-tile">
+            <span className="h-ui deck-stat-label">{label}</span>
+            <span className="deck-stat-value">{value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="deck-curve">
+        <div className="deck-curve-header">
+          <span className="h-ui deck-curve-title">Mana Curve</span>
+          <span className="deck-curve-avg">avg {avgManaValue.toFixed(1)}</span>
+        </div>
+        <div className="deck-curve-bars">
+          {buckets.map(b => (
+            <div key={b} className="deck-curve-col">
+              <span className="deck-curve-count">{curve[b] > 0 ? curve[b] : ''}</span>
+              <div
+                className={`deck-curve-bar${curve[b] === 0 ? ' deck-curve-bar-empty' : ''}`}
+                style={{ height: curve[b] > 0 ? Math.max(3, Math.round((curve[b] / maxVal) * CURVE_BAR_MAX)) : 2 }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="deck-curve-labels">
+          {buckets.map(b => (
+            <span key={b} className="deck-curve-label">{b}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function viewBtn(active: boolean): React.CSSProperties {
@@ -156,6 +207,7 @@ function viewBtn(active: boolean): React.CSSProperties {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: active ? 'rgba(var(--accent-glow), 0.15)' : 'transparent',
     border: '1px solid ' + (active ? 'rgba(var(--accent-glow), 0.5)' : 'rgba(var(--accent-glow), 0.2)'),
+    borderRadius: 'var(--radius)',
     color: active ? 'var(--accent)' : 'var(--muted)',
     cursor: 'pointer',
     transition: 'all 0.2s',
@@ -232,6 +284,7 @@ function MiniCardTile({ card, checked, onCheck }: MiniCardTileProps) {
           aspectRatio: '0.72 / 1',
           position: 'relative',
           border: `1px solid ${checked ? 'rgba(var(--accent-glow), 0.7)' : 'rgba(var(--accent-glow), 0.22)'}`,
+          borderRadius: 'var(--radius)',
           cursor: onCheck ? 'pointer' : 'default',
           transition: 'all 0.25s',
           overflow: 'hidden',
@@ -274,6 +327,7 @@ interface DeckPanelProps {
   isGuest: boolean;
   onRequestLogin: () => void;
   onReplaceCards?: (cards: CardEntry[]) => void;
+  onBack?: () => void;
 }
 
 function exportTxt(deck: DeckData) {
@@ -288,7 +342,7 @@ function exportTxt(deck: DeckData) {
   URL.revokeObjectURL(url);
 }
 
-export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCards }: DeckPanelProps) {
+export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCards, onBack }: DeckPanelProps) {
   const [layout, setLayout] = useState<DeckLayout>('list');
   const [localCards, setLocalCards] = useState<CardEntry[]>(deck.cards ?? []);
   const [checkedCards, setCheckedCards] = useState<Set<string>>(new Set());
@@ -301,7 +355,7 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
   const toggleCardCheck = (key: string) => {
     setCheckedCards(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   };
@@ -339,7 +393,6 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
 
   const cards = localCards;
   const groups = groupCards(cards);
-  const stats = computeStats(cards);
 
   return (
     <div style={{
@@ -349,32 +402,29 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
       background: 'linear-gradient(180deg, var(--void-0), var(--void-1))',
       position: 'relative',
       animation: 'panelIn 0.6s ease',
-      height: '100vh',
+      height: '100%',
       overflow: 'hidden',
     }}>
-      {/* Header */}
-      <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(var(--accent-glow), 0.2)', background: 'linear-gradient(180deg, var(--void-1), transparent)', flexShrink: 0 }}>
-        <div className="h-ui" style={{ fontSize: '0.55rem', opacity: 0.6, marginBottom: 4 }}>
-          ✦ Divined Decklist · {deck.format}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 12 }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <h3 className="h-display" style={{ fontSize: '1.5rem', margin: 0, fontStyle: 'italic', background: 'linear-gradient(180deg, var(--cream), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {deck.title ?? 'Arcane Deck'}
-            </h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, fontSize: '0.88rem', color: 'var(--cream)', opacity: 0.7 }}>
-              <span style={{ fontStyle: 'italic' }}>{deck.format}</span>
-              {deck.colors && deck.colors.length > 0 && (
-                <>
-                  <span style={{ opacity: 0.5 }}>·</span>
-                  <span style={{ display: 'flex', gap: 3 }}>
-                    {deck.colors.map(c => <ManaSymbol key={c} symbol={c} size={14} />)}
-                  </span>
-                </>
-              )}
-            </div>
+      {/* Header — same 64px band as the chat and options headers */}
+      <div style={{ height: 64, padding: '0 48px 0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--line)', background: 'linear-gradient(180deg, var(--void-1), transparent)', flexShrink: 0 }}>
+        {onBack && (
+          <button className="deck-panel-back-btn" onClick={onBack} title="Back">←</button>
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="h-ui" style={{ fontSize: '0.52rem', opacity: 0.5 }}>
+            ✦ Divined Decklist · {deck.format}
           </div>
-          <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <h3 className="h-display" style={{ fontSize: '0.92rem', margin: 0, fontStyle: 'italic', background: 'linear-gradient(180deg, var(--cream), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {deck.title ?? 'Arcane Deck'}
+          </h3>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {deck.colors && deck.colors.length > 0 && (
+            <span style={{ display: 'flex', gap: 3 }}>
+              {deck.colors.map(c => <ManaSymbol key={c} symbol={c} size={14} />)}
+            </span>
+          )}
+          <div style={{ display: 'flex', gap: 5 }}>
             <button onClick={() => setLayout('list')} style={viewBtn(layout === 'list')} title="List">
               <svg width="12" height="12" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="1.5" fill="currentColor" /><rect x="1" y="6" width="12" height="1.5" fill="currentColor" /><rect x="1" y="10" width="12" height="1.5" fill="currentColor" /></svg>
             </button>
@@ -383,61 +433,13 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
             </button>
           </div>
         </div>
-
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
-          {[
-            ['Total', deck.card_count ?? cards.reduce((s, c) => s + c.quantity, 0)],
-            ['Creat.', stats.creatureCount],
-            ['Instant', stats.instantCount],
-            ['Sorcery', stats.sorceryCount],
-            ['Enchant.', stats.enchantmentCount],
-            ['Artifact', stats.artifactCount],
-            ['Lands', stats.manaBase],
-          ].map(([label, val]) => (
-            <div key={label}>
-              <div className="h-ui" style={{ fontSize: '0.5rem', opacity: 0.55 }}>{label}</div>
-              <div className="h-display" style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>{val}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Mana curve */}
-        {(() => {
-          const buckets = ['1', '2', '3', '4', '5','6','7','8','9','10+'];
-          const maxVal = Math.max(...buckets.map(b => stats.curve[b]), 1);
-          return (
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(var(--accent-glow), 0.1)' }}>
-              <div className="h-ui" style={{ fontSize: '0.5rem', opacity: 0.55, marginBottom: 8 }}>Mana Curve</div>
-              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 70 }}>
-                {buckets.map(b => {
-                  const val = stats.curve[b];
-                  const barH = Math.max(val > 0 ? 3 : 1, Math.round((val / maxVal) * 36));
-                  return (
-                    <div key={b} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, height: '100%', justifyContent: 'flex-end' }}>
-                      {val > 0 && (
-                        <div className="h-ui" style={{ fontSize: '0.7rem', color: 'var(--accent)', opacity: 0.9 }}>{val}</div>
-                      )}
-                      <div style={{
-                        width: '100%',
-                        height: barH,
-                        background: val > 0
-                          ? 'linear-gradient(to top, rgba(var(--accent-glow), 0.65), rgba(var(--accent-glow), 0.25))'
-                          : 'rgba(var(--accent-glow), 0.07)',
-                        borderTop: val > 0 ? '1px solid rgba(var(--accent-glow), 0.6)' : 'none',
-                      }} />
-                      <div className="h-ui" style={{ fontSize: '0.7rem', color: 'var(--muted)', opacity: 1 }}>{b}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
+      {/* Stats + mana curve */}
+      <DeckStats cards={cards} total={deck.card_count ?? cards.reduce((s, c) => s + c.quantity, 0)} />
+
       {/* Card list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 24px' }}>
         {groups.map((group, gi) => (
           <div key={gi} style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
@@ -477,7 +479,7 @@ export default function DeckPanel({ deck, isGuest, onRequestLogin, onReplaceCard
       </div>
 
       {/* Footer actions */}
-      <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(var(--accent-glow), 0.15)', background: 'linear-gradient(180deg, transparent, var(--void-0))', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'linear-gradient(180deg, transparent, var(--void-0))', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
         {checkedCards.size > 0 ? (
           <>
             <span className="h-ui" style={{ fontSize: '0.6rem', color: 'var(--accent)', flex: 1 }}>{checkedCards.size} selected</span>

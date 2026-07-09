@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArcaneSigil } from '../components/ArcaneSigil/ArcaneSigil';
 import { SealLogo } from '../components/ArcaneSigilLogo/ArcaneSigilLogo';
 import DeckPanel, { DeckData } from '../components/DeckPanel/DeckPanel';
 import { OptionsPanel } from '../components/OptionsPanel/OptionsPanel';
@@ -43,13 +42,6 @@ const COLOR_CODE: Record<string, string> = {
   WHITE: 'W', BLUE: 'U', BLACK: 'B', RED: 'R', GREEN: 'G',
 };
 
-const QUICK_PROMPTS = [
-  'Mono-green elf tribal for Modern, aggressive',
-  'Azorius control with Teferi',
-  'Burn deck for Pioneer',
-  'Dimir mill for Commander',
-];
-
 
 function ChatTypingBubble() {
   return (
@@ -77,9 +69,9 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
   return (
     <div className={style.loadingMsg}>
       <div className={style.loadingInner}>
-        {/* <div className={`seal ${style.loadingSeal}`}>
+        <div className={`seal ${style.loadingSeal}`}>
           <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12 }}>✦</span>
-        </div> */}
+        </div>
         <div>
           <div className={`h-ui ${style.loadingLabel}`}>Grimoire · Building</div>
           <div className={style.loadingBox}>
@@ -115,6 +107,7 @@ export default function GrimoirePage() {
   const [format, setFormat] = useState('Modern');
   const [colors, setColors] = useState<string[]>([]);
   const [deckSize, setDeckSize] = useState(60);
+  const strategy = 'Balanced';
   const [loading, setLoading] = useState(false);
   const [chatBusy, setChatBusy] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>(0);

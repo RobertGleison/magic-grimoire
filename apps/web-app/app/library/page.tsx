@@ -21,7 +21,7 @@ interface SavedDeck {
 const SAVED_DECKS: SavedDeck[] = [
   {
     id: 'verdant-swarm', name: 'The Verdant Swarm', archetype: 'Mono-Green Elf Tribal',
-    format: 'Modern', colors: ['G'], savedOn: 'IV · iii · MMXXVI',
+    format: 'Modern', colors: ['G'], savedOn: 'Apr 3, 2026',
     prompt: 'mono-green elf tribal for Modern, aggressive',
     cards: [
       { name: 'Llanowar Elves', quantity: 4, mana_cost: '{G}', type_line: 'Creature — Elf Druid' },
@@ -39,7 +39,7 @@ const SAVED_DECKS: SavedDeck[] = [
   },
   {
     id: 'azorius-teferi', name: 'Silent Veto', archetype: 'Azorius Control',
-    format: 'Modern', colors: ['W', 'U'], savedOn: 'IV · ii · MMXXVI',
+    format: 'Modern', colors: ['W', 'U'], savedOn: 'Apr 2, 2026',
     prompt: 'Azorius control for Modern with Teferi',
     cards: [
       { name: 'Teferi, Hero of Dominaria', quantity: 3, mana_cost: '{3}{W}{U}', type_line: 'Planeswalker — Teferi' },
@@ -56,7 +56,7 @@ const SAVED_DECKS: SavedDeck[] = [
   },
   {
     id: 'gruul-werewolves', name: 'Moonlight Howl', archetype: 'Gruul Werewolves',
-    format: 'Pioneer', colors: ['R', 'G'], savedOn: 'III · xxvii · MMXXVI',
+    format: 'Pioneer', colors: ['R', 'G'], savedOn: 'Mar 27, 2026',
     prompt: 'Gruul werewolves tribal, Pioneer',
     cards: [
       { name: 'Werewolf Pack Leader', quantity: 4, mana_cost: '{1}{G}', type_line: 'Creature — Human Werewolf' },
@@ -72,7 +72,7 @@ const SAVED_DECKS: SavedDeck[] = [
   },
   {
     id: 'dimir-mill', name: 'Drowned Library', archetype: 'Dimir Mill',
-    format: 'Commander', colors: ['U', 'B'], savedOn: 'III · xix · MMXXVI',
+    format: 'Commander', colors: ['U', 'B'], savedOn: 'Mar 19, 2026',
     prompt: 'Dimir mill, Commander legal',
     cards: [
       { name: 'Maddening Cacophony', quantity: 1, mana_cost: '{1}{U}', type_line: 'Sorcery' },
@@ -88,7 +88,7 @@ const SAVED_DECKS: SavedDeck[] = [
   },
   {
     id: 'boros-tokens', name: 'Gathered Ranks', archetype: 'Boros Tokens',
-    format: 'Pioneer', colors: ['R', 'W'], savedOn: 'III · xi · MMXXVI',
+    format: 'Pioneer', colors: ['R', 'W'], savedOn: 'Mar 11, 2026',
     prompt: 'Boros tokens with anthem effects, aggressive',
     cards: [
       { name: 'Monastery Mentor', quantity: 3, mana_cost: '{2}{W}', type_line: 'Creature — Human Monk' },
@@ -103,7 +103,7 @@ const SAVED_DECKS: SavedDeck[] = [
   },
   {
     id: 'sultai-reanimator', name: 'The Returning', archetype: 'Sultai Reanimator',
-    format: 'Modern', colors: ['U', 'B', 'G'], savedOn: 'II · xxviii · MMXXVI',
+    format: 'Modern', colors: ['U', 'B', 'G'], savedOn: 'Feb 28, 2026',
     prompt: 'Sultai reanimator with Bloodghast recursion',
     cards: [
       { name: 'Bloodghast', quantity: 4, mana_cost: '{1}{B}', type_line: 'Creature — Vampire Spirit' },
@@ -301,7 +301,7 @@ export default function LibraryPage() {
     e.stopPropagation();
     setCheckedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   };
@@ -391,8 +391,8 @@ export default function LibraryPage() {
       {/* Fullscreen deck overlay */}
       {selectedDeck && (
         <div className={s.deckOverlay}>
-          <button className={s.deckBackBtn} onClick={() => setSelectedId(null)}>← Back to Library</button>
           <DeckPanel
+            onBack={() => setSelectedId(null)}
             deck={{
               id: selectedDeck.id,
               title: selectedDeck.name,
