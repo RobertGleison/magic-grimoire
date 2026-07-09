@@ -76,14 +76,22 @@ function HeroSection({ onEnter }: { onEnter: () => void }) {
           </h1>
 
           <p className={style.heroSubtitle}>
-            Write your Magic: The Gathering desires and it shall create for you the perfect deck of cards.
+            Tuning a Magic: The Gathering deck means hours of netdecking and mana-curve math.
+            Describe what you want in one sentence — get a balanced 60-card deck in under a minute.
           </p>
 
           <div className={style.heroActions}>
             <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.85rem', padding: '18px 44px' }}>
-              Build your deck
+              Build your deck — free
             </button>
+            <p className={style.ctaTrigger}>No signup. Your first deck in under a minute.</p>
           </div>
+
+          <ul className={style.trustBar}>
+            <li>Real MTG cards via Scryfall</li>
+            <li>5 formats</li>
+            <li>Balanced 60-card decks</li>
+          </ul>
         </div>
 
         <div className={style.heroSigil}>
@@ -120,8 +128,8 @@ function HowToBuildYourDeckSteps() {
 
 const FEATURES = [
   { title: 'All Colors', body: 'Every color combination, every mechanic, every card.', pips: ALL_COLORS },
-  { title: 'All Formats', body: 'Standard, Modern, Pioneer, Legacy, Vintage, Commander, Pauper. Budget or boundless.',  icon: '⚔' },
-  { title: 'Synergies',   body: 'Mana curves, ratios and interactions are important to a strong deck.', icon: '✦' },
+  { title: 'Every Format', body: 'Standard, Modern, Pioneer, Legacy, and Commander — budget or boundless.',  icon: '⚔' },
+  { title: 'Synergies',   body: 'Mana curve, color ratios, and card interactions tuned so the deck actually functions.', icon: '✦' },
   { title: 'Iteration',   body: 'Each inclusion justified. Each ratio defended. Argue with the grimoire, refine the result.', icon: '↻' },
 ];
 
@@ -171,7 +179,7 @@ function CommentSection() {
     <RevealSection className={style.incantations}>
       <SectionHeader
         label="Sample Incantations"
-        heading="Examples of Deck Ideas"
+        heading="Speak plainly — it understands"
         ornamentWidth={280}
       />
       <div className={style.marqueeOuter}>
@@ -201,8 +209,9 @@ function CallToAction({ onEnter }: { onEnter: () => void }) {
           <span className={style.gradientText}>The grimoire awaits</span>
         </h2>
         <button className="btn btn-primary" onClick={onEnter} style={{ fontSize: '0.9rem', padding: '18px 40px' }}>
-          Build your deck
+          Build your deck — free
         </button>
+        <p className={style.ctaTrigger}>No signup to start. First deck in under a minute.</p>
       </div>
     </RevealSection>
   );
