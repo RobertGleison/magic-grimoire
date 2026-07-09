@@ -8,8 +8,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 44px 14px 16px;
-  border-bottom: 1px solid rgba(var(--accent-glow), 0.12);
+  height: 64px;
+  padding: 0 44px 0 16px;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
@@ -45,7 +46,7 @@
 .options-panel-side-btn {
   font-size: 0.58rem;
   padding: 4px 9px;
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .options-panel-color-row {
@@ -84,7 +85,7 @@
   padding: 3px 8px;
   opacity: 0.6;
   margin-top: 2px;
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .options-panel-clear-btn:hover {
@@ -106,7 +107,7 @@
   font-size: 0.7rem;
   padding: 4px 6px;
   text-align: center;
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .options-panel-size-hint {

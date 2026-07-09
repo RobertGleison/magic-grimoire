@@ -4,10 +4,16 @@
   height: calc(100vh - 76px);
 }
 
+/* Single radius token for every shared control on this page */
+.layout :global(.btn),
+.layout :global(.opt-btn) {
+  border-radius: var(--radius);
+}
+
 /* ── Left: Options column ── */
 .optionsCol {
   position: relative;
-  border-right: 1px solid rgba(var(--accent-glow), 0.12);
+  border-right: 1px solid var(--line);
   background: linear-gradient(180deg, var(--void-1) 0%, var(--void-0) 100%);
   overflow-y: auto;
   display: flex;
@@ -21,10 +27,11 @@
 /* Collapse / expand toggle — always at the same spot */
 .collapseBtn {
   position: absolute;
-  top: 13px;
+  top: 20px;
   right: 10px;
   background: transparent;
   border: 1px solid rgba(var(--accent-glow), 0.2);
+  border-radius: var(--radius);
   color: var(--muted);
   font-size: 1rem;
   line-height: 1;
@@ -55,8 +62,9 @@
 
 /* ── Chat header ── */
 .header {
-  padding: 14px 24px;
-  border-bottom: 1px solid rgba(var(--accent-glow), 0.15);
+  height: 64px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -137,7 +145,8 @@
 /* ── Deck toolbar (save + fullscreen toggle) ── */
 .deckToolbar {
   position: absolute;
-  top: 10px;
+  top: 0;
+  height: 64px;
   right: 14px;
   z-index: 20;
   display: flex;
@@ -146,13 +155,16 @@
 }
 
 .deckToolbarBtn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-ui);
-  font-size: 0.55rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  padding: 5px 10px;
+  font-size: 0.7rem;
   background: rgba(8, 6, 10, 0.85);
   border: 1px solid rgba(var(--accent-glow), 0.3);
+  border-radius: var(--radius);
   color: var(--accent);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -234,6 +246,7 @@
   background: linear-gradient(135deg, rgba(28, 22, 40, 0.6), rgba(14, 11, 20, 0.8));
   backdrop-filter: blur(8px);
   border: 1px solid rgba(var(--accent-glow), 0.25);
+  border-radius: var(--radius);
   padding: 12px 18px;
   display: flex;
   align-items: center;
@@ -293,6 +306,7 @@
   width: 100%;
   background: linear-gradient(135deg, rgba(28, 22, 40, 0.97), rgba(14, 11, 20, 0.99));
   border: 1px solid rgba(var(--accent-glow), 0.45);
+  border-radius: var(--radius);
   box-shadow: 0 0 40px rgba(var(--accent-glow), 0.12);
   padding: 14px 18px;
   display: flex;
