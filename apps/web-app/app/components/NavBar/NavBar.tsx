@@ -21,7 +21,6 @@ export function SpineNav() {
     <nav className="spine">
       <Link href="/" className="spine-brand">
         <SealLogo size={32} />
-        <span className="h-display spine-brand-name">Magic Grimoire</span>
       </Link>
 
       <div className="spine-links">
