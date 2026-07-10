@@ -124,6 +124,16 @@ export function ArcaneSigil({ size = 280, intensity = 1 }: ArcaneSigilProps) {
           strokeWidth="1"
           opacity="0.85"
         />
+        <polygon
+          points={[0, 2, 4, 1, 3].map((i) => {
+            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+            return `${200 + Math.cos(a) * 65},${200 + Math.sin(a) * 65}`;
+          }).join(' ')}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="0.8"
+          opacity="0.55"
+        />
         {(['white', 'blue', 'black', 'red', 'green'] as const).map((color, i) => {
           const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
           const cx = 200 + Math.cos(a) * 65;
@@ -142,16 +152,6 @@ export function ArcaneSigil({ size = 280, intensity = 1 }: ArcaneSigilProps) {
             />
           );
         })}
-        <polygon
-          points={[0, 2, 4, 1, 3].map((i) => {
-            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-            return `${200 + Math.cos(a) * 65},${200 + Math.sin(a) * 65}`;
-          }).join(' ')}
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="0.8"
-          opacity="0.55"
-        />
       </g>
     </svg>
   );
