@@ -59,6 +59,9 @@ htmlcov/
 *.tmp
 next_features.txt
 
+# Git worktrees
+.worktrees/
+
 # Obsidian — workspace state is local, config is tracked
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
