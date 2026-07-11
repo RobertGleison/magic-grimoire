@@ -25,6 +25,13 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   api:
     build: ./apps/api-server
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -35,14 +42,14 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres/magic_grimoire
       REDIS_URL: redis://redis:6379/0
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_started
 
   worker:
     build: ./apps/api-server
@@ -52,14 +59,15 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres/magic_grimoire
       REDIS_URL: redis://redis:6379/0
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_started
 
 volumes:
   postgres_data:
+  ollama_data:
