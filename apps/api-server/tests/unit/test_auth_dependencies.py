@@ -1,20 +1,8 @@
-import jwt
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import get_current_user, get_optional_user
-from app.core.config import settings
-
-TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
-
-
-def _make_token(user_id: str = TEST_USER_ID) -> str:
-    return jwt.encode(
-        {"sub": user_id, "aud": "authenticated"},
-        settings.SUPABASE_JWT_SECRET,
-        algorithm=settings.JWT_ALGORITHM,
-    )
-
+from tests.conftest import TEST_USER_ID, make_token
 
 # Minimal FastAPI app — avoids needing a database.
 _app = FastAPI()
@@ -40,7 +28,7 @@ def test_optional_returns_none_without_token():
 
 
 def test_optional_returns_user_id_with_valid_token():
-    res = client.get("/optional", headers={"Authorization": f"Bearer {_make_token()}"})
+    res = client.get("/optional", headers={"Authorization": f"Bearer {make_token()}"})
     assert res.status_code == 200
     assert res.json()["user_id"] == TEST_USER_ID
 
@@ -57,7 +45,7 @@ def test_required_raises_401_without_token():
 
 
 def test_required_returns_user_id_with_valid_token():
-    res = client.get("/required", headers={"Authorization": f"Bearer {_make_token()}"})
+    res = client.get("/required", headers={"Authorization": f"Bearer {make_token()}"})
     assert res.status_code == 200
     assert res.json()["user_id"] == TEST_USER_ID
 
