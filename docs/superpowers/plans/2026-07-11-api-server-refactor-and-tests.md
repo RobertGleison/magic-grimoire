@@ -565,6 +565,14 @@ git add app/services/redis_cache.py tests/unit/test_redis_cache.py
 git commit -m "refactor: reuse a Redis connection pool instead of a client per call"
 ```
 
+> **Addendum (post-review):** the shared-pool code block above was superseded during
+> implementation review. A single module-global pool breaks the Celery worker, which runs
+> each task under a fresh `asyncio.run()` loop — pooled connections stay bound to the dead
+> loop and the next task fails with "Event loop is closed". The shipped version keys the
+> pool to the running event loop and rebuilds on mismatch, with two extra pool-lifecycle
+> tests (`test_pool_reused_within_same_loop`, `test_pool_rebuilt_for_new_event_loop`).
+> See commit 84d28d4.
+
 ---
 
 ### Task 7: Scryfall service unit tests
