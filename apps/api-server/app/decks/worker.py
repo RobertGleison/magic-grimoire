@@ -18,6 +18,8 @@ from app.workers.celery_app import celery_app
 
 _log = logging.getLogger(__name__)
 
+SessionFactory = async_sessionmaker[AsyncSession]
+
 
 async def _publish(redis_client: aioredis.Redis, channel: str, status: str, message: str) -> None:
     try:
@@ -26,48 +28,77 @@ async def _publish(redis_client: aioredis.Redis, channel: str, status: str, mess
         _log.warning("SSE publish failed (channel=%s, status=%s) — notification dropped", channel, status)
 
 
-async def _update_and_publish(
-    db: AsyncSession,
-    redis_client: aioredis.Redis,
-    channel: str,
-    task: Task | None,
-    deck: Deck | None,
-    task_status: TaskStatus,
-    deck_status: DeckStatus,
-    message: str,
+async def _fetch_deck_and_task(db: AsyncSession, deck_uuid: uuid.UUID, task_id: str) -> tuple[Deck | None, Task | None]:
+    deck = (await db.execute(select(Deck).where(Deck.id == deck_uuid))).scalar_one_or_none()
+    task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one_or_none()
+    return deck, task
+
+
+async def _mark_processing(session_factory: SessionFactory, deck_uuid: uuid.UUID, task_id: str) -> None:
+    async with session_factory() as db:
+        deck, task = await _fetch_deck_and_task(db, deck_uuid, task_id)
+        if deck:
+            deck.status = DeckStatus.PROCESSING
+        if task:
+            task.status = TaskStatus.PROCESSING
+            task.updated_at = datetime.now(tz=UTC)
+        await db.commit()
+
+
+async def _save_completed_deck(
+    session_factory: SessionFactory,
+    deck_uuid: uuid.UUID,
+    task_id: str,
+    title: str | None,
+    cards: list[dict],
+    colors: list[str],
 ) -> None:
-    """Update task/deck status in DB then publish a progress event."""
     now = datetime.now(tz=UTC)
-    if task:
-        task.status = task_status
-        task.updated_at = now
-    if deck:
-        deck.status = deck_status
-    await db.commit()
-    await _publish(redis_client, channel, task_status, message)
+    async with session_factory() as db:
+        deck, task = await _fetch_deck_and_task(db, deck_uuid, task_id)
+        if deck:
+            deck.title = title
+            deck.cards = cards
+            deck.card_count = sum(card.get("quantity", 1) for card in cards)
+            deck.colors = colors
+            deck.status = DeckStatus.COMPLETED
+            deck.completed_at = now
+        if task:
+            task.status = TaskStatus.COMPLETED
+            task.updated_at = now
+        await db.commit()
+
+
+async def _mark_failed(session_factory: SessionFactory, deck_uuid: uuid.UUID, task_id: str, error: str) -> None:
+    now = datetime.now(tz=UTC)
+    try:
+        async with session_factory() as db:
+            deck, task = await _fetch_deck_and_task(db, deck_uuid, task_id)
+            if deck:
+                deck.status = DeckStatus.FAILED
+                deck.error_message = error
+                deck.failed_at = now
+            if task:
+                task.status = TaskStatus.FAILED
+                task.failed_at = now
+                task.updated_at = now
+            await db.commit()
+    except Exception:
+        _log.exception("Could not mark deck %s / task %s as failed", deck_uuid, task_id)
 
 
 async def _run_generate_deck(task_id: str, deck_id: str, prompt: str, format: str) -> None:
     # Engine is created fresh per task invocation — each Celery task call runs in its
     # own asyncio.run() event loop, and asyncpg connections can't cross event loops.
     engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
-    _session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-
+    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     channel = f"task:{task_id}"
     deck_uuid = uuid.UUID(deck_id)
 
     try:
-        async with _session_factory() as db:
-            result = await db.execute(select(Task).where(Task.id == task_id))
-            task = result.scalar_one_or_none()
-            result = await db.execute(select(Deck).where(Deck.id == deck_uuid))
-            deck = result.scalar_one_or_none()
-            await _update_and_publish(
-                db, redis_client, channel, task, deck,
-                TaskStatus.PROCESSING, DeckStatus.PROCESSING,
-                "Parsing your request...",
-            )
+        await _mark_processing(session_factory, deck_uuid, task_id)
+        await _publish(redis_client, channel, TaskStatus.PROCESSING, "Parsing your request...")
 
         llm = create_llm_service()
         loop = asyncio.get_running_loop()
@@ -78,61 +109,26 @@ async def _run_generate_deck(task_id: str, deck_id: str, prompt: str, format: st
             raise ValueError(intent.get("message", "I only discuss Magic: The Gathering."))
 
         await _publish(redis_client, channel, "searching_cards", "Searching for cards...")
-
         candidate_cards = await scryfall_service.search_cards(intent)
 
         await _publish(redis_client, channel, "composing_deck", "Building your deck...")
-
-        deck_composition = await loop.run_in_executor(
-            None, llm.compose_deck, intent, candidate_cards, format
-        )
+        deck_composition = await loop.run_in_executor(None, llm.compose_deck, intent, candidate_cards, format)
 
         await _publish(redis_client, channel, "enriching", "Fetching card images...")
-
         enriched_cards = await scryfall_service.enrich_cards(deck_composition.get("cards", []))
 
-        async with _session_factory() as db:
-            result = await db.execute(select(Deck).where(Deck.id == deck_uuid))
-            deck = result.scalar_one_or_none()
-            if deck:
-                deck.title = deck_composition.get("title")
-                deck.cards = enriched_cards
-                deck.card_count = sum(c.get("quantity", 1) for c in enriched_cards)
-                deck.colors = intent.get("colors", [])
-                deck.status = DeckStatus.COMPLETED
-                deck.completed_at = datetime.now(tz=UTC)
-
-            result = await db.execute(select(Task).where(Task.id == task_id))
-            task = result.scalar_one_or_none()
-            if task:
-                task.status = TaskStatus.COMPLETED
-                task.updated_at = datetime.now(tz=UTC)
-
-            await db.commit()
-
+        await _save_completed_deck(
+            session_factory,
+            deck_uuid,
+            task_id,
+            title=deck_composition.get("title"),
+            cards=enriched_cards,
+            colors=intent.get("colors", []),
+        )
         await _publish(redis_client, channel, TaskStatus.COMPLETED, "Your deck is ready!")
 
     except Exception as exc:
-        try:
-            async with _session_factory() as db:
-                result = await db.execute(select(Deck).where(Deck.id == deck_uuid))
-                deck = result.scalar_one_or_none()
-                if deck:
-                    deck.status = DeckStatus.FAILED
-                    deck.error_message = str(exc)
-                    deck.failed_at = datetime.now(tz=UTC)
-
-                result = await db.execute(select(Task).where(Task.id == task_id))
-                task = result.scalar_one_or_none()
-                if task:
-                    task.status = TaskStatus.FAILED
-                    task.failed_at = datetime.now(tz=UTC)
-                    task.updated_at = datetime.now(tz=UTC)
-
-                await db.commit()
-        except Exception:
-            pass
-
+        await _mark_failed(session_factory, deck_uuid, task_id, str(exc))
         await _publish(redis_client, channel, TaskStatus.FAILED, str(exc))
         raise
 
