@@ -24,7 +24,7 @@ async def chat(
 
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
     try:
-        reply = chat_with_grimoire(messages, request.context)
+        reply = await chat_with_grimoire(messages, request.context)
     except httpx.ConnectError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
