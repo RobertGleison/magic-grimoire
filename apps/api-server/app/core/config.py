@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
 
+    # Comma-separated list of origins allowed by CORS.
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+
     # LLM provider: "claude" or "ollama"
     LLM_PROVIDER: str = "ollama"
 
