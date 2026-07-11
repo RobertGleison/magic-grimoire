@@ -169,3 +169,18 @@
   color: var(--muted);
   letter-spacing: 0.1em;
 }
+
+.options-panel-clear-chat-btn {
+  width: 100%;
+  border-radius: var(--radius);
+}
+
+.options-panel-clear-chat-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.options-panel-clear-chat-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

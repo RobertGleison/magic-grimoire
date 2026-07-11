@@ -14,10 +14,12 @@ interface OptionsPanelProps {
   toggleColor: (color: string) => void;
   deckSize: number;
   setDeckSize: (value: number) => void;
+  onClearChat: () => void;
+  disableClear: boolean;
 }
 
 
-export function OptionsPanel({ format, setFormat, colors, toggleColor, deckSize, setDeckSize }: OptionsPanelProps) {
+export function OptionsPanel({ format, setFormat, colors, toggleColor, deckSize, setDeckSize, onClearChat, disableClear }: OptionsPanelProps) {
   return (
     <div className="options-panel">
       {/* <div className="options-panel-header">
@@ -29,6 +31,8 @@ export function OptionsPanel({ format, setFormat, colors, toggleColor, deckSize,
       <ColorSelector colors={colors} toggleColor={toggleColor} />
       <div className="options-panel-divider" />
       <DeckSizeInput format={format} deckSize={deckSize} setDeckSize={setDeckSize} />
+      <div className="options-panel-divider" />
+      <ClearChatSection onClearChat={onClearChat} disabled={disableClear} />
     </div>
   );
 }
@@ -141,4 +145,21 @@ function DeckSizeInput({ format, deckSize, setDeckSize }: {
   );
 }
 
+
+function ClearChatSection({ onClearChat, disabled }: {
+  onClearChat: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <OptionsSection label="Chat">
+      <button
+        className="opt-btn options-panel-clear-chat-btn"
+        onClick={onClearChat}
+        disabled={disabled}
+      >
+        Clear chat
+      </button>
+    </OptionsSection>
+  );
+}
 
