@@ -161,4 +161,4 @@ async def delete_deck(
     if deck.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-    db.delete(deck)
+    await db.delete(deck)
