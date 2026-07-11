@@ -19,7 +19,7 @@ class Task(Base):
         index=True,
     )
     status: Mapped[str] = mapped_column(
-        String, server_default="queued", default="queued", nullable=False
+        String, server_default="queued", nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False

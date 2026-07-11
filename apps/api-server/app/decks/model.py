@@ -15,7 +15,6 @@ class Deck(Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
-        default=uuid.uuid4,
     )
 
     title: Mapped[str | None] = mapped_column(
@@ -37,7 +36,6 @@ class Deck(Base):
     format: Mapped[str] = mapped_column(
         String,
         server_default="standard",
-        default="standard",
         nullable=False
     )
 
@@ -54,14 +52,12 @@ class Deck(Base):
     card_count: Mapped[int] = mapped_column(
         Integer,
         server_default="0",
-        default=0,
         nullable=False
     )
 
     status: Mapped[str] = mapped_column(
         String,
         server_default="pending",
-        default="pending",
         nullable=False
     )
 

@@ -19,6 +19,7 @@ from app.decks.dtos import (
     DeckResponseDTO,
 )
 from app.decks.model import Deck
+from app.decks.worker import generate_deck_task
 from app.services import redis_cache
 from app.tasks.model import Task
 
@@ -36,8 +37,6 @@ async def generate_deck(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[str | None, Depends(get_optional_user)],
 ) -> DeckGenerateResponseDTO:
-    from app.decks.worker import generate_deck_task
-
     valid, rejection = sanitize_prompt(request.prompt)
     if not valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=rejection)
