@@ -30,3 +30,25 @@ async def test_publish_reaches_subscriber(fake_redis):
             await asyncio.sleep(0.01)
         assert message is not None
         assert message["data"] == "hello"
+
+
+def test_pool_reused_within_same_loop(monkeypatch):
+    monkeypatch.setattr(redis_cache, "_pool", None)
+    monkeypatch.setattr(redis_cache, "_pool_loop", None)
+
+    async def _pools() -> tuple:
+        return redis_cache._get_client().connection_pool, redis_cache._get_client().connection_pool
+
+    first, second = asyncio.run(_pools())
+    assert first is second
+
+
+def test_pool_rebuilt_for_new_event_loop(monkeypatch):
+    """Celery runs each task in a fresh asyncio.run() loop — the pool must not cross loops."""
+    monkeypatch.setattr(redis_cache, "_pool", None)
+    monkeypatch.setattr(redis_cache, "_pool_loop", None)
+
+    async def _pool():
+        return redis_cache._get_client().connection_pool
+
+    assert asyncio.run(_pool()) is not asyncio.run(_pool())
