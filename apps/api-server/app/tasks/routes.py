@@ -49,7 +49,7 @@ async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
 
     finally:
         await pubsub.unsubscribe(channel)
-        await pubsub.close()
+        await pubsub.aclose()
         await redis_client.aclose()
 
 
