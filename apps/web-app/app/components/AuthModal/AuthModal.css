@@ -87,6 +87,37 @@
   margin: 10px 0 0;
 }
 
+.auth-modal-oauth-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-modal-oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: transparent;
+  border: 1px solid rgba(var(--accent-glow), 0.2);
+  color: var(--cream);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.auth-modal-oauth-btn:hover:not(:disabled) {
+  border-color: rgba(var(--accent-glow), 0.5);
+  background: rgba(var(--accent-glow), 0.08);
+}
+
+.auth-modal-oauth-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .auth-modal-field {
   margin-bottom: 14px;
 }
@@ -138,18 +169,4 @@
 
 .auth-modal-switch:hover {
   color: var(--accent);
-}
-
-.auth-modal-skip {
-  font-size: 0.72rem;
-}
-
-.auth-modal-note {
-  font-family: var(--font-body);
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--muted);
-  text-align: center;
-  margin: 12px 0 0;
-  line-height: 1.45;
 }

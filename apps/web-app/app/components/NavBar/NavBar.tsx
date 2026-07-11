@@ -2,46 +2,54 @@
 
 import './NavBar.css';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { SealLogo } from '../ArcaneSigilLogo/ArcaneSigilLogo';
 import { useUser } from '../../context/UserContext';
 
 const NAV_LINKS = [
-  { path: '/',            label: 'Home',         authOnly: false },
-  { path: '/deck-builder', label: 'Deck Builder', authOnly: false },
-  { path: '/library',     label: 'Library',      authOnly: true },
+  { path: '/',            label: 'Home',         authOnly: false, requiresAuth: false },
+  { path: '/deck-builder', label: 'Deck Builder', authOnly: false, requiresAuth: true },
+  { path: '/library',     label: 'Library',      authOnly: true,  requiresAuth: true },
 ];
 
 export function SpineNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, setUser, openAuth } = useUser();
+  const { user, openAuth, setUser } = useUser();
 
   return (
     <nav className="spine">
       <Link href="/" className="spine-brand">
         <SealLogo size={32} />
-        <span className="h-display spine-brand-name">Magic Grimoire</span>
       </Link>
 
       <div className="spine-links">
-        {NAV_LINKS.filter(({ authOnly }) => !authOnly || user).map(({ path, label }) => (
+        {NAV_LINKS.filter(({ authOnly }) => !authOnly || user).map(({ path, label, requiresAuth }) => (
           <Link
             key={path}
             href={path}
             className={`spine-link${pathname === path ? ' active' : ''}`}
+            onClick={e => {
+              if (requiresAuth && !user) {
+                e.preventDefault();
+                openAuth();
+              }
+            }}
           >
             {label}
           </Link>
         ))}
 
         {user ? (
-          <button className="spine-btn" onClick={() => { setUser(null); router.push('/'); }}>Log Out</button>
+          <div className="spine-auth">
+            <span className="spine-user-name">{user.name}</span>
+            <button className="spine-logout" onClick={() => setUser(null)}>
+              Logout
+            </button>
+          </div>
         ) : (
-          <>
-            <button className="spine-btn" onClick={openAuth}>Log In</button>
-            <button className="spine-btn spine-btn-primary" onClick={openAuth}>Sign Up</button>
-          </>
+          <button className="btn btn-primary spine-login" onClick={openAuth}>
+            Login
+          </button>
         )}
       </div>
     </nav>

@@ -14,22 +14,25 @@ interface OptionsPanelProps {
   toggleColor: (color: string) => void;
   deckSize: number;
   setDeckSize: (value: number) => void;
+  onClearChat: () => void;
+  disableClear: boolean;
 }
 
 
-export function OptionsPanel({ format, setFormat, colors, toggleColor, deckSize, setDeckSize }: OptionsPanelProps) {
+export function OptionsPanel({ format, setFormat, colors, toggleColor, deckSize, setDeckSize, onClearChat, disableClear }: OptionsPanelProps) {
   return (
     <div className="options-panel">
-      <div className="options-panel-header">
-        <SealLogo size={20} />
-        <span className="h-ui options-panel-title">The Rites</span>
-      </div>
+      {/* <div className="options-panel-header">
+        <span className="h-ui options-panel-title">Options panel</span>
+      </div> */}
 
       <FormatSelector format={format} setFormat={setFormat} setDeckSize={setDeckSize} />
       <div className="options-panel-divider" />
       <ColorSelector colors={colors} toggleColor={toggleColor} />
       <div className="options-panel-divider" />
       <DeckSizeInput format={format} deckSize={deckSize} setDeckSize={setDeckSize} />
+      <div className="options-panel-divider" />
+      <ClearChatSection onClearChat={onClearChat} disabled={disableClear} />
     </div>
   );
 }
@@ -99,24 +102,64 @@ function DeckSizeInput({ format, deckSize, setDeckSize }: {
   deckSize: number;
   setDeckSize: (v: number) => void;
 }) {
+  const disabled = format === 'Commander';
+
   return (
     <OptionsSection label="Deck Size">
       <div className="options-panel-size-row">
-        <input
-          type="number"
-          min={60}
-          value={deckSize}
-          disabled={format === 'Commander'}
-          onChange={e => setDeckSize(Math.max(60, Number(e.target.value)))}
-          className="options-panel-size-input"
-          style={{ opacity: format === 'Commander' ? 0.5 : 1 }}
-        />
+        <div className="options-panel-size-control" style={{ opacity: disabled ? 0.5 : 1 }}>
+          <input
+            type="number"
+            min={60}
+            value={deckSize}
+            disabled={disabled}
+            onChange={e => setDeckSize(Math.max(60, Number(e.target.value)))}
+            className="options-panel-size-input"
+          />
+          <div className="options-panel-size-steppers">
+            <button
+              type="button"
+              className="options-panel-size-stepper"
+              disabled={disabled}
+              onClick={() => setDeckSize(deckSize + 1)}
+              aria-label="Increase deck size"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              className="options-panel-size-stepper"
+              disabled={disabled}
+              onClick={() => setDeckSize(Math.max(60, deckSize - 1))}
+              aria-label="Decrease deck size"
+            >
+              ▼
+            </button>
+          </div>
+        </div>
         <span className="options-panel-size-hint">
-          {format === 'Commander' ? 'fixed at 100' : 'cards'}
+          {disabled ? 'fixed at 100' : 'cards'}
         </span>
       </div>
     </OptionsSection>
   );
 }
 
+
+function ClearChatSection({ onClearChat, disabled }: {
+  onClearChat: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <OptionsSection label="Chat">
+      <button
+        className="opt-btn options-panel-clear-chat-btn"
+        onClick={onClearChat}
+        disabled={disabled}
+      >
+        Clear chat
+      </button>
+    </OptionsSection>
+  );
+}
 

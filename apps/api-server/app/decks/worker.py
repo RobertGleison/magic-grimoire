@@ -18,10 +18,6 @@ from app.workers.celery_app import celery_app
 
 _log = logging.getLogger(__name__)
 
-# Created once when the worker process starts — not on every task call.
-_engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
-_session_factory = async_sessionmaker(bind=_engine, class_=AsyncSession, expire_on_commit=False)
-
 
 async def _publish(redis_client: aioredis.Redis, channel: str, status: str, message: str) -> None:
     try:
@@ -52,6 +48,11 @@ async def _update_and_publish(
 
 
 async def _run_generate_deck(task_id: str, deck_id: str, prompt: str, format: str) -> None:
+    # Engine is created fresh per task invocation — each Celery task call runs in its
+    # own asyncio.run() event loop, and asyncpg connections can't cross event loops.
+    engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+    _session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     channel = f"task:{task_id}"
     deck_uuid = uuid.UUID(deck_id)
@@ -137,6 +138,7 @@ async def _run_generate_deck(task_id: str, deck_id: str, prompt: str, format: st
 
     finally:
         await redis_client.aclose()
+        await engine.dispose()
 
 
 @celery_app.task(name="app.decks.worker.generate_deck_task", bind=True)

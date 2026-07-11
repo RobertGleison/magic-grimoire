@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
 import { ManaSymbol } from '../components/ManaSymbol/ManaSymbol';
+import { Toast } from '../components/Toast/Toast';
 import DeckPanel, { CardEntry } from '../components/DeckPanel/DeckPanel';
 import s from './page.module.css';
 
@@ -313,6 +314,11 @@ export default function LibraryPage() {
 
   return (
     <div className={s.page}>
+      <Toast
+        storageKey="grimoire:dev-notice-seen"
+        message="App in development, if you have suggestions or errors, please contact us in robinhodosreispereira@gmail.com"
+      />
+
       {/* Main list/grid area */}
       <div className={s.mainArea}>
         <div className={s.mainInner}>
@@ -320,9 +326,8 @@ export default function LibraryPage() {
           {/* Header */}
           <div className={s.header}>
             <div>
-              <div className={`h-ui ${s.headerTagline}`}>Tome of {user.name} · Chapter II</div>
               <h1 className={`h-display ${s.headerTitle}`}>Your Decks</h1>
-              <p className={s.headerSubtitle}>{allDecks.length} decks created by grimoire.</p>
+              <p className={s.headerSubtitle}>{allDecks.length} decks created by grimoire</p>
             </div>
             <div className={s.headerActions}>
               <div className={s.viewToggle}>

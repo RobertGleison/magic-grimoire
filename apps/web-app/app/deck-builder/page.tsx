@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { SealLogo } from '../components/ArcaneSigilLogo/ArcaneSigilLogo';
 import DeckPanel, { DeckData } from '../components/DeckPanel/DeckPanel';
 import { OptionsPanel } from '../components/OptionsPanel/OptionsPanel';
 import { ChatMessage } from '../components/ChatMessage/ChatMessage';
 import { ChatInput } from '../components/ChatInput/ChatInput';
+import { Toast } from '../components/Toast/Toast';
 import { useUser } from '../context/UserContext';
 import style from './page.module.css';
 
@@ -23,8 +25,7 @@ interface GrimoireMessage {
 }
 
 const LOADING_STAGES = [
-  'Parsing thy intent…',
-  'Searching the seventeen thousand…',
+  'Parsing the intent…',
   'Weighing mana curves…',
   'Composing the sixty…',
   'Enriching with lore…',
@@ -99,6 +100,15 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
 
 export default function GrimoirePage() {
   const { user, openAuth } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) {
+      router.replace('/');
+      openAuth();
+    }
+  }, [user, router, openAuth]);
+
   const [messages, setMessages] = useState<GrimoireMessage[]>([
     { role: 'oracle', content: 'Welcome!. Describe the kind of deck you want. Chat to refine your vision, then hit **Generate Deck** when you\'re ready.' },
   ]);
@@ -165,6 +175,11 @@ export default function GrimoirePage() {
     updateLastOracleMessage({ loading: false, content: 'Deck generation was stopped.' });
     setLoading(false);
   }, [updateLastOracleMessage]);
+
+  const handleClearChat = useCallback(() => {
+    setMessages([]);
+    setInput('');
+  }, []);
 
 
   const fetchDeck = useCallback(async (deckId: string) => {
@@ -333,6 +348,10 @@ export default function GrimoirePage() {
 
   return (
     <div className={style.layout} style={{ gridTemplateColumns: gridCols }}>
+      <Toast
+        storageKey="grimoire:dev-notice-seen"
+        message="App in development, if you have suggestions or errors, please contact us in robinhodosreispereira@gmail.com"
+      />
 
       {/* LEFT: Options panel */}
       <aside className={`${style.optionsCol} ${optionsCollapsed ? style.optionsColCollapsed : ''}`}>
@@ -348,7 +367,7 @@ export default function GrimoirePage() {
             format={format} setFormat={setFormat}
             colors={colors} toggleColor={toggleColor}
             deckSize={deckSize} setDeckSize={setDeckSize}
-
+            onClearChat={handleClearChat} disableClear={loading || chatBusy}
           />
         )}
       </aside>
@@ -358,13 +377,13 @@ export default function GrimoirePage() {
         {/* Header */}
         <div className={style.header}>
           <div className={style.headerLeft}>
-            <div className={`seal ${style.headerSeal}`}>
+            {/* <div className={`seal ${style.headerSeal}`}>
               <SealLogo size={22} />
-            </div>
+            </div> */}
             <div className={style.headerMeta}>
-              <div className={`h-ui ${style.headerTagline}`}>The Grimoire</div>
+              {/* <div className={`h-ui ${style.headerTagline}`}>The Grimoire</div> */}
               <div className={`h-display ${style.headerTitle}`}>
-                {activeDeck ? (activeDeck.title ?? 'Arcane Deck') : 'Consulting the grimoire'}
+                {activeDeck ? (activeDeck.title ?? 'Arcane Deck') : 'Talks with grimoire'}
               </div>
             </div>
           </div>
