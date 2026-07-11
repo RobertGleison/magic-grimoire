@@ -176,6 +176,11 @@ export default function GrimoirePage() {
     setLoading(false);
   }, [updateLastOracleMessage]);
 
+  const handleClearChat = useCallback(() => {
+    setMessages([]);
+    setInput('');
+  }, []);
+
 
   const fetchDeck = useCallback(async (deckId: string) => {
     try {
@@ -362,7 +367,7 @@ export default function GrimoirePage() {
             format={format} setFormat={setFormat}
             colors={colors} toggleColor={toggleColor}
             deckSize={deckSize} setDeckSize={setDeckSize}
-
+            onClearChat={handleClearChat} disableClear={loading || chatBusy}
           />
         )}
       </aside>
