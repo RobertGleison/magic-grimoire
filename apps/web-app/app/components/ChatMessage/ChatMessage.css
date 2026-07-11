@@ -17,8 +17,16 @@
   flex-shrink: 0;
 }
 
+.chat-message-content {
+  min-width: 0;
+}
+
 .chat-message-label {
   font-size: 0.52rem;
   opacity: 0.5;
   margin-bottom: 4px;
+}
+
+.chat-message-bubble {
+  overflow-wrap: anywhere;
 }

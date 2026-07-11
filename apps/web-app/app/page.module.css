@@ -229,7 +229,7 @@
   display: flex;
   gap: 16px;
   width: max-content;
-  animation: marquee 120s linear infinite;
+  animation: marquee 200s linear infinite;
 }
 
 .marqueeRowReverse {

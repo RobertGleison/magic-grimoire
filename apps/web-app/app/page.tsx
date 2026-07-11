@@ -36,7 +36,7 @@ function RevealSection({ children, className }: { children: React.ReactNode; cla
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.1 }}
-      transition={reducedMotion ? { duration: 0 } : { duration: 1, ease: 'easeOut' }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 0.4, ease: 'easeOut' }}
     >
       {children}
     </motion.div>
@@ -108,7 +108,7 @@ const STEPS = [
 function HowToBuildYourDeckSteps() {
   return (
     <RevealSection className={style.section}>
-      <SectionHeader label="The Rite" heading="How to build your deck" />
+      <SectionHeader label="The steps" heading="How to build your deck" />
       <div className={style.grid}>
         {STEPS.map((step, i) => (
           <div key={i} className={style.card}>
@@ -132,7 +132,7 @@ const FEATURES = [
 function FeaturesSection() {
   return (
     <RevealSection className={style.section}>
-      <SectionHeader label="The scriptures" heading="What the grimoire knows" />
+      <SectionHeader label="The features" heading="What the grimoire knows" />
       <div className={style.grid}>
         {FEATURES.map((feature, i) => (
           <div key={i} className={`${style.card} ${style.featureCard}`}>
@@ -174,8 +174,8 @@ function CommentSection() {
   return (
     <RevealSection className={style.incantations}>
       <SectionHeader
-        label="Sample Incantations"
-        heading="Speak plainly — it understands"
+        label="Sample of prompts"
+        heading="Write any idea you have"
         ornamentWidth={280}
       />
       <div className={style.marqueeOuter}>

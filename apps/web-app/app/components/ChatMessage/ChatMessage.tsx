@@ -21,7 +21,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
         style={{ flexDirection: isUser ? 'row-reverse' : 'row' }}
       >
         <div
-          className={`seal chat-message-seal`}
           style={{
             background: isUser
               ? 'radial-gradient(circle at 35% 30%, var(--void-3), var(--void-1))'
@@ -32,11 +31,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {isUser ? 'style' : '✦'}
           </span> */}
         </div>
-        <div>
+        <div className="chat-message-content">
           <div className="h-ui chat-message-label" style={{ textAlign: isUser ? 'right' : 'left' }}>
             {isUser ? `You` : 'Grimoire'}
           </div>
           <div
+            className="chat-message-bubble"
             style={{
               background: isUser
                 ? 'linear-gradient(135deg, rgba(232, 199, 106, 0.12), rgba(139, 111, 46, 0.08))'

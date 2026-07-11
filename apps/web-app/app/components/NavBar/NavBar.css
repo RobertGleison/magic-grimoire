@@ -44,7 +44,6 @@
   text-decoration: none;
   font-family: var(--font-ui);
   letter-spacing: 0.2em;
-  text-transform: uppercase;
   font-size: 0.8rem;
   color: var(--muted);
   padding: 0 14px;
@@ -60,36 +59,42 @@
 .spine-link.active { color: var(--accent); }
 .spine-link:hover { color: var(--accent); }
 
-.spine-btn {
+.spine-login {
+  padding: 10px 22px;
+  margin-left: 14px;
+  flex-shrink: 0;
+}
+
+.spine-auth {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: 14px;
+  flex-shrink: 0;
+}
+
+.spine-user-name {
   font-family: var(--font-ui);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0.1em;
   font-size: 0.8rem;
-  padding: 6px 16px;
-  border: 1px solid rgba(var(--accent-glow), 0.35);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-left: 8px;
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.spine-btn:hover {
-  background: rgba(var(--accent-glow), 0.1);
-  border-color: rgba(var(--accent-glow), 0.6);
+.spine-logout {
+  font-family: var(--font-ui);
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.25s ease;
+  white-space: nowrap;
 }
 
-.spine-btn-primary {
-  background: rgba(var(--accent-glow), 0.12);
-  border-color: rgba(var(--accent-glow), 0.5);
-  color: var(--cream);
-}
-
-.spine-btn-primary:hover {
-  background: rgba(var(--accent-glow), 0.22);
-}
+.spine-logout:hover { color: var(--accent); }
 
 @media (max-width: 720px) {
   .spine {
@@ -101,10 +106,10 @@
   .spine::-webkit-scrollbar { display: none; }
   .spine-brand-name { display: none; }
   .spine-link { padding: 0 10px; font-size: 0.65rem; }
-  .spine-btn { padding: 5px 10px; font-size: 0.65rem; margin-left: 4px; }
+  .spine-login { padding: 8px 16px; font-size: 0.7rem; }
+  .spine-user-name { font-size: 0.7rem; }
 }
 
 @media (max-width: 480px) {
   .spine-link { padding: 0 7px; font-size: 0.6rem; }
-  .spine-btn { padding: 4px 7px; font-size: 0.6rem; margin-left: 2px; }
 }
