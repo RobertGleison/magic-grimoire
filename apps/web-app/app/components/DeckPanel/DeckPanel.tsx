@@ -11,7 +11,7 @@ const PREVIEW_H = 279 * 1.5; // MTG card aspect ratio
 
 function CardImageTooltip({ name, image_uri, pos }: {
   name: string;
-  image_uri?: string;
+  image_uri?: string | null;
   pos: { x: number; y: number };
 }) {
   const src = image_uri
@@ -43,12 +43,13 @@ function CardImageTooltip({ name, image_uri, pos }: {
   );
 }
 
+// The API serializes missing card fields as explicit null, not absent keys.
 export interface CardEntry {
   name: string;
   quantity: number;
-  mana_cost?: string;
-  type_line?: string;
-  image_uri?: string;
+  mana_cost?: string | null;
+  type_line?: string | null;
+  image_uri?: string | null;
 }
 
 export interface DeckData {
@@ -70,8 +71,8 @@ interface CardGroup {
 
 const TYPE_ORDER = ['Creatures', 'Instants', 'Sorceries', 'Planeswalkers', 'Enchantments', 'Artifacts', 'Lands', 'Other'];
 
-function getCardCategory(typeLine = ''): string {
-  const t = typeLine.toLowerCase();
+function getCardCategory(typeLine?: string | null): string {
+  const t = (typeLine ?? '').toLowerCase();
   if (t.includes('land')) return 'Lands';
   if (t.includes('creature')) return 'Creatures';
   if (t.includes('planeswalker')) return 'Planeswalkers';
