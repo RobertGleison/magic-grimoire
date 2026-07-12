@@ -48,9 +48,7 @@ function ChatTypingBubble() {
   return (
     <div className={style.loadingMsg}>
       <div className={style.loadingInner}>
-        <div className={`seal ${style.loadingSeal}`}>
-          <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12 }}>✦</span>
-        </div>
+
         <div>
           <div className={`h-ui ${style.loadingLabel}`}>Grimoire</div>
           <div className={style.loadingBox}>
@@ -70,9 +68,7 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
   return (
     <div className={style.loadingMsg}>
       <div className={style.loadingInner}>
-        <div className={`seal ${style.loadingSeal}`}>
-          <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-display)', fontSize: 12 }}>✦</span>
-        </div>
+
         <div>
           <div className={`h-ui ${style.loadingLabel}`}>Grimoire · Building</div>
           <div className={style.loadingBox}>
