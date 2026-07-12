@@ -49,10 +49,13 @@ async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
 
     finally:
         await pubsub.unsubscribe(channel)
-        await pubsub.close()
+        await pubsub.aclose()
         await redis_client.aclose()
 
 
+# Deliberately unauthenticated: the frontend consumes this with native EventSource,
+# which cannot send Authorization headers. The task ID is an unguessable UUIDv4 acting
+# as a capability URL, and events carry only progress strings — never deck contents.
 @router.get("/tasks/{task_id}/stream")
 async def stream_task(
     task_id: str,

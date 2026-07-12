@@ -10,6 +10,21 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: magic_grimoire_test
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: apps/api-server
@@ -33,4 +48,4 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Run tests
-        run: uv run pytest || [ $? -eq 5 ]
+        run: uv run pytest

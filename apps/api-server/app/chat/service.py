@@ -3,7 +3,7 @@ import json
 
 from app.chat.dtos import ChatContextDTO
 from app.services.llm import create_llm_service
-from app.services.llm.claude import CHAT_SYSTEM
+from app.services.llm.prompts import CHAT_SYSTEM
 
 
 async def chat_with_grimoire(messages: list[dict], context: ChatContextDTO | None) -> str:
