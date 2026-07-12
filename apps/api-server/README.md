@@ -18,11 +18,12 @@ FastAPI backend for Magic Grimoire, an AI-powered Magic: The Gathering deck gene
 7. [Scryfall Service & Caching](#scryfall-service--caching)
 8. [Data Model](#data-model)
 9. [API Reference](#api-reference)
-10. [Infrastructure](#infrastructure)
-11. [Configuration](#configuration)
-12. [Running Locally](#running-locally)
-13. [Testing](#testing)
-14. [CI](#ci)
+10. [Worked Example — Every HTTP Request in One Generation](#worked-example--every-http-request-in-one-generation)
+11. [Infrastructure](#infrastructure)
+12. [Configuration](#configuration)
+13. [Running Locally](#running-locally)
+14. [Testing](#testing)
+15. [CI](#ci)
 
 ---
 
@@ -332,6 +333,337 @@ All paths are prefixed with `/api/v1`. A ready-made Postman collection is at [`m
 | `GET` | `/decks/{deck_id}` | Optional | Fetch one deck. 403 if it belongs to another user; guest-created decks (no owner) are public |
 | `DELETE` | `/decks/{deck_id}` | **Required** | Delete own deck → 204. 403 if not the owner |
 | `POST` | `/chat` | Optional | Chat with "the Grimoire" (deck-building advice); accepts up to 20 messages plus optional deck context |
+
+## Worked Example — Every HTTP Request in One Generation
+
+Everything below was **captured from a real run** against the local stack (`LLM_PROVIDER=ollama`, model `llama3.2:3b`) using the prompt *"An aggressive red goblin tribal deck with lots of haste creatures"*. It shows both the public API traffic and the internal HTTP calls the worker makes on your behalf.
+
+> **A note on deck quality:** `llama3.2:3b` is the free local dev model — it follows the JSON contract but often ignores the "total must equal 60" instruction and sometimes invents card names (you'll see one below enrich to `null` fields). With `LLM_PROVIDER=claude` the same requests produce proper 60-card decks.
+
+### 1. Client → API: start the generation
+
+```http
+POST /api/v1/decks/generate HTTP/1.1
+Host: localhost:8000
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...   # optional — omit to generate as guest
+
+{
+  "prompt": "An aggressive red goblin tribal deck with lots of haste creatures",
+  "format": "standard"
+}
+```
+
+Response — `202 Accepted`, in milliseconds:
+
+```json
+{
+  "task_id": "29f4ad5c-2b54-4a04-b0c4-f39797ada537",
+  "deck_id": "d9b02b76-a68f-4890-a017-6d6303c481d8",
+  "status": "pending"
+}
+```
+
+Error variants:
+
+| Status | Body | When |
+|---|---|---|
+| `400` | `{"detail": "Invalid input detected."}` | Prompt tripped the injection guard |
+| `429` | `{"detail": "Guest generation limit reached. Sign in to generate more decks."}` | Guest already generated from this IP in the last 30 days |
+| `503` | `{"detail": "Deck generation service is temporarily unavailable. Please try again."}` | Celery broker (Redis) unreachable — deck/task are marked `failed` |
+
+### 2. Client → API: subscribe to progress
+
+```http
+GET /api/v1/tasks/29f4ad5c-2b54-4a04-b0c4-f39797ada537/stream HTTP/1.1
+Host: localhost:8000
+Accept: text/event-stream
+```
+
+The raw bytes captured off this connection, from open to close (~73 s total):
+
+```
+: keepalive
+
+: keepalive
+
+data: {"status": "searching_cards", "message": "Searching for cards..."}
+
+data: {"status": "composing_deck", "message": "Building your deck..."}
+
+: keepalive
+
+: keepalive
+
+data: {"status": "enriching", "message": "Fetching card images..."}
+
+: keepalive
+
+data: {"status": "completed", "message": "Your deck is ready!"}
+```
+
+Things worth noticing in this real capture:
+
+- The `: keepalive` comment lines appear whenever 15 s pass with no event — here they bracket the two slow LLM calls (intent parsing before `searching_cards`, composition after `composing_deck`).
+- The initial `{"status": "processing", ...}` event is missing because this client connected a moment *after* the worker published it. Pub/Sub doesn't replay history — connect promptly (the frontend opens the stream as soon as the `202` arrives).
+- Reconnecting after the task finished doesn't hang: the route answers with a single terminal event and closes (also a real capture):
+
+```
+data: {"status": "completed", "message": "Task already completed"}
+```
+
+An unknown `task_id` gets `404 {"detail": "Task not found"}`.
+
+### 3. Worker → LLM: `parse_intent` (internal)
+
+With Ollama, this is the literal request the worker sends (with Claude, the same two messages go to `POST https://api.anthropic.com/v1/messages` via the SDK, with the system text in the `system` field):
+
+```http
+POST /api/chat HTTP/1.1
+Host: ollama:11434
+Content-Type: application/json
+
+{
+  "model": "llama3.2:3b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a Magic: The Gathering deck-building assistant. Given a user's deck description, extract structured intent. If the message is not about Magic: The Gathering deck-building, ... respond ONLY with valid JSON, no markdown fences."
+    },
+    {
+      "role": "user",
+      "content": "Extract deck-building intent from this description:\n\n\"An aggressive red goblin tribal deck with lots of haste creatures\"\n\nReturn JSON with keys: colors (list of single-letter color codes like W, U, B, R, G), creature_types (list), keywords (list), themes (list), format (string, default 'standard'), strategy (string, one sentence)."
+    }
+  ],
+  "stream": false,
+  "format": "json"
+}
+```
+
+Response (Ollama envelope; the worker parses `message.content` as JSON) — this call took 8.7 s:
+
+```json
+{
+  "model": "llama3.2:3b",
+  "message": {
+    "role": "assistant",
+    "content": "{\"colors\": [\"R\"], \"creature_types\": [\"Goblin\"], \"keywords\": [\"Haste\", \"Tribal\"], \"themes\": [\"Aggressive\", \"Swarm\"], \"format\": \"Standard\", \"strategy\": \"This deck aims to overwhelm opponents with a large swarm of fast goblins, taking advantage of haste and tribal synergies.\"}"
+  },
+  "done": true,
+  "total_duration": 8674000000
+}
+```
+
+### 4. Worker → Scryfall: `search_cards` (internal)
+
+`_build_scryfall_query` turns that intent into a query string — colors become `color<=R`, up to 3 creature types become `type:`, up to 2 keywords become `keyword:`:
+
+```http
+GET /cards/search?q=color<=R+type:Goblin+type:Tribal&order=edhrec&page=1 HTTP/1.1
+Host: api.scryfall.com
+```
+
+Response — `200 OK` (truncated; the worker keeps only 7 fields per card and caches the list in Redis for 24 h):
+
+```json
+{
+  "object": "list",
+  "total_cards": 2,
+  "has_more": false,
+  "data": [
+    {
+      "name": "Boggart Shenanigans",
+      "id": "b52534b3-5dfe-4019-a518-4e15899988f4",
+      "mana_cost": "{2}{R}",
+      "type_line": "Kindred Enchantment — Goblin",
+      "oracle_text": "Whenever another Goblin you control is put into a graveyard from the battlefield, ...",
+      "...": "~60 more fields per card omitted"
+    }
+  ]
+}
+```
+
+If the query matches nothing, Scryfall returns **404** — the worker treats that as an empty candidate list (and caches the empty result). There is no query-relaxation retry: an over-constrained intent (e.g. the model emitting `keyword:Haste` *and* `type:Tribal` together) means `compose_deck` runs with few or zero real candidates, which is exactly what makes small models produce sparse decks.
+
+### 5. Worker → LLM: `compose_deck` (internal)
+
+Same endpoint as step 3; the user message embeds the parsed intent and the candidate names:
+
+```json
+{
+  "model": "llama3.2:3b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a Magic: The Gathering deck-building assistant. Build a valid 60-card deck from the provided candidate cards. Respond ONLY with valid JSON, no markdown fences."
+    },
+    {
+      "role": "user",
+      "content": "Build a 60-card standard deck.\n\nIntent: {\"colors\": [\"R\"], \"creature_types\": [\"Goblin\"], ...}\n\nCandidate cards:\n- Boggart Shenanigans\n- Tarfire\n\nReturn JSON with keys: title (string), cards (list of objects with name, quantity, section). Sections: creatures, spells, lands. Total quantity must equal 60."
+    }
+  ],
+  "stream": false,
+  "format": "json"
+}
+```
+
+The parsed `message.content` from this run — note the small model returned 17 cards despite being told 60, and invented names like "Hatchet Fiend":
+
+```json
+{
+  "title": "Haste Rush Deck",
+  "cards": [
+    { "name": "Goblin Guide",       "quantity": 1, "section": "creatures" },
+    { "name": "Goblin Piledriver",  "quantity": 4, "section": "creatures" },
+    { "name": "Hatchet Fiend",      "quantity": 2, "section": "creatures" },
+    { "name": "Shriekhorn",         "quantity": 1, "section": "creatures" },
+    { "name": "Scorching Ember",    "quantity": 1, "section": "spells" },
+    { "name": "Burning Torn",       "quantity": 2, "section": "spells" },
+    { "name": "Chandra's Defiance", "quantity": 2, "section": "spells" },
+    { "name": "Keldon Megalith",    "quantity": 4, "section": "lands" }
+  ]
+}
+```
+
+### 6. Worker → Scryfall: `enrich_cards` (internal)
+
+One request per unique card name (0.5 s apart, per Scryfall's rate limit; per-card 24 h Redis cache):
+
+```http
+GET /cards/named?exact=Tarfire HTTP/1.1
+Host: api.scryfall.com
+```
+
+Response — `200 OK` with ~62 top-level fields; the worker keeps four (`scryfall_id`, `image_uri`, `mana_cost`, `type_line`):
+
+```json
+{
+  "object": "card",
+  "id": "5841e5dd-2a4a-42b9-a04f-d7c5c4840d74",
+  "name": "Tarfire",
+  "mana_cost": "{R}",
+  "type_line": "Kindred Instant — Goblin",
+  "oracle_text": "Tarfire deals 2 damage to any target.",
+  "image_uris": {
+    "normal": "https://cards.scryfall.io/normal/front/5/8/5841e5dd-2a4a-42b9-a04f-d7c5c4840d74.jpg?...",
+    "...": "..."
+  },
+  "...": "~55 more fields omitted"
+}
+```
+
+A hallucinated name ("Hatchet Fiend") gets a **404** here; the worker merges an empty dict, so that card survives with `null` enrichment fields — visible in the final deck below.
+
+### 7. Client → API: fetch the finished deck
+
+```http
+GET /api/v1/decks/d9b02b76-a68f-4890-a017-6d6303c481d8 HTTP/1.1
+Host: localhost:8000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+Response — `200 OK` (cards truncated to three; note the enriched vs. un-enriched cards):
+
+```json
+{
+  "id": "d9b02b76-a68f-4890-a017-6d6303c481d8",
+  "title": "Haste Rush Deck",
+  "prompt": "An aggressive red goblin tribal deck with lots of haste creatures",
+  "format": "standard",
+  "colors": ["R"],
+  "cards": [
+    {
+      "name": "Goblin Guide",
+      "quantity": 1,
+      "scryfall_id": "3c0f5411-1940-410f-96ce-6f92513f753a",
+      "image_uri": "https://cards.scryfall.io/normal/front/3/c/3c0f5411-....jpg",
+      "mana_cost": "{R}",
+      "type_line": "Creature — Goblin Scout",
+      "section": "creatures"
+    },
+    {
+      "name": "Hatchet Fiend",
+      "quantity": 2,
+      "scryfall_id": null,
+      "image_uri": null,
+      "mana_cost": null,
+      "type_line": null,
+      "section": "creatures"
+    },
+    { "...": "6 more cards" }
+  ],
+  "card_count": 17,
+  "status": "completed",
+  "error_message": null,
+  "created_at": "2026-07-12T18:08:09.710050Z",
+  "completed_at": "2026-07-12T18:09:23.118268Z",
+  "failed_at": null
+}
+```
+
+Access-control variants (both real captures): fetching someone else's deck → `403 {"detail": "Access denied"}`; unknown id → `404 {"detail": "Deck not found"}`. If the pipeline died instead, the same endpoint shows what went wrong:
+
+```json
+{
+  "id": "8d9f5841-3024-4239-904f-e339eec2478c",
+  "title": null,
+  "prompt": "A blue counterspell control deck",
+  "status": "failed",
+  "error_message": "timed out",
+  "cards": null,
+  "card_count": 0,
+  "failed_at": "2026-07-12T18:17:00.849373Z"
+}
+```
+
+### 8. The other endpoints
+
+**List your decks** (auth required):
+
+```http
+GET /api/v1/decks?page=1&limit=10 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+```json
+{
+  "decks": [ { "...": "full DeckResponseDTO objects, newest first" } ],
+  "total": 2,
+  "page": 1,
+  "pages": 1
+}
+```
+
+Without a token: `401 {"detail": "Authentication required"}`.
+
+**Delete a deck** (auth required; cascades to its tasks):
+
+```http
+DELETE /api/v1/decks/3d291d5a-b501-4fcf-bc2e-b9d01d209be9 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+Response: `204 No Content` (empty body). Repeating the request → `404`; without the token → `401`.
+
+**Chat with the Grimoire** (optional auth) — real exchange:
+
+```http
+POST /api/v1/chat HTTP/1.1
+Content-Type: application/json
+
+{
+  "messages": [
+    { "role": "user", "content": "I want an aggressive red deck but I only have a small budget" }
+  ],
+  "context": { "format": "standard", "colors": ["R"], "strategy": "Aggressive" }
+}
+```
+
+```json
+{
+  "message": "A bold endeavor indeed! Given your limited budget, we'll focus on efficient creatures and removal spells to disrupt the board quickly. Consider prioritizing cards with low mana costs, such as Goblin Guide or Monastery Swiftspear, to generate card advantage and aggressive pressure."
+}
+```
 
 ## Infrastructure
 
