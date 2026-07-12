@@ -51,20 +51,35 @@ flowchart LR
         SCRY[Scryfall API]
     end
 
-    FE -- "POST /decks/generate (202)" --> API
-    FE -- "GET /tasks/:id/stream (SSE)" --> API
-    API -- "create Deck + Task rows" --> PG
-    API -- "enqueue task (broker)" --> RD
-    RD -- "deliver task" --> W
-    W -- "parse intent / compose deck" --> LLM
-    W -- "search + enrich cards" --> SCRY
-    W -- "cache Scryfall responses" --> RD
-    W -- "publish progress (Pub/Sub task:{id})" --> RD
-    RD -- "subscribe task:{id}" --> API
-    W -- "save completed deck" --> PG
+    FE -- "1. POST /decks/generate" --> API
+    API -- "2. create Deck + Task rows" --> PG
+    API -- "3. enqueue task (broker)<br/>then return 202" --> RD
+    FE -- "4. GET /tasks/:id/stream (SSE)" --> API
+    RD -- "5. deliver task" --> W
+    W -- "6. parse intent, 8. compose deck" --> LLM
+    W -- "7. search cards, 9. enrich cards" --> SCRY
+    W -- "cache Scryfall responses (7, 9)" --> RD
+    W -- "publish progress after each step<br/>(Pub/Sub task:{id})" --> RD
+    RD -- "forward events to SSE subscriber" --> API
+    W -- "10. save completed deck" --> PG
 ```
 
-Redis wears four hats here, all on the same instance (db 0): **Celery broker**, **Celery result backend**, **cache** for Scryfall responses, and **Pub/Sub bus** for progress events.
+What happens, in order:
+
+1. **The browser submits the prompt** — `POST /decks/generate`. This request is fast: no LLM or Scryfall call happens here.
+2. **The API records the job** — it inserts a `Deck` row (`status=pending`) and a `Task` row (`status=queued`) in PostgreSQL and commits, so the job exists durably before any work starts.
+3. **The API enqueues and answers** — it pushes the Celery task onto Redis (the broker) and immediately returns `202 Accepted` with `{task_id, deck_id}`. The HTTP request is done.
+4. **The browser opens the progress stream** — using the `task_id` from step 3, it connects to `GET /tasks/{task_id}/stream`. The API subscribes to the Redis Pub/Sub channel `task:{task_id}` and holds the connection open.
+5. **The Celery worker picks up the task** from the Redis queue. Everything from here on happens in the worker, not the API.
+6. **Intent parsing (LLM call #1)** — the worker asks the LLM to turn the free-form prompt into structured JSON (colors, creature types, keywords, strategy).
+7. **Card search (Scryfall)** — the intent is turned into a Scryfall query; ~350 candidate cards come back (cached in Redis for 24h).
+8. **Deck composition (LLM call #2)** — the LLM picks a legal 60-card list from the candidates, split into creatures/spells/lands.
+9. **Card enrichment (Scryfall)** — each chosen card is fetched by exact name to attach images, mana costs, and type lines (per-card 24h cache).
+10. **Persist and finish** — the worker saves the finished deck to PostgreSQL and marks deck + task `completed`.
+
+Throughout steps 6–10, the worker publishes a progress event to `task:{task_id}` before each step (`processing`, `searching_cards`, `composing_deck`, `enriching`, and finally `completed` or `failed`). Redis forwards each event to the API's subscription from step 4, which relays it down the open SSE connection — so the browser sees live progress without polling. When the terminal event arrives, the stream closes.
+
+Redis wears four hats here, all on the same instance (db 0): **Celery broker** (steps 3/5), **Celery result backend**, **cache** for Scryfall responses (steps 7/9), and **Pub/Sub bus** for progress events.
 
 ## Project Layout
 
