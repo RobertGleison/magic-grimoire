@@ -1,4 +1,3 @@
-import asyncio
 import json
 from collections.abc import AsyncGenerator
 from typing import Annotated
@@ -16,6 +15,11 @@ from app.tasks.model import Task
 
 router = APIRouter()
 
+# Worker events can be minutes apart (LLM calls); anything between the browser
+# and this endpoint (Next.js rewrite proxy, load balancers) drops connections
+# that stay silent longer than ~30-60s, so emit a keepalive comment in the gaps.
+_KEEPALIVE_INTERVAL = 15.0
+
 
 async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -26,14 +30,11 @@ async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
         await pubsub.subscribe(channel)
 
         while True:
-            try:
-                message = await asyncio.wait_for(pubsub.get_message(ignore_subscribe_messages=True), timeout=30.0)
-            except TimeoutError:
-                yield ": keepalive\n\n"
-                continue
-
+            # get_message() only blocks when given a timeout — without one it
+            # returns None immediately and no keepalive would ever be sent.
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=_KEEPALIVE_INTERVAL)
             if message is None:
-                await asyncio.sleep(0.05)
+                yield ": keepalive\n\n"
                 continue
 
             if message["type"] == "message":
@@ -76,14 +77,14 @@ async def stream_task(
         return StreamingResponse(
             _already_done(),
             media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
         )
 
     return StreamingResponse(
         _sse_event_generator(task_id),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
         },
     )

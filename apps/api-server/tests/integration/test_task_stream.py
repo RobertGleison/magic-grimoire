@@ -33,6 +33,9 @@ async def test_stream_finished_task_short_circuits(client, session_factory):
     async with client.stream("GET", f"/api/v1/tasks/{task_id}/stream") as res:
         assert res.status_code == 200
         assert res.headers["content-type"].startswith("text/event-stream")
+        # no-transform stops proxies (Next.js rewrite) from gzip-buffering the
+        # stream, which would hold events back from the browser indefinitely.
+        assert "no-transform" in res.headers["cache-control"]
         body = ""
         async for chunk in res.aiter_text():
             body += chunk
@@ -59,7 +62,28 @@ async def test_generator_replays_events_until_terminal_status(monkeypatch, fake_
     await publisher.aclose()
 
     events = await asyncio.wait_for(collector, timeout=5)
-    assert len(events) == 2
-    assert '"processing"' in events[0]
-    assert '"completed"' in events[1]
-    assert all(event.startswith("data: ") and event.endswith("\n\n") for event in events)
+    data_events = [e for e in events if not e.startswith(":")]
+    assert len(data_events) == 2
+    assert '"processing"' in data_events[0]
+    assert '"completed"' in data_events[1]
+    assert all(event.startswith("data: ") and event.endswith("\n\n") for event in data_events)
+
+
+async def test_generator_emits_keepalive_during_silence(monkeypatch, fake_redis_server):
+    """Long gaps between worker events (LLM calls take minutes) must produce
+    keepalive comments, or proxies between the browser and the API silently
+    drop the idle connection and the client never sees another event."""
+
+    def _fake_from_url(*args, **kwargs):
+        return fakeredis.aioredis.FakeRedis(server=fake_redis_server, decode_responses=True)
+
+    monkeypatch.setattr(tasks_routes.aioredis, "from_url", _fake_from_url)
+    monkeypatch.setattr(tasks_routes, "_KEEPALIVE_INTERVAL", 0.1)
+
+    generator = _sse_event_generator("task-quiet")
+    try:
+        first_event = await asyncio.wait_for(anext(generator), timeout=2)
+    finally:
+        await generator.aclose()
+
+    assert first_event == ": keepalive\n\n"
