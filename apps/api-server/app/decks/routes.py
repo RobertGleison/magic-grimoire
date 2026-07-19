@@ -1,7 +1,6 @@
 import logging
 import math
 import uuid
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,6 +19,7 @@ from app.decks.dtos import (
     DeckResponseDTO,
 )
 from app.decks.model import Deck
+from app.decks.pipeline import mark_generation_failed
 from app.decks.worker import generate_deck_task
 from app.tasks.model import Task
 
@@ -71,13 +71,7 @@ async def generate_deck(
         )
     except Exception:
         _log.exception("Broker error enqueueing task (deck_id=%s, task_id=%s)", deck.id, task_id)
-        now = datetime.now(tz=UTC)
-        deck.status = DeckStatus.FAILED
-        deck.error_message = "Failed to enqueue deck generation."
-        deck.failed_at = now
-        task.status = TaskStatus.FAILED
-        task.failed_at = now
-        task.updated_at = now
+        mark_generation_failed(deck, task, "Failed to enqueue deck generation.")
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

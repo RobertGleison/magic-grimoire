@@ -2,19 +2,19 @@ import json
 import uuid
 from unittest.mock import MagicMock
 
-import fakeredis.aioredis
 import httpx
 import pytest
 import respx
 from sqlalchemy import select
 
-import app.decks.worker as worker
-from app.core.enums import DeckStatus, TaskStatus
+import app.decks.pipeline as pipeline_module
+from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
-from app.decks.worker import _run_generate_deck
+from app.decks.pipeline import DeckGenerationPipeline
 from app.services import scryfall_service
 from app.services.scryfall_service import SCRYFALL_BASE
 from app.tasks.model import Task
+from app.tasks.streaming import task_channel
 
 INTENT = {"colors": ["R"], "creature_types": [], "keywords": [], "themes": ["burn"], "strategy": "aggro"}
 COMPOSITION = {
@@ -31,20 +31,12 @@ def no_rate_limit_delay(monkeypatch):
     monkeypatch.setattr(scryfall_service, "REQUEST_DELAY", 0)
 
 
-@pytest.fixture(autouse=True)
-def worker_fake_redis(monkeypatch, fake_redis_server):
-    def _fake_from_url(*args, **kwargs):
-        return fakeredis.aioredis.FakeRedis(server=fake_redis_server, decode_responses=True)
-
-    monkeypatch.setattr(worker.aioredis, "from_url", _fake_from_url)
-
-
 @pytest.fixture
 def llm(monkeypatch):
     mock = MagicMock()
     mock.parse_intent.return_value = INTENT
     mock.compose_deck.return_value = COMPOSITION
-    monkeypatch.setattr(worker, "create_llm_service", lambda: mock)
+    monkeypatch.setattr(pipeline_module, "create_llm_service", lambda: mock)
     return mock
 
 
@@ -81,12 +73,27 @@ async def _seed(session_factory) -> tuple[str, str]:
         return str(deck.id), task_id
 
 
+def _run(task_id: str, deck_id: str, prompt: str, format: str) -> DeckGenerationPipeline:
+    return DeckGenerationPipeline(task_id=task_id, deck_id=deck_id, prompt=prompt, format=format)
+
+
 @respx.mock
 async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
-    await _run_generate_deck(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern")
+    # Subscribe before running so the progress events published over the shared
+    # task channel are captured — pins the publisher/subscriber contract.
+    async with fake_redis() as subscriber:
+        pubsub = subscriber.pubsub()
+        await pubsub.subscribe(task_channel(task_id))
+
+        await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+        events = []
+        while (message := await pubsub.get_message(timeout=1)) is not None:
+            if message["type"] == "message":
+                events.append(json.loads(message["data"]))
 
     async with session_factory() as db:
         deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
@@ -101,13 +108,22 @@ async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis)
     assert all(c["scryfall_id"] == "sc-x" for c in deck.cards)  # enrichment applied
     assert task.status == TaskStatus.COMPLETED
 
+    statuses = [e["status"] for e in events]
+    assert statuses == [
+        TaskProgress.PROCESSING,
+        TaskProgress.SEARCHING_CARDS,
+        TaskProgress.COMPOSING_DECK,
+        TaskProgress.ENRICHING,
+        TaskProgress.COMPLETED,
+    ]
+
 
 async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_redis):
     llm.parse_intent.return_value = {"error": "off_topic", "message": "Only Magic, friend."}
     deck_id, task_id = await _seed(session_factory)
 
     with pytest.raises(ValueError, match="Only Magic"):
-        await _run_generate_deck(task_id=task_id, deck_id=deck_id, prompt="write me a poem", format="standard")
+        await _run(task_id=task_id, deck_id=deck_id, prompt="write me a poem", format="standard").run()
 
     async with session_factory() as db:
         deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
@@ -126,7 +142,7 @@ async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_r
     deck_id, task_id = await _seed(session_factory)
 
     with pytest.raises(json.JSONDecodeError):
-        await _run_generate_deck(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern")
+        await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
 
     async with session_factory() as db:
         deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
