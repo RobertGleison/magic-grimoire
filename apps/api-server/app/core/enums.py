@@ -35,5 +35,14 @@ class DeckFormat(StrEnum):
     COMMANDER = "commander"
 
 
+class MTGColor(StrEnum):
+    WHITE     = "W"
+    BLUE      = "U"
+    BLACK     = "B"
+    RED       = "R"
+    GREEN     = "G"
+    COLORLESS = "C"
+
+
 class TaskType(StrEnum):
     GENERATE_DECK = "generate_deck"

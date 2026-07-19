@@ -41,3 +41,11 @@ def test_generate_rejects_unknown_format(client):
         json={"prompt": "elf tribal", "format": "vintage-plus"},
     )
     assert res.status_code == 422
+
+
+def test_generate_rejects_invalid_color(client):
+    res = client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "elf tribal", "colors": ["X"]},
+    )
+    assert res.status_code == 422
