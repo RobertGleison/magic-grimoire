@@ -39,7 +39,9 @@ def _build_scryfall_query(intent: dict) -> str:
     parts: list[str] = []
 
     colors: list[str] = intent.get("colors", [])
-    if colors:
+    if colors == ["C"]:
+        parts.append("c:colorless")
+    elif colors:
         color_str = "".join(colors)
         parts.append(f"color<={color_str}")
 
