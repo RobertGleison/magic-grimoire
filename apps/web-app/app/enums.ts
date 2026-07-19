@@ -39,6 +39,33 @@ export const COLOR_HEX: Record<string, string> = {
   COLORLESS: '#7a7a8a',
 };
 
+export const SELECTABLE_COLORS = [...BASIC_COLORS, ManaColor.COLORLESS] as const;
+
+// A card identity can't be both colored and colorless, so picking one clears the other.
+export function toggleDeckColor(current: string[], color: string): string[] {
+  if (current.includes(color)) {
+    return current.filter(c => c !== color);
+  }
+  if (color === ManaColor.COLORLESS) {
+    return [ManaColor.COLORLESS];
+  }
+  return [...current.filter(c => c !== ManaColor.COLORLESS), color];
+}
+
+// Maps frontend ManaColor names to the single-letter codes the backend expects.
+export const COLOR_CODE: Record<string, string> = {
+  WHITE: 'W',
+  BLUE: 'U',
+  BLACK: 'B',
+  RED: 'R',
+  GREEN: 'G',
+  COLORLESS: 'C',
+};
+
+export function toBackendColors(colors: string[]): string[] | undefined {
+  return colors.length > 0 ? colors.map(c => COLOR_CODE[c] ?? c) : undefined;
+}
+
 // ─── Formats ─────────────────────────────────────────────────────────────────
 
 export const Format = {
