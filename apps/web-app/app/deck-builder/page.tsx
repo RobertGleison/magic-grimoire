@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { SealLogo } from '../components/ArcaneSigilLogo/ArcaneSigilLogo';
 import DeckPanel, { DeckData } from '../components/DeckPanel/DeckPanel';
 import { OptionsPanel } from '../components/OptionsPanel/OptionsPanel';
 import { ChatMessage } from '../components/ChatMessage/ChatMessage';
@@ -27,7 +26,7 @@ interface GrimoireMessage {
 const LOADING_STAGES = [
   'Parsing the intent…',
   'Weighing mana curves…',
-  'Composing the sixty…',
+  'Composing the deck...',
   'Enriching with lore…',
 ];
 
@@ -95,15 +94,15 @@ function LoadingBubble({ stage }: { stage: LoadingStage }) {
 }
 
 export default function GrimoirePage() {
-  const { user, openAuth } = useUser();
+  const { user, token, ready, openAuth } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) {
+    if (ready && !user) {
       router.replace('/');
       openAuth();
     }
-  }, [user, router, openAuth]);
+  }, [ready, user, router, openAuth]);
 
   const [messages, setMessages] = useState<GrimoireMessage[]>([
     { role: 'oracle', content: 'Welcome!. Describe the kind of deck you want. Chat to refine your vision, then hit **Generate Deck** when you\'re ready.' },
@@ -180,7 +179,9 @@ export default function GrimoirePage() {
 
   const fetchDeck = useCallback(async (deckId: string) => {
     try {
-      const res = await fetch(`/api/v1/decks/${deckId}`);
+      const res = await fetch(`/api/v1/decks/${deckId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!res.ok) throw new Error('Could not retrieve deck');
       const deck: DeckData = await res.json();
       setActiveDeck(deck);
@@ -198,7 +199,7 @@ export default function GrimoirePage() {
       esRef.current = null;
       setLoading(false);
     }
-  }, [updateLastOracleMessage]);
+  }, [updateLastOracleMessage, token, user]);
 
 
   const handleChat = useCallback(async () => {
@@ -225,7 +226,10 @@ export default function GrimoirePage() {
 
       const res = await fetch('/api/v1/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           messages: history,
           context: {
@@ -255,7 +259,7 @@ export default function GrimoirePage() {
     } finally {
       setChatBusy(false);
     }
-  }, [input, format, colors, deckSize, strategy, loading, chatBusy, messages]);
+  }, [input, format, colors, deckSize, strategy, loading, chatBusy, messages, token]);
 
   const handleGenerateDeck = useCallback(async () => {
     if (loading) return;
@@ -283,7 +287,10 @@ export default function GrimoirePage() {
     try {
       const initRes = await fetch('/api/v1/decks/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ prompt: enhancedPrompt, format: format.toLowerCase() }),
       });
 
@@ -333,7 +340,7 @@ export default function GrimoirePage() {
       updateLastOracleMessage({ loading: false, content: `Could not reach the server. ${message}` });
       setLoading(false);
     }
-  }, [input, format, colors, deckSize, loading, fetchDeck, updateLastOracleMessage]);
+  }, [input, format, colors, deckSize, loading, fetchDeck, updateLastOracleMessage, token, openAuth]);
 
 
   const isGuest = !user;

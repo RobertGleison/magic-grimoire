@@ -1,7 +1,6 @@
 'use client';
 
 import { ManaSymbol } from '../ManaSymbol/ManaSymbol';
-import { SealLogo } from '../ArcaneSigilLogo/ArcaneSigilLogo';
 import { ALL_FORMATS, BASIC_COLORS, COLOR_LABEL } from '../../enums';
 import './OptionsPanel.css';
 

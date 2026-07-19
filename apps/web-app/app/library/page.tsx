@@ -275,7 +275,7 @@ function DeckRow({ deck, checked, onCheck, onClick }: DeckRowProps) {
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, ready } = useUser();
   const [view, setView] = useState<LibraryView>('grid');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importedDecks, setImportedDecks] = useState<SavedDeck[]>([]);
@@ -284,8 +284,8 @@ export default function LibraryPage() {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user) router.replace('/');
-  }, [user, router]);
+    if (ready && !user) router.replace('/');
+  }, [ready, user, router]);
 
   if (!user) return null;
 

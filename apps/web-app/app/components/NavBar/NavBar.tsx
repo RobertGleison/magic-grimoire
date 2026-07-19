@@ -14,7 +14,7 @@ const NAV_LINKS = [
 
 export function SpineNav() {
   const pathname = usePathname();
-  const { user, openAuth, setUser } = useUser();
+  const { user, openAuth, signOut } = useUser();
 
   return (
     <nav className="spine">
@@ -42,7 +42,7 @@ export function SpineNav() {
         {user ? (
           <div className="spine-auth">
             <span className="spine-user-name">{user.name}</span>
-            <button className="spine-logout" onClick={() => setUser(null)}>
+            <button className="spine-logout" onClick={signOut}>
               Logout
             </button>
           </div>
