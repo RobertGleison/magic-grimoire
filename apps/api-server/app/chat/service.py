@@ -1,37 +1,44 @@
 import asyncio
-import json
 
-from app.chat.dtos import ChatContextDTO
+from app.chat.dtos import ChatContextDTO, ChatMessageDTO
+from app.core.guards import sanitize_prompt
 from app.services.llm import create_llm_service
-from app.services.llm.prompts import CHAT_SYSTEM
+from app.services.llm.base import LLMServiceError
 
 
-async def chat_with_grimoire(messages: list[dict], context: ChatContextDTO | None) -> str:
-    """Call the LLM with conversation history and optional deck context."""
-    system = CHAT_SYSTEM
+class ChatValidationError(Exception):
+    """A user message failed prompt screening."""
 
-    if context:
-        parts: list[str] = []
-        if context.format:
-            parts.append(f"format: {context.format}")
-        if context.colors:
-            parts.append(f"colors: {', '.join(context.colors)}")
-        if context.strategy:
-            parts.append(f"strategy: {context.strategy}")
-        if parts:
-            system += f"\n\nCurrent deck context — {'; '.join(parts)}."
+
+class ChatProviderUnavailable(Exception):
+    """The LLM provider could not produce a reply."""
+
+
+async def chat_with_grimoire(messages: list[ChatMessageDTO], context: ChatContextDTO | None) -> str:
+    """Screen the conversation, call the LLM with optional deck context, and return the reply.
+
+    Raises ChatValidationError for rejected input and ChatProviderUnavailable when
+    the provider fails — callers map these to transport-level errors.
+    """
+    for m in messages:
+        if m.role == "user":
+            valid, rejection = sanitize_prompt(m.content)
+            if not valid:
+                raise ChatValidationError(rejection)
 
     llm = create_llm_service()
+    raw_messages = [{"role": m.role, "content": m.content} for m in messages]
+
+    def _call() -> str:
+        return llm.chat_with_context(
+            raw_messages,
+            format=context.format if context else None,
+            colors=context.colors if context else None,
+            strategy=context.strategy if context else None,
+        )
+
     loop = asyncio.get_running_loop()
-    raw_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
-    reply = await loop.run_in_executor(None, llm.chat, raw_messages, system)
-
-    # If the LLM fired the off-topic guard, unwrap the message to a clean string.
     try:
-        parsed = json.loads(reply)
-        if parsed.get("error") == "off_topic":
-            return parsed.get("message", "I only discuss Magic: The Gathering.")
-    except (json.JSONDecodeError, AttributeError):
-        pass
-
-    return reply
+        return await loop.run_in_executor(None, _call)
+    except LLMServiceError as exc:
+        raise ChatProviderUnavailable(str(exc)) from exc
