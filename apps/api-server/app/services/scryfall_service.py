@@ -6,10 +6,10 @@ from typing import Any
 import httpx
 
 from app.services import redis_cache
+from app.services.redis_cache import CACHE_TTL
 
 SCRYFALL_BASE = "https://api.scryfall.com"
 REQUEST_DELAY = 0.5  # 500ms between requests — Scryfall hard limit is 2 req/s
-CACHE_TTL = 86400  # 24 hours
 
 # Card supertypes/types the LLM sometimes echoes back inside "creature_types" instead of
 # a bare tribal word (e.g. "Creature - Human", "Artifact Creature"). Scryfall's `type:` operator
