@@ -66,7 +66,12 @@ async def generate_deck(
 
     try:
         generate_deck_task.apply_async(
-            args=[str(deck.id), request.prompt, request.format],
+            args=[
+                str(deck.id),
+                request.prompt,
+                request.format,
+                [c.value for c in request.colors] if request.colors else None,
+            ],
             task_id=task_id,
         )
     except Exception:
