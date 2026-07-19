@@ -103,20 +103,22 @@ apps/api-server/
 │   ├── core/
 │   │   ├── config.py       # Pydantic BaseSettings (env vars)
 │   │   ├── database.py     # Async engine + session factory + get_db()
-│   │   ├── enums.py        # DeckStatus, TaskStatus, DeckFormat
+│   │   ├── enums.py        # DeckStatus, TaskStatus, TaskProgress, DeckFormat
 │   │   └── guards.py       # sanitize_prompt() — prompt-injection filter
 │   ├── decks/
 │   │   ├── routes.py       # POST /decks/generate, GET /decks, GET/DELETE /decks/:id
-│   │   ├── worker.py       # Celery task: the 5-step generation pipeline
+│   │   ├── pipeline.py     # DeckGenerationPipeline: the 5-step generation sequence
+│   │   ├── worker.py       # Celery task entrypoint → pipeline.run()
 │   │   ├── model.py        # Deck ORM model
 │   │   └── dtos.py
 │   ├── tasks/
 │   │   ├── routes.py       # GET /tasks/:id/stream (SSE)
+│   │   ├── streaming.py    # task_channel() + sse_event() — publisher/subscriber contract
 │   │   ├── model.py        # Task ORM model
 │   │   └── dtos.py
 │   ├── chat/               # POST /chat — "the Grimoire" persona chat
 │   ├── services/
-│   │   ├── llm/            # base.py (ABC), claude.py, ollama.py, factory.py, prompts.py
+│   │   ├── llm/            # base.py (deep interface), claude.py / ollama.py (transport), factory.py, prompts.py
 │   │   ├── scryfall_service.py
 │   │   └── redis_cache.py  # get/set/publish, one pool per event loop
 │   └── workers/
@@ -167,8 +169,6 @@ sequenceDiagram
     end
 ```
 
-**Guest rate limiting:** unauthenticated deck generation is allowed **once per IP per 30 days**. The route sets Redis key `ratelimit:ip:{client_ip}` with a 30-day TTL; if the key already exists, the request gets **429**.
-
 **Prompt-injection guard:** before anything else, user prompts pass through `sanitize_prompt()` (`app/core/guards.py`), which rejects patterns like "ignore previous instructions", `<script`, etc. with a **400**. The LLM prompts also carry an off-topic instruction as a second layer, so non-MTG requests fail the pipeline too.
 
 > ⚠️ If `SUPABASE_JWT_SECRET` is empty, the server logs a warning and treats **every** request as unauthenticated — convenient locally, dangerous in production.
@@ -180,14 +180,13 @@ sequenceDiagram
 `POST /api/v1/decks/generate` (`app/decks/routes.py`) does the bookkeeping and hands off:
 
 1. Validate the prompt (1–2000 chars, injection guard) and format (`standard | modern | pioneer | legacy | commander`).
-2. If the caller is a guest, enforce the 1-per-IP-per-30-days limit.
-3. Create a **`Deck`** row (`status=pending`) and a **`Task`** row (`status=queued`). The `task_id` is a UUID generated **in the API**, not by Celery, and the transaction is committed **before** enqueueing — so the SSE endpoint can always find the task, even if the worker starts instantly.
-4. Enqueue `generate_deck_task` on Celery with that `task_id`. If the broker is down, the deck/task are marked `failed` and the client gets **503**.
-5. Respond **202** with `{ "task_id", "deck_id", "status": "pending" }`.
+2. Create a **`Deck`** row (`status=pending`) and a **`Task`** row (`status=queued`). The `task_id` is a UUID generated **in the API**, not by Celery, and the transaction is committed **before** enqueueing — so the SSE endpoint can always find the task, even if the worker starts instantly.
+3. Enqueue `generate_deck_task` on Celery with that `task_id`. If the broker is down, the deck/task are marked `failed` and the client gets **503**.
+4. Respond **202** with `{ "task_id", "deck_id", "status": "pending" }`.
 
 ### Phase 2 — the Celery pipeline (asynchronous)
 
-`generate_deck_task` (`app/decks/worker.py`) runs a 5-step pipeline. Before each step it publishes a progress event to the Redis Pub/Sub channel **`task:{task_id}`**:
+`generate_deck_task` (`app/decks/worker.py`) is a thin Celery entrypoint around **`DeckGenerationPipeline`** (`app/decks/pipeline.py`), which owns the 5-step sequence including failure handling. Before each step it publishes a progress event (a `TaskProgress` enum value) to the Redis Pub/Sub channel **`task:{task_id}`** — the channel name and SSE framing are defined once in `app/tasks/streaming.py`, shared with the subscriber side:
 
 ```mermaid
 sequenceDiagram
@@ -230,9 +229,9 @@ The steps in detail:
 | 4 | **`enrich_cards`** (Scryfall) | Fetches each composed card by exact name to attach `scryfall_id`, `image_uri`, `mana_cost`, `type_line`. Per-card Redis cache, 24h. |
 | 5 | **Persist** | Saves title, cards, colors, and card count on the `Deck`; marks deck and task `completed`. |
 
-**Failure path:** any exception marks the deck and task `failed` (with `error_message` and `failed_at`), publishes `{status: "failed", message}` so the client hears about it, then re-raises so Celery records the failure.
+**Failure path:** any exception marks the deck and task `failed` (with `error_message` and `failed_at`), publishes `{status: "failed", message}` so the client hears about it, then re-raises so Celery records the failure. The failure fields are set by `mark_generation_failed()` (`app/decks/pipeline.py`) — the same helper the generate route uses when enqueueing fails, so "what a failed generation looks like" is defined once.
 
-**Event-loop detail:** each task invocation creates its **own** async engine and Redis client inside its own `asyncio.run()` loop — asyncpg connections and Redis pools cannot be shared across event loops, and `redis_cache.py` keeps one pool *per loop* for the same reason.
+**Event-loop detail:** each task invocation creates its **own** async engine inside its own `asyncio.run()` loop — asyncpg connections cannot cross event loops. Redis access goes through `redis_cache.py`, which keeps one connection pool *per loop* for the same reason.
 
 ## Real-Time Progress (SSE)
 
@@ -249,7 +248,7 @@ Statuses emitted, in order: `processing` → `searching_cards` → `composing_de
 
 ## LLM Abstraction
 
-The pipeline is provider-agnostic (`app/services/llm/`):
+The pipeline is provider-agnostic (`app/services/llm/`). `LLMService` is a **deep interface**: it concretely owns prompt formatting, JSON parsing, error normalization, and retries — adapters implement only `_complete()`, the raw provider request:
 
 ```mermaid
 classDiagram
@@ -258,23 +257,27 @@ classDiagram
         +parse_intent(prompt) dict
         +compose_deck(intent, cards, format) dict
         +chat(messages, system) str
+        +chat_with_context(messages, format, colors, strategy) str
+        #_complete(system, messages, max_tokens, json_mode)* str
     }
     class ClaudeService {
-        anthropic SDK
+        _complete() via anthropic SDK
         model: CLAUDE_MODEL
     }
     class OllamaService {
-        httpx → /api/chat
+        _complete() via httpx → /api/chat
         model: OLLAMA_MODEL
     }
     LLMService <|-- ClaudeService
     LLMService <|-- OllamaService
 ```
 
+- **`base.py`** owns the shared behavior: fills the prompt templates, parses the JSON replies, retries once on transient failures or malformed completions, and normalizes every provider failure to a single **`LLMServiceError`** — so callers never see `httpx` or `anthropic` exceptions. `chat_with_context()` folds optional deck context into the Grimoire system prompt and unwraps the off-topic guard reply.
 - `factory.py: create_llm_service()` picks the implementation from **`LLM_PROVIDER`** (`ollama` by default, `claude` for production).
 - **Claude** (`claude.py`): Anthropic SDK, default model `claude-sonnet-4-20250514`; needs `ANTHROPIC_API_KEY`.
 - **Ollama** (`ollama.py`): plain `httpx` POST to `{OLLAMA_BASE_URL}/api/chat` with `format: json` for the structured calls; default model `llama3.2:3b`. Good for free local dev.
-- **`prompts.py`** holds the shared system prompts/templates for all three operations, including the off-topic refusal instruction and the "Grimoire" chat persona.
+- **`prompts.py`** holds the shared system prompts/templates for all operations, including the off-topic refusal instruction and the "Grimoire" chat persona.
+- Consumers translate `LLMServiceError` at their own boundary: `POST /chat` maps it to a **503** with the provider's message (via typed exceptions in `app/chat/service.py`); the deck pipeline lets it fail the task.
 
 ## Scryfall Service & Caching
 
@@ -327,7 +330,7 @@ All paths are prefixed with `/api/v1`. A ready-made Postman collection is at [`m
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/decks/generate` | Optional | Start deck generation. Guests: 1 per IP per 30 days (429 after). Returns **202** `{task_id, deck_id, status}` |
+| `POST` | `/decks/generate` | Optional | Start deck generation. Returns **202** `{task_id, deck_id, status}` |
 | `GET` | `/tasks/{task_id}/stream` | Public | SSE progress stream (see above) |
 | `GET` | `/decks` | **Required** | Paginated list of the caller's decks (`page`, `limit` ≤ 100), newest first |
 | `GET` | `/decks/{deck_id}` | Optional | Fetch one deck. 403 if it belongs to another user; guest-created decks (no owner) are public |
@@ -369,7 +372,6 @@ Error variants:
 | Status | Body | When |
 |---|---|---|
 | `400` | `{"detail": "Invalid input detected."}` | Prompt tripped the injection guard |
-| `429` | `{"detail": "Guest generation limit reached. Sign in to generate more decks."}` | Guest already generated from this IP in the last 30 days |
 | `503` | `{"detail": "Deck generation service is temporarily unavailable. Please try again."}` | Celery broker (Redis) unreachable — deck/task are marked `failed` |
 
 ### 2. Client → API: subscribe to progress
