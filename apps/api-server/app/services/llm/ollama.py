@@ -1,14 +1,6 @@
-import json
-
 import httpx
 
-from app.services.llm.base import LLMService
-from app.services.llm.prompts import (
-    COMPOSE_DECK_SYSTEM,
-    COMPOSE_DECK_TEMPLATE,
-    PARSE_INTENT_SYSTEM,
-    PARSE_INTENT_TEMPLATE,
-)
+from app.services.llm.base import LLMService, LLMServiceError
 
 
 class OllamaService(LLMService):
@@ -16,44 +8,23 @@ class OllamaService(LLMService):
         self.base_url = base_url
         self.model = model
 
-    def _chat(self, system: str, user_message: str) -> str:
-        response = httpx.post(
-            f"{self.base_url}/api/chat",
-            json={
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user_message},
-                ],
-                "stream": False,
-                "format": "json",
-            },
-            timeout=300.0,
-        )
-        response.raise_for_status()
-        return response.json()["message"]["content"]
+    def _complete(self, system: str, messages: list[dict], *, max_tokens: int, json_mode: bool) -> str:
+        payload: dict = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system}, *messages],
+            "stream": False,
+        }
+        if json_mode:
+            payload["format"] = "json"
 
-    def parse_intent(self, prompt: str) -> dict:
-        raw = self._chat(PARSE_INTENT_SYSTEM, PARSE_INTENT_TEMPLATE.format(prompt=prompt))
-        return json.loads(raw)
+        try:
+            response = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=300.0)
+            response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise LLMServiceError(f"Cannot connect to Ollama at {self.base_url}. Is it running?") from exc
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise LLMServiceError(f"Ollama model not found. Run: ollama pull {self.model}") from exc
+            raise LLMServiceError(f"Ollama error: {exc.response.status_code}") from exc
 
-    def compose_deck(self, intent: dict, cards: list[dict], format: str) -> dict:
-        cards_text = "\n".join(f"- {c.get('name', 'Unknown')}" for c in cards)
-        raw = self._chat(
-            COMPOSE_DECK_SYSTEM,
-            COMPOSE_DECK_TEMPLATE.format(format=format, intent=json.dumps(intent), cards=cards_text),
-        )
-        return json.loads(raw)
-
-    def chat(self, messages: list[dict], system: str) -> str:
-        response = httpx.post(
-            f"{self.base_url}/api/chat",
-            json={
-                "model": self.model,
-                "messages": [{"role": "system", "content": system}, *messages],
-                "stream": False,
-            },
-            timeout=300.0,
-        )
-        response.raise_for_status()
         return response.json()["message"]["content"]

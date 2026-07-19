@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.enums import TaskStatus
 from app.tasks.model import Task
+from app.tasks.streaming import sse_event, task_channel
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ _KEEPALIVE_INTERVAL = 15.0
 async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = redis_client.pubsub()
-    channel = f"task:{task_id}"
+    channel = task_channel(task_id)
 
     try:
         await pubsub.subscribe(channel)
@@ -39,7 +40,7 @@ async def _sse_event_generator(task_id: str) -> AsyncGenerator[str]:
 
             if message["type"] == "message":
                 data_str = message["data"]
-                yield f"data: {data_str}\n\n"
+                yield sse_event(data_str)
 
                 try:
                     payload = json.loads(data_str)
@@ -72,7 +73,7 @@ async def stream_task(
 
     if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
         async def _already_done() -> AsyncGenerator[str]:
-            yield f"data: {json.dumps({'status': task.status, 'message': 'Task already ' + task.status})}\n\n"
+            yield sse_event(json.dumps({"status": task.status, "message": "Task already " + task.status}))
 
         return StreamingResponse(
             _already_done(),

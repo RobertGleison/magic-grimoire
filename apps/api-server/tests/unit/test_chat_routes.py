@@ -15,12 +15,25 @@ _VALID_PAYLOAD = {
 def test_chat_returns_200():
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
-        mock_llm.chat.return_value = "Tell me more about your preferred win condition."
+        mock_llm.chat_with_context.return_value = "Tell me more about your preferred win condition."
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json=_VALID_PAYLOAD)
 
     assert res.status_code == 200
     assert res.json() == {"message": "Tell me more about your preferred win condition."}
+
+
+def test_chat_maps_provider_failure_to_503():
+    from app.services.llm.base import LLMServiceError
+
+    with patch("app.chat.service.create_llm_service") as mock_factory:
+        mock_llm = MagicMock()
+        mock_llm.chat_with_context.side_effect = LLMServiceError("Ollama model not found. Run: ollama pull llama3.2:3b")
+        mock_factory.return_value = mock_llm
+        res = client.post("/api/v1/chat", json=_VALID_PAYLOAD)
+
+    assert res.status_code == 503
+    assert "Ollama model not found" in res.json()["detail"]
 
 
 def test_chat_rejects_injection():
@@ -56,7 +69,7 @@ def test_chat_rejects_too_many_messages():
 def test_chat_accepts_no_auth():
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
-        mock_llm.chat.return_value = "Which colors call to you?"
+        mock_llm.chat_with_context.return_value = "Which colors call to you?"
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json=_VALID_PAYLOAD)
 
@@ -93,7 +106,7 @@ def test_chat_rejects_invalid_strategy():
 def test_chat_context_is_optional():
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
-        mock_llm.chat.return_value = "Describe your ideal strategy."
+        mock_llm.chat_with_context.return_value = "Describe your ideal strategy."
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json={"messages": [{"role": "user", "content": "build something fun"}]})
 

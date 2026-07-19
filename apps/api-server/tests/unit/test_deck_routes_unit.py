@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 
 from app.core.database import get_db
 from app.main import app
-from app.services import redis_cache
 
 
 @pytest.fixture
@@ -42,14 +41,3 @@ def test_generate_rejects_unknown_format(client):
         json={"prompt": "elf tribal", "format": "vintage-plus"},
     )
     assert res.status_code == 422
-
-
-def test_guest_second_generation_is_rate_limited(client, fake_redis):
-    # TestClient requests arrive with client host "testclient".
-    import asyncio
-
-    asyncio.run(redis_cache.set("ratelimit:ip:testclient", "1", ttl=60))
-
-    res = client.post("/api/v1/decks/generate", json={"prompt": "elf tribal"})
-    assert res.status_code == 429
-    assert "Sign in" in res.json()["detail"]

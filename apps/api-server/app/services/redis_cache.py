@@ -1,8 +1,12 @@
 import asyncio
+import json
 
 import redis.asyncio as aioredis
 
 from app.core.config import settings
+
+# Single source for cache entry lifetime — 24 hours.
+CACHE_TTL = 86400
 
 # One pool per event loop: FastAPI reuses its single long-lived loop, while the
 # Celery worker gets a fresh asyncio.run() loop per task — pooled connections
@@ -28,13 +32,18 @@ async def get(key: str) -> str | None:
         return value
 
 
-async def set(key: str, value: str, ttl: int = 86400) -> None:
+async def set(key: str, value: str, ttl: int = CACHE_TTL) -> None:
     """Store a value in Redis with the given TTL in seconds (default 24h)."""
     async with _get_client() as client:
         await client.set(key, value, ex=ttl)
 
 
-async def publish(channel: str, message: str) -> None:
-    """Publish a message to a Redis pub/sub channel."""
+async def publish(channel: str, message: dict | str) -> None:
+    """Publish a message to a Redis pub/sub channel.
+
+    Dict payloads are JSON-serialized here so every publisher shares one envelope encoding.
+    """
+    if isinstance(message, dict):
+        message = json.dumps(message)
     async with _get_client() as client:
         await client.publish(channel, message)

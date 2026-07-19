@@ -1,9 +1,9 @@
-import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.services.llm.base import LLMServiceError
 from app.services.llm.claude import ClaudeService
 
 
@@ -20,10 +20,11 @@ def test_parse_intent_returns_parsed_json():
     assert service.parse_intent("red burn deck") == {"colors": ["R"], "themes": ["burn"]}
 
 
-def test_parse_intent_raises_on_invalid_json():
-    service, _ = _service_with_reply("Sorry, I cannot do that.")
-    with pytest.raises(json.JSONDecodeError):
+def test_parse_intent_raises_llm_error_on_invalid_json_after_retry():
+    service, client = _service_with_reply("Sorry, I cannot do that.")
+    with pytest.raises(LLMServiceError, match="invalid JSON"):
         service.parse_intent("red burn deck")
+    assert client.messages.create.call_count == 2  # one retry before giving up
 
 
 def test_compose_deck_lists_candidate_names_in_prompt():
@@ -45,3 +46,12 @@ def test_chat_returns_plain_text_and_passes_system():
 
     assert reply == "Which colors call to you?"
     assert client.messages.create.call_args.kwargs["system"] == "be mystical"
+
+
+def test_anthropic_error_normalized_to_llm_error():
+    service, client = _service_with_reply("unused")
+    import anthropic
+
+    client.messages.create.side_effect = anthropic.AnthropicError("boom")
+    with pytest.raises(LLMServiceError, match="Claude API error"):
+        service.chat([{"role": "user", "content": "hi"}], system="s")

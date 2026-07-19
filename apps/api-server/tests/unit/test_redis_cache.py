@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 from app.services import redis_cache
 
@@ -30,6 +31,20 @@ async def test_publish_reaches_subscriber(fake_redis):
             await asyncio.sleep(0.01)
         assert message is not None
         assert message["data"] == "hello"
+
+
+async def test_publish_serializes_dict_payload(fake_redis):
+    async with fake_redis() as subscriber:
+        pubsub = subscriber.pubsub()
+        await pubsub.subscribe("chan")
+        await redis_cache.publish("chan", {"status": "processing", "message": "Working..."})
+        for _ in range(10):
+            message = await pubsub.get_message(ignore_subscribe_messages=True)
+            if message:
+                break
+            await asyncio.sleep(0.01)
+        assert message is not None
+        assert json.loads(message["data"]) == {"status": "processing", "message": "Working..."}
 
 
 def test_pool_reused_within_same_loop(monkeypatch):
