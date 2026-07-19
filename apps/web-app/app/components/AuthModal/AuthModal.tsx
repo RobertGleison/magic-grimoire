@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ArcaneSigil } from '../ArcaneSigil/ArcaneSigil';
 import { SealLogo, Ornament } from '../ArcaneSigilLogo/ArcaneSigilLogo';
-import { User } from '../../context/UserContext';
+import { supabase } from '../../lib/supabase';
 import './AuthModal.css';
 
 type OAuthProvider = 'google' | 'github';
@@ -58,37 +57,58 @@ function AuthField({ label, value, onChange, placeholder, type = 'text' }: AuthF
 interface AuthModalProps {
   mode: 'login' | 'signup';
   onClose: () => void;
-  onSuccess: (user: User) => void;
   onSwitchMode: (mode: 'login' | 'signup') => void;
 }
 
-export function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: AuthModalProps) {
+export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !pw) return;
     setBusy(true);
-    setTimeout(() => {
-      onSuccess({
+    setError(null);
+    setNotice(null);
+
+    if (mode === 'signup') {
+      const { data, error } = await supabase.auth.signUp({
         email,
-        name: mode === 'signup' ? (name || email.split('@')[0]) : email.split('@')[0],
+        password: pw,
+        options: { data: { name: name || email.split('@')[0] } },
       });
-    }, 900);
+      setBusy(false);
+      if (error) { setError(error.message); return; }
+      if (!data.session) {
+        setNotice('Check your email to confirm your account, then log in.');
+        return;
+      }
+      onClose();
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+      setBusy(false);
+      if (error) { setError(error.message); return; }
+      onClose();
+    }
   };
 
-  const mockOAuth = (provider: OAuthProvider) => {
+  const oauth = async (provider: OAuthProvider) => {
     setOauthBusy(provider);
-    setTimeout(() => {
-      onSuccess({
-        email: `seeker@${provider}.mock`,
-        name: provider === 'google' ? 'Google Seeker' : 'GitHub Seeker',
-      });
-    }, 900);
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.href },
+    });
+    // On success the browser navigates away; only errors land here.
+    if (error) {
+      setOauthBusy(null);
+      setError(error.message);
+    }
   };
 
   return (
@@ -114,7 +134,7 @@ export function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: AuthModalP
               type="button"
               className="btn auth-modal-oauth-btn"
               disabled={busy || oauthBusy !== null}
-              onClick={() => mockOAuth(provider.id)}
+              onClick={() => oauth(provider.id)}
             >
               {provider.icon}
               <span>
@@ -153,6 +173,9 @@ export function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: AuthModalP
             placeholder="••••••••"
             type="password"
           />
+
+          {error && <p className="auth-modal-error">{error}</p>}
+          {notice && <p className="auth-modal-notice">{notice}</p>}
 
           <button
             type="submit"

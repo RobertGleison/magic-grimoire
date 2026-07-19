@@ -170,3 +170,19 @@
 .auth-modal-switch:hover {
   color: var(--accent);
 }
+
+.auth-modal-error,
+.auth-modal-notice {
+  margin: 10px 0 0;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.92rem;
+}
+
+.auth-modal-error {
+  color: var(--mana-r);
+}
+
+.auth-modal-notice {
+  color: var(--accent);
+}

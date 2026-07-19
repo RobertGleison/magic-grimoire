@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 export interface User {
   email: string;
@@ -9,7 +11,9 @@ export interface User {
 
 interface UserContextType {
   user: User | null;
-  setUser: (u: User | null) => void;
+  token: string | null;
+  ready: boolean;
+  signOut: () => void;
   authOpen: boolean;
   openAuth: () => void;
   closeAuth: () => void;
@@ -17,34 +21,48 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType>({
   user: null,
-  setUser: () => {},
+  token: null,
+  ready: false,
+  signOut: () => {},
   authOpen: false,
   openAuth: () => {},
   closeAuth: () => {},
 });
 
+function toUser(session: Session | null): User | null {
+  if (!session) return null;
+  const { email, user_metadata } = session.user;
+  return {
+    email: email ?? '',
+    name: user_metadata?.full_name ?? user_metadata?.name ?? email?.split('@')[0] ?? 'Planeswalker',
+  };
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [ready, setReady] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('mg_user');
-      if (stored) setUserState(JSON.parse(stored));
-    } catch {}
-  }, []);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
 
-  const setUser = (u: User | null) => {
-    setUserState(u);
-    try {
-      if (u) localStorage.setItem('mg_user', JSON.stringify(u));
-      else localStorage.removeItem('mg_user');
-    } catch {}
-  };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setReady(true);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <UserContext.Provider value={{
-      user, setUser,
+      user: toUser(session),
+      token: session?.access_token ?? null,
+      ready,
+      signOut: () => { supabase.auth.signOut(); },
       authOpen,
       openAuth: () => setAuthOpen(true),
       closeAuth: () => setAuthOpen(false),

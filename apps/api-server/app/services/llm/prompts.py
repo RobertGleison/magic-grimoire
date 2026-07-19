@@ -17,7 +17,9 @@ PARSE_INTENT_TEMPLATE = (
     "Extract deck-building intent from this description:\n\n"
     '"{prompt}"\n\n'
     "Return JSON with keys: colors (list of single-letter color codes like W, U, B, R, G), "
-    "creature_types (list), keywords (list), themes (list), format (string, default 'standard'), "
+    "creature_types (list of single tribal type words only, e.g. [\"Human\", \"Goblin\", \"Elf\"] — "
+    "never full type lines like \"Creature - Human\" or \"Artifact Creature\"), "
+    "keywords (list), themes (list), format (string, default 'standard'), "
     "strategy (string, one sentence)."
 )
 

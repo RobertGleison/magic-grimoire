@@ -5,7 +5,7 @@ import { useUser } from '../../context/UserContext';
 import { AuthModal } from '../AuthModal/AuthModal';
 
 export default function AuthGate() {
-  const { authOpen, closeAuth, setUser } = useUser();
+  const { authOpen, closeAuth } = useUser();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
 
   if (!authOpen) return null;
@@ -14,7 +14,6 @@ export default function AuthGate() {
     <AuthModal
       mode={mode}
       onClose={closeAuth}
-      onSuccess={(u) => { setUser(u); closeAuth(); }}
       onSwitchMode={setMode}
     />
   );

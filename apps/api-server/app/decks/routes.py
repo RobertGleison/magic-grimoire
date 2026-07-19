@@ -4,8 +4,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, get_optional_user
@@ -20,36 +21,22 @@ from app.decks.dtos import (
 )
 from app.decks.model import Deck
 from app.decks.worker import generate_deck_task
-from app.services import redis_cache
 from app.tasks.model import Task
 
 _log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_GUEST_RATE_LIMIT_TTL = 30 * 24 * 60 * 60
-
 
 @router.post("/decks/generate", response_model=DeckGenerateResponseDTO, status_code=status.HTTP_202_ACCEPTED)
 async def generate_deck(
     request: DeckGenerateRequestDTO,
-    req: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[str | None, Depends(get_optional_user)],
 ) -> DeckGenerateResponseDTO:
     valid, rejection = sanitize_prompt(request.prompt)
     if not valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=rejection)
-
-    if not user_id:
-        client_ip = req.client.host if req.client else "unknown"
-        rate_key = f"ratelimit:ip:{client_ip}"
-        if await redis_cache.get(rate_key):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Guest generation limit reached. Sign in to generate more decks.",
-            )
-        await redis_cache.set(rate_key, "1", ttl=_GUEST_RATE_LIMIT_TTL)
 
     deck = Deck(
         prompt=request.prompt,
@@ -58,15 +45,24 @@ async def generate_deck(
         user_id=user_id,
     )
     db.add(deck)
-    await db.flush()
 
-    # Generate task_id here so we can commit before apply_async — eliminates the race
-    # condition where the worker tries to read the Task record before it's committed.
-    task_id = str(uuid.uuid4())
-    task = Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED)
-    db.add(task)
+    try:
+        await db.flush()
 
-    await db.commit()
+        # Generate task_id here so we can commit before apply_async — eliminates the race
+        # condition where the worker tries to read the Task record before it's committed.
+        task_id = str(uuid.uuid4())
+        task = Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED)
+        db.add(task)
+
+        await db.commit()
+    except SQLAlchemyError:
+        _log.exception("Database error creating deck/task (prompt=%r, format=%s)", request.prompt, request.format)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Deck storage is temporarily unavailable. Please try again shortly.",
+        )
 
     try:
         generate_deck_task.apply_async(

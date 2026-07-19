@@ -1,0 +1,145 @@
+{
+  "info": {
+    "name": "Magic Grimoire API",
+    "description": "AI-powered Magic: The Gathering deck generator.\n\nAll routes are mounted under `/api/v1`.\n\n**Auth:** Supabase JWT passed as `Authorization: Bearer {{jwt}}`. Routes marked *optional auth* work as guest (guest deck generation is rate-limited to 1 per IP per 30 days). `GET /decks` and `DELETE /decks/:id` require auth.\n\n**Variables:**\n- `base_url` — API server origin (default `http://localhost:8000`)\n- `jwt` — Supabase access token\n- `deck_id` / `task_id` — filled from the generate response",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{jwt}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "jwt", "value": "" },
+    { "key": "deck_id", "value": "" },
+    { "key": "task_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Decks",
+      "item": [
+        {
+          "name": "Generate Deck",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('task_id', body.task_id);",
+                  "    pm.collectionVariables.set('deck_id', body.deck_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"An aggressive red goblin tribal deck with lots of haste creatures\",\n  \"format\": \"standard\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/decks/generate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "decks", "generate"]
+            },
+            "description": "Enqueues async deck generation. Optional auth — guests are rate-limited to 1 generation per IP per 30 days (429 when exceeded).\n\n`format` is one of: `standard`, `modern`, `pioneer`, `legacy`, `commander` (default `standard`). `prompt` is 1–2000 chars.\n\nReturns **202** with `task_id`, `deck_id`, `status` (saved to collection variables by the test script). Then stream progress via `GET /tasks/:task_id/stream`.\n\nErrors: 400 (prompt rejected by sanitizer), 429 (guest limit), 503 (broker unavailable)."
+          }
+        },
+        {
+          "name": "List Decks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/decks?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "decks"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number, ≥1 (default 1)" },
+                { "key": "limit", "value": "20", "description": "Page size, 1–100 (default 20)" }
+              ]
+            },
+            "description": "Lists the authenticated user's decks, newest first. **Requires auth.**\n\nReturns `{ decks, total, page, pages }`."
+          }
+        },
+        {
+          "name": "Get Deck",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/decks/{{deck_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "decks", "{{deck_id}}"]
+            },
+            "description": "Fetches a single deck by UUID. Optional auth — guest-generated decks (no owner) are public; owned decks return 403 for anyone but the owner.\n\nErrors: 404 (not found), 403 (access denied)."
+          }
+        },
+        {
+          "name": "Delete Deck",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/decks/{{deck_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "decks", "{{deck_id}}"]
+            },
+            "description": "Deletes a deck owned by the authenticated user. **Requires auth.**\n\nReturns **204** on success. Errors: 404 (not found), 403 (not the owner)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Stream Task Progress (SSE)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/event-stream" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/{{task_id}}/stream",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "{{task_id}}", "stream"]
+            },
+            "description": "Server-Sent Events stream of deck-generation progress published via Redis Pub/Sub (`task:{id}`). Deliberately unauthenticated — the UUIDv4 task ID acts as a capability URL.\n\nEmits `data: {...}` events per pipeline step plus `: keepalive` comments every 15s; the stream closes when status reaches `completed` or `failed`. If the task already finished, a single terminal event is sent immediately.\n\nNote: Postman keeps the connection open — use the response viewer's event stream, and cancel manually if needed. Errors: 404 (task not found)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Chat with Grimoire",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"What are good win conditions for a blue-white control deck?\"\n    }\n  ],\n  \"context\": {\n    \"format\": \"standard\",\n    \"colors\": [\"W\", \"U\"],\n    \"strategy\": \"Defensive\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "chat"]
+            },
+            "description": "Conversational deck-building assistant (Ollama-backed). Optional auth.\n\n`messages`: 1–20 items with `role` (`user` | `assistant`) and `content` (1–2000 chars). `context` is optional: `format` (`standard`|`modern`|`pioneer`|`legacy`|`commander`), `colors` (subset of `W U B R G`), `strategy` (`Balanced`|`Aggressive`|`Defensive`|`Budget`|`Spicy`).\n\nReturns `{ message }`. Errors: 400 (prompt rejected), 503 (Ollama not running / model missing)."
+          }
+        }
+      ]
+    }
+  ]
+}

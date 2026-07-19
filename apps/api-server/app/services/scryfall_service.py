@@ -11,6 +11,20 @@ SCRYFALL_BASE = "https://api.scryfall.com"
 REQUEST_DELAY = 0.5  # 500ms between requests — Scryfall hard limit is 2 req/s
 CACHE_TTL = 86400  # 24 hours
 
+# Card supertypes/types the LLM sometimes echoes back inside "creature_types" instead of
+# a bare tribal word (e.g. "Creature - Human", "Artifact Creature"). Scryfall's `type:` operator
+# treats a bare "-" as a negation on the next term, so leaving these in breaks the query.
+_TYPE_LINE_NOISE = {
+    "creature", "artifact", "enchantment", "legendary", "snow", "basic", "land",
+    "planeswalker", "battle", "instant", "sorcery", "tribal", "kindred",
+}
+
+
+def _sanitize_creature_type(raw: str) -> str | None:
+    """Extract the bare tribal word from a possibly-noisy creature type string."""
+    words = [w for w in raw.replace("-", " ").split() if w.lower() not in _TYPE_LINE_NOISE]
+    return " ".join(words) if words else None
+
 
 async def _get(client: httpx.AsyncClient, url: str, params: dict | None = None) -> dict:
     """Perform a GET request with rate limiting."""
@@ -31,7 +45,10 @@ def _build_scryfall_query(intent: dict) -> str:
 
     creature_types: list[str] = intent.get("creature_types", [])
     for ctype in creature_types[:3]:  # limit to top 3 to avoid overly narrow queries
-        parts.append(f"type:{ctype}")
+        clean = _sanitize_creature_type(ctype)
+        if not clean:
+            continue
+        parts.append(f'type:"{clean}"' if " " in clean else f"type:{clean}")
 
     keywords: list[str] = intent.get("keywords", [])
     for kw in keywords[:2]:

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review — magic-grimoire / api-server</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak-line { stroke: #dc2626; stroke-width: 2px; }
+      .deep-box {
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        color: #e2e8f0;
+      }
+      .mass-bar {
+        border-radius: 4px;
+      }
+      article { scroll-margin-top: 2rem; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b0f19; color: #e2e8f0; }
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-14">
+      <header class="space-y-4 border-b border-slate-200 pb-8">
+        <p class="text-xs uppercase tracking-widest text-slate-500">Architecture review · 2026-07-14</p>
+        <h1 class="font-serif text-3xl font-semibold">magic-grimoire — <span class="text-slate-500">apps/api-server</span></h1>
+        <p class="text-sm text-slate-600 max-w-2xl">
+          Deepening candidates found while walking the deck-generation pipeline, the LLM abstraction, the Scryfall/Redis cache, and the chat/tasks/auth/core modules.
+        </p>
+        <div class="flex flex-wrap gap-x-8 gap-y-2 text-xs text-slate-500 pt-2">
+          <span class="flex items-center gap-2"><span class="inline-block w-4 h-4 border-2 border-slate-400 rounded-sm"></span>module</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-4 h-4 border-2 border-dashed border-slate-400 rounded-sm"></span>seam</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-4 h-0.5 bg-red-600"></span>leak across seam</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-4 h-4 deep-box rounded-sm"></span>deep module</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-16">
+
+        <!-- CANDIDATE 1 -->
+        <article class="space-y-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <h2 class="font-serif text-2xl font-semibold">1. Deepen the LLM service — stop the two adapters routing around the interface</h2>
+            <div class="flex gap-2 shrink-0">
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">Strong</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">ports & adapters</span>
+            </div>
+          </div>
+          <p class="font-mono text-sm text-slate-600">
+            app/services/llm/base.py · claude.py · ollama.py · factory.py · prompts.py · decks/worker.py · chat/service.py
+          </p>
+
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Before — shallow interface</p>
+                <div class="space-y-2">
+                  <div class="border-2 border-slate-300 rounded mass-bar h-8 flex items-center justify-center text-xs uppercase tracking-wider text-slate-500">base.py — interface</div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="border-2 border-red-400 rounded mass-bar h-36 flex flex-col items-center justify-center text-xs text-red-700 bg-red-50 gap-1 p-2 text-center">
+                      claude.py<br/><span class="text-[10px]">prompt fmt · JSON parse · card list fmt — duplicated</span>
+                    </div>
+                    <div class="border-2 border-red-400 rounded mass-bar h-36 flex flex-col items-center justify-center text-xs text-red-700 bg-red-50 gap-1 p-2 text-center">
+                      ollama.py<br/><span class="text-[10px]">prompt fmt · JSON parse · card list fmt — duplicated</span>
+                    </div>
+                  </div>
+                  <p class="text-[11px] text-slate-500 text-center">interface is a bare ABC stub; all behavior lives twice, below it</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">After — deep interface</p>
+                <div class="space-y-2">
+                  <div class="deep-box rounded mass-bar h-24 flex items-center justify-center text-xs uppercase tracking-wider text-center px-2">
+                    base.py — owns prompt formatting, JSON parsing, error normalization, retries
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="border-2 border-slate-300 rounded mass-bar h-14 flex items-center justify-center text-xs text-slate-500">claude.py<br/>raw call only</div>
+                    <div class="border-2 border-slate-300 rounded mass-bar h-14 flex items-center justify-center text-xs text-slate-500">ollama.py<br/>raw call only</div>
+                  </div>
+                  <p class="text-[11px] text-slate-500 text-center">implementation moves up into the interface; adapters shrink to "make the request"</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem —</span> base.py is a bare ABC with three abstract stubs; card-list formatting, prompt-template filling, and JSON parsing are copy-pasted identically into claude.py and ollama.py, and each adapter leaks its own raw exception type past the seam. Two adapters justify a seam here, but nothing behind it is shared.</p>
+            <p><span class="font-semibold">Solution —</span> Move prompt formatting, JSON parsing, error normalization (one <code>LLMServiceError</code>), and retry policy into base.py as concrete methods the adapters call into; adapters implement only the transport call. Fold chat/service.py's manual system-prompt building into a `chat_with_context()` interface method so prompt engineering stops leaking past the seam.</p>
+          </div>
+
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li><span class="font-medium">Leverage:</span> one interface, N adapters — a parsing fix lands for Claude and Ollama at once</li>
+            <li><span class="font-medium">Locality:</span> prompt engineering concentrates in one seam instead of chat/service.py + two adapters</li>
+            <li><span class="font-medium">Tests:</span> one contract suite runs against both adapters, no per-provider mock duplication</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 2 -->
+        <article class="space-y-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <h2 class="font-serif text-2xl font-semibold">2. Give deck generation a real interface — collapse the pipeline into one deep module</h2>
+            <div class="flex gap-2 shrink-0">
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">Strong</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">in-process</span>
+            </div>
+          </div>
+          <p class="font-mono text-sm text-slate-600">
+            app/decks/worker.py · routes.py · dtos.py · core/enums.py
+          </p>
+
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <div class="grid grid-cols-2 gap-6 items-start">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Before — no seam, logic spread</p>
+                <pre class="mermaid text-xs">
+flowchart TD
+  R[routes.py generate_deck] -->|apply_async| W[worker._run_generate_deck]
+  W --> P1[llm.parse_intent]
+  W --> P2[scryfall.search_cards]
+  W --> P3[llm.compose_deck]
+  W --> P4[scryfall.enrich_cards]
+  W --> P5[_save_completed_deck]
+  R -.leak: duplicate failure logic.-> F2[mark FAILED]
+  W -.leak: duplicate failure logic.-> F1[mark FAILED]
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class F1,F2 leak
+                </pre>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">After — one pipeline module</p>
+                <pre class="mermaid text-xs">
+flowchart TD
+  R[routes.py] -->|apply_async| T[generate_deck_task]
+  T --> PIPE[DeckGenerationPipeline.run]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class PIPE deep
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem —</span> <code>_run_generate_deck</code> is a flat script coupling five steps directly to two service modules, with no interface of its own; failure-marking logic is copy-pasted between routes.py's pre-queue path and worker.py's mid-pipeline path, and SSE status strings ("searching_cards", "composing_deck") aren't enum-backed like the rest of TaskStatus.</p>
+            <p><span class="font-semibold">Solution —</span> Introduce a <code>DeckGenerationPipeline.run(deck_id, task_id, prompt)</code> module that owns the full sequence including failure handling, called identically from the Celery task and from routes.py's pre-queue guard. Promote the ad hoc progress strings into a shared enum published and consumed from one place.</p>
+          </div>
+
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li><span class="font-medium">Locality:</span> one place owns "what happens when deck generation fails"</li>
+            <li><span class="font-medium">Leverage:</span> tests call <code>pipeline.run()</code>, not a private free function</li>
+            <li><span class="font-medium">Tests:</span> real Celery entrypoint becomes testable via eager mode against the interface</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 3 -->
+        <article class="space-y-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <h2 class="font-serif text-2xl font-semibold">3. Route worker.py's progress publishing back through redis_cache</h2>
+            <div class="flex gap-2 shrink-0">
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">Worth exploring</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">local-substitutable</span>
+            </div>
+          </div>
+          <p class="font-mono text-sm text-slate-600">
+            app/services/redis_cache.py · app/decks/worker.py · scryfall_service.py
+          </p>
+
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Before — bypassed module</p>
+                <pre class="mermaid text-xs">
+flowchart LR
+  W[worker._publish] -.leak: own aioredis client.-> REDIS[(Redis)]
+  C[redis_cache.publish] -.-x REDIS
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  classDef dead stroke:#94a3b8,stroke-dasharray: 3 3,color:#94a3b8;
+  class W leak
+  class C dead
+                </pre>
+                <p class="text-[11px] text-slate-500 text-center mt-1">redis_cache.publish has no production caller — only its own test</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">After — single owner</p>
+                <pre class="mermaid text-xs">
+flowchart LR
+  W[worker.py] --> C[redis_cache.publish]
+  C --> REDIS[(Redis)]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class C deep
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem —</span> redis_cache.py's <code>publish()</code> is dead code in production — worker.py hand-rolls its own <code>aioredis.from_url</code> client and a bespoke <code>_publish</code> helper with a different message envelope and error-swallowing. The 24h cache TTL is also duplicated as separate constants in redis_cache.py and scryfall_service.py.</p>
+            <p><span class="font-semibold">Solution —</span> Extend redis_cache.publish to accept a dict payload (serialize once, in one place) and have worker.py call it instead of building its own client. Source the TTL constant from one module.</p>
+          </div>
+
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li><span class="font-medium">Locality:</span> the pub/sub message envelope changes in one place, not two</li>
+            <li><span class="font-medium">Deletion test flips:</span> deleting redis_cache.publish would now break worker.py, proving the module earns its keep</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 4 -->
+        <article class="space-y-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <h2 class="font-serif text-2xl font-semibold">4. Move validation and error-mapping out of chat/routes.py, into the service it's misplaced above</h2>
+            <div class="flex gap-2 shrink-0">
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">Worth exploring</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">in-process</span>
+            </div>
+          </div>
+          <p class="font-mono text-sm text-slate-600">
+            app/chat/routes.py · service.py · core/guards.py
+          </p>
+
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Before — layers inverted</p>
+                <div class="space-y-1">
+                  <div class="border-2 border-red-400 bg-red-50 rounded h-20 flex items-center justify-center text-xs text-red-700 text-center px-2">routes.py — injection screening loop + Ollama error translation + HTTP mapping</div>
+                  <div class="border-2 border-slate-300 rounded h-8 flex items-center justify-center text-xs text-slate-500">service.py — prompt string building only</div>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">After — thin route, deep service</p>
+                <div class="space-y-1">
+                  <div class="border-2 border-slate-300 rounded h-8 flex items-center justify-center text-xs text-slate-500">routes.py — maps typed errors → HTTP status</div>
+                  <div class="deep-box rounded h-20 flex items-center justify-center text-xs text-center px-2">service.py — screening, provider calls, typed errors (ChatValidationError, ChatProviderUnavailable)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem —</span> chat/routes.py holds the prompt-injection screening loop and Ollama-specific ConnectError/HTTPStatusError translation — the most interesting business logic in the module — while chat/service.py, the module named for it, only builds a string and unwraps JSON. The boundary is drawn backwards, and the untested Ollama error branches sit in the harder-to-unit-test route layer.</p>
+            <p><span class="font-semibold">Solution —</span> Move injection screening and provider-error translation into chat/service.py, raising typed exceptions; routes.py becomes a thin map from exception type to HTTP status, regardless of provider.</p>
+          </div>
+
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li><span class="font-medium">Leverage:</span> a new provider or validation rule touches service.py only</li>
+            <li><span class="font-medium">Tests:</span> provider-error branches become directly testable, not routed through FastAPI</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 5 -->
+        <article class="space-y-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <h2 class="font-serif text-2xl font-semibold">5. Name the task-channel contract instead of repeating it as a string</h2>
+            <div class="flex gap-2 shrink-0">
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">Speculative</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">in-process</span>
+            </div>
+          </div>
+          <p class="font-mono text-sm text-slate-600">
+            app/tasks/routes.py · app/decks/worker.py
+          </p>
+
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Before — convention, not contract</p>
+                <pre class="mermaid text-xs">
+flowchart LR
+  W["worker.py: f'task:{id}'"] -.leak.-> REDIS[(Redis pubsub)]
+  T["tasks/routes.py: f'task:{id}'"] -.leak.-> REDIS
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class W,T leak
+                </pre>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">After — one function, both sides</p>
+                <pre class="mermaid text-xs">
+flowchart LR
+  W[worker.py] --> CH[task_channel id]
+  T[tasks/routes.py] --> CH
+  CH --> REDIS[(Redis pubsub)]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class CH deep
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem —</span> the <code>task:{task_id}</code> pubsub channel name, and the raw SSE <code>data: {...}\n\n</code> framing, are each written independently in worker.py and tasks/routes.py with no shared constant and no test pinning the contract between publisher and subscriber.</p>
+            <p><span class="font-semibold">Solution —</span> a small shared <code>task_channel(task_id)</code> and <code>format_sse_event(payload)</code> helper, imported by both sides.</p>
+          </div>
+
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li><span class="font-medium">Locality:</span> a channel-naming change can't drift silently between publisher and subscriber</li>
+          </ul>
+        </article>
+
+      </section>
+
+      <section id="top-recommendation">
+        <div class="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-6 space-y-2">
+          <p class="text-xs uppercase tracking-wider text-emerald-700 font-medium">Top recommendation</p>
+          <h3 class="font-serif text-xl font-semibold">
+            <a href="#candidates" class="hover:underline">1. Deepen the LLM service</a>
+          </h3>
+          <p class="text-sm text-slate-700">
+            It's the highest-leverage seam in the app — every deck generation and every chat message crosses it — and it's currently the shallowest: two adapters duplicating prompt formatting, JSON parsing, and error handling with no shared contract test. Fixing it pays back at every call site and removes the asymmetric test coverage (Claude's invalid-JSON path is tested, Ollama's isn't) in one move.
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
