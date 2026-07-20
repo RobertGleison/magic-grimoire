@@ -20,7 +20,7 @@ class DeckGenerateRequestDTO(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
     format: DeckFormat = DeckFormat.STANDARD
     colors: list[MTGColor] | None = None
-    deck_size: int = Field(default=60, ge=60)
+    deck_size: int = Field(default=60, ge=60, le=250)
 
 
 class DeckGenerateResponseDTO(BaseModel):
