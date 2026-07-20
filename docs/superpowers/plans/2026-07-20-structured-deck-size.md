@@ -18,6 +18,7 @@
 | `apps/api-server/app/services/llm/base.py` | `compose_deck` gains `deck_size: int`, formats both templates with it |
 | `apps/api-server/tests/unit/test_llm_claude.py` | Fix existing `compose_deck` call site (now needs 4 args); add deck-size assertion test |
 | `apps/api-server/tests/unit/test_llm_ollama.py` | Fix existing `compose_deck` call site |
+| `apps/api-server/app/decks/pipeline.py` | Fix the real (unmocked) `compose_deck` call site with a literal `60` stopgap — required immediately by Task 1's signature change, not deferrable to Task 3 |
 | `apps/api-server/app/decks/dtos.py` | Add `deck_size: int = Field(default=60, ge=60)` |
 | `apps/api-server/tests/unit/test_deck_routes_unit.py` | New validation test |
 | `apps/api-server/app/decks/routes.py` | Forward `deck_size` in `apply_async` |
@@ -36,6 +37,7 @@
 - Modify: `apps/api-server/app/services/llm/base.py`
 - Modify: `apps/api-server/tests/unit/test_llm_claude.py`
 - Modify: `apps/api-server/tests/unit/test_llm_ollama.py`
+- Modify: `apps/api-server/app/decks/pipeline.py` (the real `llm.compose_deck(...)` call site — this signature change breaks it immediately with a `TypeError` in production since it's called positionally via `run_in_executor`; patch it with a literal `60` as a stopgap, since `DeckGenerationPipeline` has no other source of deck size yet — Task 3 replaces this literal with `self.deck_size`)
 
 - [ ] **Step 1: Write the failing test**
 
