@@ -262,12 +262,7 @@ export default function GrimoirePage() {
     const prompt = input.trim();
     cancelRef.current = false;
 
-    const optParts = [
-      deckSize !== 60 ? `Deck size: ${deckSize}` : '',
-    ].filter(Boolean);
-    const enhancedPrompt = prompt
-      ? (optParts.length > 0 ? `${prompt}. ${optParts.join('. ')}` : prompt)
-      : (optParts.length > 0 ? optParts.join('. ') : 'Surprise me with a fun deck');
+    const enhancedPrompt = prompt || 'Surprise me with a fun deck';
 
     setMessages(m => [
       ...m,
@@ -289,6 +284,7 @@ export default function GrimoirePage() {
           prompt: enhancedPrompt,
           format: format.toLowerCase(),
           colors: toBackendColors(colors),
+          deck_size: deckSize,
         }),
       });
 
