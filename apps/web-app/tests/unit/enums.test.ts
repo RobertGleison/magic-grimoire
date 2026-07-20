@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SELECTABLE_COLORS, ManaColor, toggleDeckColor, COLOR_CODE, toBackendColors } from '../../app/enums';
+import { SELECTABLE_COLORS, ManaColor, toggleDeckColor, toBackendColors } from '../../app/enums';
 
 describe('SELECTABLE_COLORS', () => {
   it('includes colorless after the five basic colors', () => {
