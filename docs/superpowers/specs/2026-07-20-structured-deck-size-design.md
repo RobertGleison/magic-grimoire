@@ -19,7 +19,7 @@ Like colors before this change, deck size never reaches `/decks/generate` as str
 - `app/services/llm/prompts.py`: `COMPOSE_DECK_SYSTEM` becomes a template (`"...Build a valid {deck_size}-card deck..."`), and `COMPOSE_DECK_TEMPLATE`'s two "60" references become `{deck_size}`.
 - `app/services/llm/base.py`: `compose_deck(self, intent, cards, format, deck_size)` formats both `COMPOSE_DECK_SYSTEM` and `COMPOSE_DECK_TEMPLATE` with `deck_size`.
 - `app/core/enums.py`: no new enum needed — deck size is a plain bounded int, not a closed set of values like colors.
-- `app/decks/dtos.py`: `DeckGenerateRequestDTO.deck_size: int = Field(default=60, ge=60)`. `ge=60` matches the frontend's existing floor; no upper bound, consistent with there being no product-defined ceiling today.
+- `app/decks/dtos.py`: `DeckGenerateRequestDTO.deck_size: int = Field(default=60, ge=60, le=250)`. `ge=60` matches the frontend's existing floor. `le=250` was added after Task 2's code review flagged that an unbounded `deck_size` would eventually overflow `compose_deck`'s fixed `max_tokens` response budget once threaded into that LLM call (Task 3) — 250 leaves headroom beyond Commander (100) without leaving the field unbounded.
 - `app/decks/routes.py`: forward `request.deck_size` as a 5th positional arg on `generate_deck_task.apply_async` (after `colors`).
 - `app/decks/worker.py` / `app/decks/pipeline.py`: `generate_deck_task` and `DeckGenerationPipeline.__init__` each gain `deck_size: int = 60`, stored as `self.deck_size`, passed into the `compose_deck` call in `_generate()`.
 
@@ -38,7 +38,7 @@ Unlike colors, there's no competing "LLM guess" to override — `parse_intent()`
 
 - No DB schema change — `Deck.card_count` remains computed post-hoc from the actual generated cards, not the requested target size.
 - No change to `handleChat`'s context payload or `strategy` handling.
-- No upper-bound validation on `deck_size` (matches current product behavior — the frontend stepper has no ceiling either).
+- `deck_size` is capped at 250 server-side (see above) even though the frontend stepper has no ceiling — this is a backend trust-boundary guard, not a product-facing limit users would realistically hit.
 
 ## Testing plan
 

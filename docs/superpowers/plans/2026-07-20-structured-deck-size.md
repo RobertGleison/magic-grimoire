@@ -19,7 +19,7 @@
 | `apps/api-server/tests/unit/test_llm_claude.py` | Fix existing `compose_deck` call site (now needs 4 args); add deck-size assertion test |
 | `apps/api-server/tests/unit/test_llm_ollama.py` | Fix existing `compose_deck` call site |
 | `apps/api-server/app/decks/pipeline.py` | Fix the real (unmocked) `compose_deck` call site with a literal `60` stopgap — required immediately by Task 1's signature change, not deferrable to Task 3 |
-| `apps/api-server/app/decks/dtos.py` | Add `deck_size: int = Field(default=60, ge=60)` |
+| `apps/api-server/app/decks/dtos.py` | Add `deck_size: int = Field(default=60, ge=60, le=250)` |
 | `apps/api-server/tests/unit/test_deck_routes_unit.py` | New validation test |
 | `apps/api-server/app/decks/routes.py` | Forward `deck_size` in `apply_async` |
 | `apps/api-server/tests/integration/test_deck_routes_db.py` | New broker-forwarding test |
@@ -185,6 +185,14 @@ def test_generate_rejects_deck_size_below_60(client):
         json={"prompt": "elf tribal", "deck_size": 40},
     )
     assert res.status_code == 422
+
+
+def test_generate_rejects_deck_size_above_250(client):
+    res = client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "elf tribal", "deck_size": 251},
+    )
+    assert res.status_code == 422
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -201,8 +209,10 @@ class DeckGenerateRequestDTO(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
     format: DeckFormat = DeckFormat.STANDARD
     colors: list[MTGColor] | None = None
-    deck_size: int = Field(default=60, ge=60)
+    deck_size: int = Field(default=60, ge=60, le=250)
 ```
+
+`le=250` guards `compose_deck`'s fixed `max_tokens` response budget once Task 3 threads this value into that LLM call — an unbounded size would eventually produce a truncated/invalid JSON response and a failed task. 250 leaves headroom beyond Commander (100) without leaving the field unbounded.
 
 - [ ] **Step 4: Run test to verify it passes**
 
