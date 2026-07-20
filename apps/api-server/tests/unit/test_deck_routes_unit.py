@@ -49,3 +49,11 @@ def test_generate_rejects_invalid_color(client):
         json={"prompt": "elf tribal", "colors": ["X"]},
     )
     assert res.status_code == 422
+
+
+def test_generate_rejects_deck_size_below_60(client):
+    res = client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "elf tribal", "deck_size": 40},
+    )
+    assert res.status_code == 422
