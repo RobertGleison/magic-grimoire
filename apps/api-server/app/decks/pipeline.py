@@ -40,11 +40,21 @@ class DeckGenerationPipeline:
     """Owns the full deck-generation sequence: intent parsing, card search,
     composition, enrichment, persistence, progress events, and failure handling."""
 
-    def __init__(self, task_id: str, deck_id: str, prompt: str, format: str):
+    def __init__(
+        self,
+        task_id: str,
+        deck_id: str,
+        prompt: str,
+        format: str,
+        colors: list[str] | None = None,
+        deck_size: int = 60,
+    ):
         self.task_id = task_id
         self.deck_uuid = uuid.UUID(deck_id)
         self.prompt = prompt
         self.format = format
+        self.explicit_colors = colors
+        self.deck_size = deck_size
         self.channel = task_channel(task_id)
         self._session_factory: SessionFactory | None = None
 
@@ -75,12 +85,16 @@ class DeckGenerationPipeline:
         if intent.get("error") == "off_topic":
             raise ValueError(intent.get("message", "I only discuss Magic: The Gathering."))
 
+        # Explicit user selection always wins over the LLM's guess from the prompt text.
+        if self.explicit_colors is not None:
+            intent["colors"] = self.explicit_colors
+
         await self._publish(TaskProgress.SEARCHING_CARDS, "Searching for cards...")
         candidate_cards = await scryfall_service.search_cards(intent)
 
         await self._publish(TaskProgress.COMPOSING_DECK, "Building your deck...")
         deck_composition = await loop.run_in_executor(
-            None, llm.compose_deck, intent, candidate_cards, self.format
+            None, llm.compose_deck, intent, candidate_cards, self.format, self.deck_size
         )
 
         await self._publish(TaskProgress.ENRICHING, "Fetching card images...")

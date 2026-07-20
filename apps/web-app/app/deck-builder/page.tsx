@@ -8,6 +8,7 @@ import { ChatMessage } from '../components/ChatMessage/ChatMessage';
 import { ChatInput } from '../components/ChatInput/ChatInput';
 import { Toast } from '../components/Toast/Toast';
 import { useUser } from '../context/UserContext';
+import { toBackendColors, toggleDeckColor } from '../enums';
 import style from './page.module.css';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -36,12 +37,6 @@ const STATUS_TO_STAGE: Record<string, LoadingStage> = {
   composing_deck: 2,
   enriching: 3,
 };
-
-// Maps frontend ManaColor names to single-letter codes the backend expects.
-const COLOR_CODE: Record<string, string> = {
-  WHITE: 'W', BLUE: 'U', BLACK: 'B', RED: 'R', GREEN: 'G',
-};
-
 
 function ChatTypingBubble() {
   return (
@@ -141,7 +136,7 @@ export default function GrimoirePage() {
   }, [deckWidth]);
 
   const toggleColor = (color: string) => {
-    setColors(prev => prev.includes(color) ? prev.filter(selected => selected !== color) : [...prev, color]);
+    setColors(prev => toggleDeckColor(prev, color));
   };
 
   useEffect(() => {
@@ -234,7 +229,7 @@ export default function GrimoirePage() {
           messages: history,
           context: {
             format: format.toLowerCase(),
-            colors: colors.length > 0 ? colors.map(c => COLOR_CODE[c] ?? c) : undefined,
+            colors: toBackendColors(colors),
             strategy: strategy !== 'Balanced' ? strategy : undefined,
           },
         }),
@@ -267,17 +262,11 @@ export default function GrimoirePage() {
     const prompt = input.trim();
     cancelRef.current = false;
 
-    const optParts = [
-      colors.length > 0 ? `Colors: ${colors.join(', ')}` : '',
-      deckSize !== 60 ? `Deck size: ${deckSize}` : '',
-    ].filter(Boolean);
-    const enhancedPrompt = prompt
-      ? (optParts.length > 0 ? `${prompt}. ${optParts.join('. ')}` : prompt)
-      : (optParts.length > 0 ? optParts.join('. ') : 'Surprise me with a fun deck');
+    const enhancedPrompt = prompt || 'Surprise me with a fun deck';
 
     setMessages(m => [
       ...m,
-      { role: 'user', content: prompt || enhancedPrompt, format },
+      { role: 'user', content: enhancedPrompt, format },
       { role: 'oracle', content: '', loading: true },
     ]);
     setInput('');
@@ -291,7 +280,12 @@ export default function GrimoirePage() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ prompt: enhancedPrompt, format: format.toLowerCase() }),
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          format: format.toLowerCase(),
+          colors: toBackendColors(colors),
+          deck_size: deckSize,
+        }),
       });
 
       if (initRes.status === 429) {

@@ -30,7 +30,7 @@ def test_parse_intent_raises_llm_error_on_invalid_json_after_retry():
 def test_compose_deck_lists_candidate_names_in_prompt():
     service, client = _service_with_reply('{"title": "Burn", "cards": []}')
     cards = [{"name": "Lightning Bolt"}, {"name": "Mountain"}, {}]
-    result = service.compose_deck({"colors": ["R"]}, cards, "modern")
+    result = service.compose_deck({"colors": ["R"]}, cards, "modern", 60)
 
     assert result == {"title": "Burn", "cards": []}
     sent = client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -55,3 +55,14 @@ def test_anthropic_error_normalized_to_llm_error():
     client.messages.create.side_effect = anthropic.AnthropicError("boom")
     with pytest.raises(LLMServiceError, match="Claude API error"):
         service.chat([{"role": "user", "content": "hi"}], system="s")
+
+
+def test_compose_deck_uses_requested_deck_size():
+    service, client = _service_with_reply('{"title": "Commander Deck", "cards": []}')
+    service.compose_deck({"colors": ["R"]}, [{"name": "Sol Ring"}], "commander", 100)
+
+    sent = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    system = client.messages.create.call_args.kwargs["system"]
+    assert "100-card" in sent
+    assert "equal 100" in sent
+    assert "100-card" in system

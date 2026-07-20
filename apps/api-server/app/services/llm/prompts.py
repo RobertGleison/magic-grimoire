@@ -25,16 +25,16 @@ PARSE_INTENT_TEMPLATE = (
 
 COMPOSE_DECK_SYSTEM = (
     "You are a Magic: The Gathering deck-building assistant. "
-    "Build a valid 60-card deck from the provided candidate cards. "
+    "Build a valid {deck_size}-card deck from the provided candidate cards. "
     "Respond ONLY with valid JSON, no markdown fences."
 )
 
 COMPOSE_DECK_TEMPLATE = (
-    "Build a 60-card {format} deck.\n\n"
+    "Build a {deck_size}-card {format} deck.\n\n"
     "Intent: {intent}\n\n"
     "Candidate cards:\n{cards}\n\n"
     "Return JSON with keys: title (string), cards (list of objects with name, quantity, section). "
-    "Sections: creatures, spells, lands. Total quantity must equal 60."
+    "Sections: creatures, spells, lands. Total quantity must equal {deck_size}."
 )
 
 CHAT_SYSTEM = (

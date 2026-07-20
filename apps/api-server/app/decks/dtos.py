@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.core.enums import DeckFormat, DeckStatus
+from app.core.enums import DeckFormat, DeckStatus, MTGColor
 
 
 class CardInDeckDTO(BaseModel):
@@ -19,6 +19,8 @@ class CardInDeckDTO(BaseModel):
 class DeckGenerateRequestDTO(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
     format: DeckFormat = DeckFormat.STANDARD
+    colors: list[MTGColor] | None = None
+    deck_size: int = Field(default=60, ge=60, le=250)
 
 
 class DeckGenerateResponseDTO(BaseModel):
