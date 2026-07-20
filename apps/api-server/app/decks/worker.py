@@ -6,10 +6,12 @@ from app.workers.celery_app import celery_app
 
 
 @celery_app.task(name="app.decks.worker.generate_deck_task", bind=True)
-def generate_deck_task(self, deck_id: str, prompt: str, format: str, colors: list[str] | None = None) -> dict:
+def generate_deck_task(
+    self, deck_id: str, prompt: str, format: str, colors: list[str] | None = None, deck_size: int = 60
+) -> dict:
     task_id: str = self.request.id
     pipeline = DeckGenerationPipeline(
-        task_id=task_id, deck_id=deck_id, prompt=prompt, format=format, colors=colors,
+        task_id=task_id, deck_id=deck_id, prompt=prompt, format=format, colors=colors, deck_size=deck_size,
     )
     asyncio.run(pipeline.run())
     return {"task_id": task_id, "deck_id": deck_id, "status": TaskStatus.COMPLETED}

@@ -40,12 +40,21 @@ class DeckGenerationPipeline:
     """Owns the full deck-generation sequence: intent parsing, card search,
     composition, enrichment, persistence, progress events, and failure handling."""
 
-    def __init__(self, task_id: str, deck_id: str, prompt: str, format: str, colors: list[str] | None = None):
+    def __init__(
+        self,
+        task_id: str,
+        deck_id: str,
+        prompt: str,
+        format: str,
+        colors: list[str] | None = None,
+        deck_size: int = 60,
+    ):
         self.task_id = task_id
         self.deck_uuid = uuid.UUID(deck_id)
         self.prompt = prompt
         self.format = format
         self.explicit_colors = colors
+        self.deck_size = deck_size
         self.channel = task_channel(task_id)
         self._session_factory: SessionFactory | None = None
 
@@ -84,9 +93,8 @@ class DeckGenerationPipeline:
         candidate_cards = await scryfall_service.search_cards(intent)
 
         await self._publish(TaskProgress.COMPOSING_DECK, "Building your deck...")
-        # deck_size is a literal 60 until Task 3 threads self.deck_size through here.
         deck_composition = await loop.run_in_executor(
-            None, llm.compose_deck, intent, candidate_cards, self.format, 60
+            None, llm.compose_deck, intent, candidate_cards, self.format, self.deck_size
         )
 
         await self._publish(TaskProgress.ENRICHING, "Fetching card images...")
