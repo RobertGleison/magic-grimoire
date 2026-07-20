@@ -266,7 +266,7 @@ export default function GrimoirePage() {
 
     setMessages(m => [
       ...m,
-      { role: 'user', content: prompt || enhancedPrompt, format },
+      { role: 'user', content: enhancedPrompt, format },
       { role: 'oracle', content: '', loading: true },
     ]);
     setInput('');
