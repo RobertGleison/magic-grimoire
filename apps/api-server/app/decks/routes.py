@@ -71,6 +71,7 @@ async def generate_deck(
                 request.prompt,
                 request.format,
                 [c.value for c in request.colors] if request.colors else None,
+                request.deck_size,
             ],
             task_id=task_id,
         )

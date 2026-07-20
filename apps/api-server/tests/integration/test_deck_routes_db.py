@@ -148,4 +148,17 @@ async def test_generate_forwards_colors_to_broker(client, session_factory, broke
     body = res.json()
 
     broker.assert_called_once()
-    assert broker.call_args.kwargs["args"] == [body["deck_id"], "azorius control", "modern", ["W", "U"]]
+    assert broker.call_args.kwargs["args"] == [body["deck_id"], "azorius control", "modern", ["W", "U"], 60]
+
+
+async def test_generate_forwards_deck_size_to_broker(client, session_factory, broker, fake_redis):
+    res = await client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "commander deck", "format": "commander", "deck_size": 100},
+        headers=AUTH,
+    )
+    assert res.status_code == 202
+    body = res.json()
+
+    broker.assert_called_once()
+    assert broker.call_args.kwargs["args"] == [body["deck_id"], "commander deck", "commander", None, 100]
