@@ -85,7 +85,7 @@ class DeckGenerationPipeline:
 
         await self._publish(TaskProgress.COMPOSING_DECK, "Building your deck...")
         deck_composition = await loop.run_in_executor(
-            None, llm.compose_deck, intent, candidate_cards, self.format
+            None, llm.compose_deck, intent, candidate_cards, self.format, 60
         )
 
         await self._publish(TaskProgress.ENRICHING, "Fetching card images...")

@@ -42,7 +42,7 @@ def test_compose_deck_sends_candidates_and_parses():
     route = respx.post(f"{BASE}/api/chat").mock(
         return_value=httpx.Response(200, json={"message": {"content": '{"title": "Elves", "cards": []}'}})
     )
-    result = _service().compose_deck({"colors": ["G"]}, [{"name": "Llanowar Elves"}], "standard")
+    result = _service().compose_deck({"colors": ["G"]}, [{"name": "Llanowar Elves"}], "standard", 60)
 
     assert result == {"title": "Elves", "cards": []}
     body = json.loads(route.calls.last.request.content)
