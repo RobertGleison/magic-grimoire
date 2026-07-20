@@ -84,6 +84,7 @@ class DeckGenerationPipeline:
         candidate_cards = await scryfall_service.search_cards(intent)
 
         await self._publish(TaskProgress.COMPOSING_DECK, "Building your deck...")
+        # deck_size is a literal 60 until Task 3 threads self.deck_size through here.
         deck_composition = await loop.run_in_executor(
             None, llm.compose_deck, intent, candidate_cards, self.format, 60
         )
