@@ -2,13 +2,11 @@ import asyncio
 import json
 import uuid
 
-import fakeredis.aioredis
-
-import app.tasks.routes as tasks_routes
+import app.tasks.streaming as tasks_streaming
 from app.core.enums import DeckStatus, TaskStatus
 from app.decks.model import Deck
 from app.tasks.model import Task
-from app.tasks.routes import _sse_event_generator
+from app.tasks.streaming import subscribe_to_task
 
 
 async def _insert_task(session_factory, status: TaskStatus) -> str:
@@ -44,19 +42,14 @@ async def test_stream_finished_task_short_circuits(client, session_factory):
     assert payload["status"] == "completed"
 
 
-async def test_generator_replays_events_until_terminal_status(monkeypatch, fake_redis_server):
-    def _fake_from_url(*args, **kwargs):
-        return fakeredis.aioredis.FakeRedis(server=fake_redis_server, decode_responses=True)
-
-    monkeypatch.setattr(tasks_routes.aioredis, "from_url", _fake_from_url)
-
+async def test_generator_replays_events_until_terminal_status(fake_redis, fake_redis_server):
     async def _collect() -> list[str]:
-        return [event async for event in _sse_event_generator("task-abc")]
+        return [event async for event in subscribe_to_task("task-abc")]
 
     collector = asyncio.create_task(_collect())
     await asyncio.sleep(0.1)  # let the generator subscribe first
 
-    publisher = _fake_from_url()
+    publisher = fake_redis()
     await publisher.publish("task:task-abc", json.dumps({"status": "processing", "message": "Working..."}))
     await publisher.publish("task:task-abc", json.dumps({"status": "completed", "message": "Done!"}))
     await publisher.aclose()
@@ -69,18 +62,14 @@ async def test_generator_replays_events_until_terminal_status(monkeypatch, fake_
     assert all(event.startswith("data: ") and event.endswith("\n\n") for event in data_events)
 
 
-async def test_generator_emits_keepalive_during_silence(monkeypatch, fake_redis_server):
+async def test_generator_emits_keepalive_during_silence(monkeypatch, fake_redis, fake_redis_server):
     """Long gaps between worker events (LLM calls take minutes) must produce
     keepalive comments, or proxies between the browser and the API silently
     drop the idle connection and the client never sees another event."""
 
-    def _fake_from_url(*args, **kwargs):
-        return fakeredis.aioredis.FakeRedis(server=fake_redis_server, decode_responses=True)
+    monkeypatch.setattr(tasks_streaming, "_KEEPALIVE_INTERVAL", 0.1)
 
-    monkeypatch.setattr(tasks_routes.aioredis, "from_url", _fake_from_url)
-    monkeypatch.setattr(tasks_routes, "_KEEPALIVE_INTERVAL", 0.1)
-
-    generator = _sse_event_generator("task-quiet")
+    generator = subscribe_to_task("task-quiet")
     try:
         first_event = await asyncio.wait_for(anext(generator), timeout=2)
     finally:

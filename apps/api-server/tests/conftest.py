@@ -46,5 +46,5 @@ def fake_redis(monkeypatch, fake_redis_server):
     def _client() -> fakeredis.aioredis.FakeRedis:
         return fakeredis.aioredis.FakeRedis(server=fake_redis_server, decode_responses=True)
 
-    monkeypatch.setattr(redis_cache, "_get_client", _client)
+    monkeypatch.setattr(redis_cache, "get_client", _client)
     return _client
