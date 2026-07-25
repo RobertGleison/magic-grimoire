@@ -4,6 +4,12 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@lo
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SUPABASE_JWT_SECRET", "test-secret-at-least-32-chars-long!")
+os.environ.setdefault("JWT_ALGORITHM", "HS256")
+os.environ.setdefault("LLM_PROVIDER", "ollama")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-key")
+os.environ.setdefault("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+os.environ.setdefault("OLLAMA_BASE_URL", "http://localhost:11434")
+os.environ.setdefault("OLLAMA_MODEL", "llama3.2:3b")
 
 import fakeredis
 import fakeredis.aioredis
