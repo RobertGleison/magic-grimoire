@@ -190,16 +190,25 @@ async def delete_deck(
 
 `Annotated[X, Y]` is plain Python typing (PEP 593): the type is `X`, and `Y` is arbitrary metadata attached to it — Python itself does nothing with `Y`. FastAPI is what reads that metadata: it sees `Depends(get_db)`, calls `get_db()` **fresh, per request**, and injects whatever it yields as the `db` argument. This is a different mechanism from Java/Spring's `@Autowired` — there's no reflection-driven bean container built at startup; it's closer to "call this factory function per request and pass its result as an argument." The older, pre-`Annotated` FastAPI syntax does the same thing with a default value instead: `def delete_deck(deck_id: uuid.UUID, db: AsyncSession = Depends(get_db)): ...`.
 
-To make the mechanism concrete, here's `delete_deck` with both dependencies hardcoded instead of injected — this is exactly the boilerplate `Depends` saves you from repeating in every route:
+To make the mechanism concrete, here's `delete_deck` with both dependencies hardcoded instead of injected — this is **illustrative pseudocode**, not a pattern to copy into a route. It exists only to show the boilerplate `Depends` saves you from repeating everywhere; it also trims the audience check and error handling that `get_current_user` (`app/auth/dependencies.py`) actually does, so treat those calls as elided, not absent:
 
 ```python
+# Illustrative only — real routes always use Depends(get_db) / Depends(get_current_user).
 @router.delete("/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_deck(deck_id: uuid.UUID, request: Request) -> None:
     async with AsyncSessionLocal() as db:                       # instead of Depends(get_db)
         auth_header = request.headers.get("Authorization")      # instead of Depends(get_current_user)
         if not auth_header or not auth_header.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Missing token")
-        payload = jwt.decode(auth_header.removeprefix("Bearer "), SUPABASE_JWT_SECRET, algorithms=["HS256"])
+        try:
+            payload = jwt.decode(
+                auth_header.removeprefix("Bearer "),
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
         user_id = payload["sub"]
 
         result = await db.execute(select(Deck).where(Deck.id == deck_id))

@@ -4,10 +4,13 @@ definition, and the subscription lifecycle all live here so neither side
 can drift out of sync with the other."""
 
 import json
+import logging
 from collections.abc import AsyncGenerator
 
 from app.core.enums import TaskProgress
 from app.services import redis_cache
+
+_log = logging.getLogger(__name__)
 
 # Worker events can be minutes apart (LLM calls); anything between the browser
 # and this endpoint (Next.js rewrite proxy, load balancers) drops connections
@@ -50,9 +53,15 @@ async def subscribe_to_task(task_id: str) -> AsyncGenerator[str]:
                 continue
 
             data_str = message["data"]
+            try:
+                status = json.loads(data_str)["status"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                _log.warning("Dropping malformed SSE event on %s: %r", channel, data_str)
+                continue
+
             yield sse_event(data_str)
 
-            if is_terminal(json.loads(data_str)["status"]):
+            if is_terminal(status):
                 break
     finally:
         await pubsub.unsubscribe(channel)

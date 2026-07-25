@@ -25,12 +25,12 @@ class AIModelsSettings(BaseSettings):
     LLM_PROVIDER: str
 
     # Claude settings
-    ANTHROPIC_API_KEY: str
-    CLAUDE_MODEL: str
+    ANTHROPIC_API_KEY: str | None = None
+    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
 
     # Ollama settings
-    OLLAMA_BASE_URL: str
-    OLLAMA_MODEL: str
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3.2:3b"
 
 
 class Settings(DatabaseSettings, AuthSettings, CORSSettings, AIModelsSettings):
