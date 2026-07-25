@@ -1,15 +1,10 @@
 # Magic Grimoire
 
-Whisper your desire into the tome — Magic Grimoire translates a plain-language description into a complete, balanced Magic: The Gathering deck.
-
-Type something like *"aggressive mono-red burn for Modern"* or *"five-color dragon Commander deck helmed by The Ur-Dragon"* and the system handles the rest: it parses your intent with Claude, searches Scryfall's database of 17,000+ cards, composes a synergistic 60-card list with a proper mana curve, and streams every step back to you in real time.
+An AI-powered Magic: The Gathering deck generator.
 
 **Key features:**
-- Natural language input — no card names, no set codes, just intent
+- Natural language input
 - Supports Standard, Modern, Pioneer, Legacy, and Commander
-- Real-time progress via SSE (intent parsing → card search → composition → enrichment)
-- Authenticated users can save decks to their personal library and export to Arena format
-- Arcane-themed UI with split-screen chat and deck panel
 
 ---
 
