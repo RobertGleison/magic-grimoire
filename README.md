@@ -29,8 +29,12 @@ git clone https://github.com/RobertGleison/magic-grimoire.git
 cd magic-grimoire
 
 # 2. Set up environment variables
-cp apps/api-server/.env.example apps/api-server/.env
-# Fill in: DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY, SUPABASE_JWT_SECRET
+cp apps/api-server/.env.dev apps/api-server/.env
+# Fill in: ANTHROPIC_API_KEY (if using LLM_PROVIDER=claude), SUPABASE_JWT_SECRET
+
+# Frontend auth needs its own env file — create apps/web-app/.env.local with:
+#   NEXT_PUBLIC_SUPABASE_URL=<your Supabase project URL>
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
 
 # 3. Start all services
 make dev
@@ -106,5 +110,6 @@ npm run build
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/) and is maintained as an Obsidian vault.
-Open the repo root as a vault in Obsidian to browse it. See [`docs/obsidian-setup.md`](docs/obsidian-setup.md) for setup instructions.
+- **Backend** — [`apps/api-server/README.md`](apps/api-server/README.md): architecture diagrams, the full deck-generation pipeline walkthrough, DI patterns, session lifecycle, and a worked request/response example.
+- **Frontend** — [`apps/web-app/README.md`](apps/web-app/README.md): routes, components, the Supabase auth flow, and how SSE progress is consumed.
+- Full living documentation lives in [`docs/`](docs/) and is maintained as an Obsidian vault. Open the repo root as a vault in Obsidian to browse it. See [`docs/obsidian-setup.md`](docs/obsidian-setup.md) for setup instructions.
