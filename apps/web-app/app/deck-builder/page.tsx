@@ -135,9 +135,9 @@ export default function GrimoirePage() {
     el.addEventListener('pointerup', () => el.removeEventListener('pointermove', onMove), { once: true });
   }, [deckWidth]);
 
-  const toggleColor = (color: string) => {
+  const toggleColor = useCallback((color: string) => {
     setColors(prev => toggleDeckColor(prev, color));
-  };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
