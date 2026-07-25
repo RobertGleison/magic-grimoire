@@ -12,18 +12,19 @@ FastAPI backend for Magic Grimoire, an AI-powered Magic: The Gathering deck gene
 1. [High-Level Architecture](#high-level-architecture)
 2. [Project Layout](#project-layout)
 3. [Authentication](#authentication)
-4. [Deck Generation Flow](#deck-generation-flow)
-5. [Real-Time Progress (SSE)](#real-time-progress-sse)
-6. [LLM Abstraction](#llm-abstraction)
-7. [Scryfall Service & Caching](#scryfall-service--caching)
-8. [Data Model](#data-model)
-9. [API Reference](#api-reference)
-10. [Worked Example — Every HTTP Request in One Generation](#worked-example--every-http-request-in-one-generation)
-11. [Infrastructure](#infrastructure)
-12. [Configuration](#configuration)
-13. [Running Locally](#running-locally)
-14. [Testing](#testing)
-15. [CI](#ci)
+4. [Dependency Injection & Route Anatomy](#dependency-injection--route-anatomy)
+5. [Deck Generation Flow](#deck-generation-flow)
+6. [Real-Time Progress (SSE)](#real-time-progress-sse)
+7. [LLM Abstraction](#llm-abstraction)
+8. [Scryfall Service & Caching](#scryfall-service--caching)
+9. [Data Model](#data-model)
+10. [API Reference](#api-reference)
+11. [Worked Example — Every HTTP Request in One Generation](#worked-example--every-http-request-in-one-generation)
+12. [Infrastructure](#infrastructure)
+13. [Configuration](#configuration)
+14. [Running Locally](#running-locally)
+15. [Testing](#testing)
+16. [CI](#ci)
 
 ---
 
@@ -173,6 +174,134 @@ sequenceDiagram
 
 > ⚠️ If `SUPABASE_JWT_SECRET` is empty, the server logs a warning and treats **every** request as unauthenticated — convenient locally, dangerous in production.
 
+## Dependency Injection & Route Anatomy
+
+### `Annotated[Type, Depends(fn)]`
+
+Every route in this app declares its dependencies this way:
+
+```python
+async def delete_deck(
+    deck_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+) -> None:
+```
+
+`Annotated[X, Y]` is plain Python typing (PEP 593): the type is `X`, and `Y` is arbitrary metadata attached to it — Python itself does nothing with `Y`. FastAPI is what reads that metadata: it sees `Depends(get_db)`, calls `get_db()` **fresh, per request**, and injects whatever it yields as the `db` argument. This is a different mechanism from Java/Spring's `@Autowired` — there's no reflection-driven bean container built at startup; it's closer to "call this factory function per request and pass its result as an argument." The older, pre-`Annotated` FastAPI syntax does the same thing with a default value instead: `def delete_deck(deck_id: uuid.UUID, db: AsyncSession = Depends(get_db)): ...`.
+
+To make the mechanism concrete, here's `delete_deck` with both dependencies hardcoded instead of injected — this is **illustrative pseudocode**, not a pattern to copy into a route. It exists only to show the boilerplate `Depends` saves you from repeating everywhere; it also trims the audience check and error handling that `get_current_user` (`app/auth/dependencies.py`) actually does, so treat those calls as elided, not absent:
+
+```python
+# Illustrative only — real routes always use Depends(get_db) / Depends(get_current_user).
+@router.delete("/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_deck(deck_id: uuid.UUID, request: Request) -> None:
+    async with AsyncSessionLocal() as db:                       # instead of Depends(get_db)
+        auth_header = request.headers.get("Authorization")      # instead of Depends(get_current_user)
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing token")
+        try:
+            payload = jwt.decode(
+                auth_header.removeprefix("Bearer "),
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user_id = payload["sub"]
+
+        result = await db.execute(select(Deck).where(Deck.id == deck_id))
+        deck = result.scalar_one_or_none()
+        if deck is None:
+            raise HTTPException(status_code=404, detail="Deck not found")
+        if deck.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        await db.delete(deck)
+        await db.commit()
+```
+
+`Depends` beats this because it's testable (`app.dependency_overrides` swaps `get_current_user`/`get_db` for fakes — see [Testing](#testing)), reusable across every route without copy-pasting session/auth boilerplate, and it lets FastAPI own the async context-manager lifecycle instead of every handler managing it by hand.
+
+### Route walkthrough: `DELETE /decks/{deck_id}`
+
+```python
+@router.delete("/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_deck(
+    deck_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+) -> None:
+    result = await db.execute(select(Deck).where(Deck.id == deck_id))
+    deck = result.scalar_one_or_none()
+
+    if deck is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
+
+    if deck.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    await db.delete(deck)
+```
+
+| Part | What happens |
+|---|---|
+| `deck_id: uuid.UUID` | FastAPI parses the path segment and coerces it to `uuid.UUID`; an invalid UUID never reaches the function body — it's rejected with `422` first. |
+| `db: Annotated[...]` | Injects an `AsyncSession` scoped to this request only — see [Session Lifecycle](#session-lifecycle-dbadd-dbflush-dbcommit) below. |
+| `user_id: Annotated[...]` | `get_current_user` (required — see [Authentication](#authentication)) resolves the caller's `user_id` from the JWT, or raises `401` before this body ever runs. |
+| `select(Deck).where(...)` + `scalar_one_or_none()` | Fetches the row, or `None` if it doesn't exist — unlike `scalar_one()`, which raises when there's no match. |
+| 404 check | Deck doesn't exist. |
+| 403 check | Deck exists but belongs to someone else. Checked *after* the 404 (so the two are distinguishable) — some APIs collapse both into a single 404 to avoid leaking existence; this one deliberately doesn't. |
+| `await db.delete(deck)` | Marks the ORM object for deletion in the session. No explicit commit here — see below. |
+
+### Session Lifecycle: `db.add()`, `db.flush()`, `db.commit()`
+
+- **`db.add(obj)`** — purely in-memory. Registers `obj` with the session's pending set; no SQL runs yet. If the session never commits, it's as if `add()` never happened.
+- **`db.flush()`** — sends the pending `INSERT`/`UPDATE`/`DELETE` SQL to Postgres **inside the current transaction**, so the DB can compute server-side values (sequences, defaults, triggers) and hand them back — but nothing is durable yet, and no other connection can see it. Still rollback-able.
+- **`db.commit()`** — flushes anything pending, then issues `COMMIT`, ending the transaction and making the changes durable and visible to other connections.
+
+`delete_deck` never calls `db.commit()` explicitly — that's intentional. `get_db()`'s underlying `DatabaseSessionManager.session()` context manager (`app/core/database.py`) auto-commits on a clean exit and rolls back on exception:
+
+```python
+@contextlib.asynccontextmanager
+async def session(self) -> AsyncIterator[AsyncSession]:
+    session = self._sessionmaker()
+    try:
+        yield session
+        await session.commit()      # delete_deck (and others) rely on this
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+```
+
+**Why `sessionmanager` is a module-level singleton, not built per request:** `get_db()` used to construct a brand-new `DatabaseSessionManager(...)` — and therefore a brand-new `create_async_engine()` and a new 10+20 connection pool — on **every single request**. That wasted a pool per request instead of reusing one for the app's lifetime, and briefly broke the app outright when `main.py`'s shutdown hook tried to import a module-level `sessionmanager` that didn't actually exist. `sessionmanager` is now built once, at import time, from `settings`, and `get_db()` just pulls a session from it:
+
+```python
+sessionmanager = DatabaseSessionManager(settings.DATABASE_URL, {...})
+
+async def get_db() -> AsyncIterator[AsyncSession]:
+    async with sessionmanager.session() as session:
+        yield session
+```
+
+### ID Generation: App-Side vs. DB-Side UUIDs
+
+`Deck.id` and `Task.id` are both generated **in Python** (`uuid.uuid4()`), not by Postgres (`gen_random_uuid()`). This wasn't always true for `Deck.id` — it used to rely on a `server_default`, which meant `deck.id` stayed `None` on the ORM object until an explicit `await db.flush()` forced Postgres to compute and return it (needed because `Task.deck_id` is a foreign key referencing it, and had to be known before `Task` could even be constructed). Generating the UUID in the route instead — `Deck(id=uuid.uuid4(), ...)` — makes `deck.id` known immediately, removing the need for `flush()` and letting both rows insert as a single `commit()`.
+
+The trade-off: DB-generated UUIDs stay valid for rows inserted from *outside* the app entirely (raw SQL, a migration backfill, some other service), since Postgres enforces them regardless of caller. App-generated UUIDs only exist if that Python code path actually runs. Since `decks`/`tasks` are written to exclusively by this app, that guarantee wasn't earning its keep, so the simplification (and the one fewer round trip) won.
+
+### Where Validation Lives: DTOs vs. ORM Models
+
+Two different kinds of "is this valid?" live at two different layers:
+
+- **Format/shape validation** (string length, enum membership — "is this even well-formed?") belongs in the **DTO** (`dtos.py`), because it's specific to one entry point — an HTTP request — and that's exactly the boundary DTOs exist to guard. Example: `DeckGenerateRequestDTO.prompt: str = Field(..., min_length=1, max_length=2000)` rejects an oversized prompt with `422` before any route code runs, regardless of whatever the frontend already checks — a `curl` straight to the API hits the same guard.
+- **Domain invariants** — rules that must hold no matter *how* a row is created or mutated, not just through one route — belong on the **model**, because a DTO only protects the one code path that parses it. The Celery worker (`pipeline.py`) sets `Deck` fields directly and never goes through `DeckGenerateRequestDTO` at all. Nothing here currently needs this (`prompt` length genuinely only matters at that one entry point), but something like "`card_count` must never be negative" would be a candidate for a model-level `CheckConstraint`/`@validates`, since the worker could otherwise write an invalid value with no DTO in the loop.
+
+Either way, `HTTPException` (transport-layer knowledge) never belongs inside the model — that would couple the persistence layer to FastAPI. Route-level ownership checks like `delete_deck`'s 404/403 stay in `routes.py` unless the same fetch-and-authorize logic is duplicated across enough routes to be worth extracting into a shared service function.
+
 ## Deck Generation Flow
 
 ### Phase 1 — the API request (synchronous, fast)
@@ -180,7 +309,7 @@ sequenceDiagram
 `POST /api/v1/decks/generate` (`app/decks/routes.py`) does the bookkeeping and hands off:
 
 1. Validate the prompt (1–2000 chars, injection guard) and format (`standard | modern | pioneer | legacy | commander`).
-2. Create a **`Deck`** row (`status=pending`) and a **`Task`** row (`status=queued`). The `task_id` is a UUID generated **in the API**, not by Celery, and the transaction is committed **before** enqueueing — so the SSE endpoint can always find the task, even if the worker starts instantly.
+2. Create a **`Deck`** row (`status=pending`) and a **`Task`** row (`status=queued`). Both `deck.id` and `task_id` are UUIDs generated **in Python**, not by Postgres or Celery (see [ID Generation](#id-generation-app-side-vs-db-side-uuids)) — so `Task.deck_id` can reference `deck.id` before either row is inserted, and both insert in a single `commit()`. The transaction is committed **before** enqueueing, so the SSE endpoint can always find the task, even if the worker starts instantly.
 3. Enqueue `generate_deck_task` on Celery with that `task_id`. If the broker is down, the deck/task are marked `failed` and the client gets **503**.
 4. Respond **202** with `{ "task_id", "deck_id", "status": "pending" }`.
 
@@ -290,6 +419,12 @@ classDiagram
 
 Search paginates up to 5 pages (~350 cards) and dedupes by card name; a 404 from Scryfall simply means "no results". Enrichment failures degrade gracefully — the card keeps its name/quantity and just misses the image.
 
+### N+1 Audit (2026-07-25)
+
+No relational N+1 exists in this codebase — `Deck`/`Task` declare zero SQLAlchemy `relationship()`s (`Deck.cards` is a JSONB blob, not related rows), so there's nothing to lazy-load, and no route loops over a result set issuing per-row queries. `GET /decks` (list) runs exactly one count query and one paginated `select`.
+
+The real N+1-*shaped* cost is `enrich_cards` itself: a `for card in cards:` loop firing one Scryfall GET per card, each preceded by a mandatory 0.5s sleep (Scryfall's rate limit). The per-card Redis cache (24h TTL) means this only bites on cache misses, but a fresh, uncached 60-card deck can still cost up to 60 sequential requests (~30s) — worse than a typical DB N+1 because it's rate-limited, not just slow. Scryfall's `/cards/collection` endpoint accepts up to 75 identifiers per call and would collapse this to a single request; not yet implemented.
+
 ## Data Model
 
 Two tables (migration `alembic/versions/001_initial_schema.py`):
@@ -298,7 +433,7 @@ Two tables (migration `alembic/versions/001_initial_schema.py`):
 erDiagram
     DECKS ||--o{ TASKS : "deck_id (ON DELETE CASCADE)"
     DECKS {
-        uuid id PK
+        uuid id PK "UUID generated by the API (uuid.uuid4())"
         text prompt
         string title
         string user_id "nullable, indexed — null = guest deck"
@@ -684,6 +819,35 @@ Content-Type: application/json
 > ⚠️ **No hot reload in Docker.** The `api`/`worker` containers have **no source bind-mount** — code is baked in at build time, so uvicorn's `--reload` never sees your edits. After changing backend code, run `docker-compose up -d --build api worker`.
 
 Celery config (`app/workers/celery_app.py`): JSON serialization, UTC, `task_acks_late=True`, `worker_prefetch_multiplier=1` (one long task at a time per process), results expire after 1h. Single default queue, no beat schedule.
+
+### How Celery Finds Redis & Executes a Task
+
+`generate_deck_task.apply_async(args=[...], task_id=task_id)` (`decks/routes.py`) doesn't run anything itself — it serializes `{task: "app.decks.worker.generate_deck_task", args: [...], id: task_id}` and pushes it onto a Redis **list** (the broker transport), then returns immediately. That's what lets `POST /decks/generate` answer `202` in milliseconds while the actual work happens later, elsewhere.
+
+- **Broker vs. backend** (`app/workers/celery_app.py`): `broker=settings.REDIS_URL` is where task messages queue up; `backend=settings.REDIS_URL` is where results/state are stored. Independent settings that happen to point at the same Redis instance here — they don't have to.
+- **Task registration**: `@celery_app.task(name="app.decks.worker.generate_deck_task", bind=True)` registers the function in `celery_app.tasks`, a dict keyed by that name string. `include=["app.decks.worker"]` in the `Celery(...)` constructor is what makes registration actually happen — it forces that module to import (executing the decorator) on startup, in **both** the API process (producer) and the worker process (consumer), so both sides agree on the task name.
+- **Why the task function takes `self` despite not being a class**: `bind=True` makes Celery wrap the function as a bound method of an internally-generated `Task` subclass. `self` isn't hand-written OOP — it's Celery's convention for exposing execution context (`self.request.id`, retry count, etc.) to the task body.
+- **Consumption**: a worker process (`celery -A app.workers.celery_app worker`) blocks on `BRPOP` against that same Redis list, atomically pops one message, looks up the task name in its own registry, and calls the function with the deserialized `args` — completely decoupled from the API process; the two only ever "meet" through Redis and Postgres.
+- **Worker count**: `docker-compose.yml` defines a single `worker` service, no `--concurrency` flag, no `replicas:` — one container, running Celery's default prefork pool (concurrency = CPU cores on that container). Scale with `docker compose up --scale worker=N` if throughput becomes an issue; nothing in the code assumes exactly one worker, since Redis's `BRPOP` already guarantees only one worker ever gets a given message.
+
+### Inspecting Redis Directly
+
+Useful for local debugging — connect straight to the container with Redis's own CLI:
+
+```bash
+docker exec -it magic-grimoire-redis-1 redis-cli KEYS '*'              # every key currently in Redis
+docker exec -it magic-grimoire-redis-1 redis-cli TYPE celery           # -> list (the Celery broker queue)
+docker exec -it magic-grimoire-redis-1 redis-cli LLEN celery           # -> pending task count
+docker exec -it magic-grimoire-redis-1 redis-cli SUBSCRIBE task:<id>   # watch one deck's SSE events live
+```
+
+`KEYS '*'` is fine for local poking around but avoided in production — it's an O(N) full keyspace scan that can block other clients (`SCAN` is the safe equivalent). Redis takes on three different shapes in this app, worth telling apart:
+
+| Redis role | Key pattern | Type | Notes |
+|---|---|---|---|
+| Celery broker | `celery` | `list` | One element per queued task message; `LPUSH`/`BRPOP` |
+| Scryfall cache | `scryfall:search:{query}`, `scryfall:card:{name}` | `string` | JSON blob, 24h TTL |
+| SSE progress bus | `task:{task_id}` | *(not a key)* | Pub/Sub channel — ephemeral, never shows up in `KEYS`; only observable via `SUBSCRIBE` at the exact moment a message publishes |
 
 ## Configuration
 

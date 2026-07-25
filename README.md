@@ -1,15 +1,10 @@
 # Magic Grimoire
 
-Whisper your desire into the tome — Magic Grimoire translates a plain-language description into a complete, balanced Magic: The Gathering deck.
-
-Type something like *"aggressive mono-red burn for Modern"* or *"five-color dragon Commander deck helmed by The Ur-Dragon"* and the system handles the rest: it parses your intent with Claude, searches Scryfall's database of 17,000+ cards, composes a synergistic 60-card list with a proper mana curve, and streams every step back to you in real time.
+An AI-powered Magic: The Gathering deck generator.
 
 **Key features:**
-- Natural language input — no card names, no set codes, just intent
+- Natural language input
 - Supports Standard, Modern, Pioneer, Legacy, and Commander
-- Real-time progress via SSE (intent parsing → card search → composition → enrichment)
-- Authenticated users can save decks to their personal library and export to Arena format
-- Arcane-themed UI with split-screen chat and deck panel
 
 ---
 
@@ -29,8 +24,12 @@ git clone https://github.com/RobertGleison/magic-grimoire.git
 cd magic-grimoire
 
 # 2. Set up environment variables
-cp apps/api-server/.env.example apps/api-server/.env
-# Fill in: DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY, SUPABASE_JWT_SECRET
+cp apps/api-server/.env.dev apps/api-server/.env
+# Fill in: ANTHROPIC_API_KEY (if using LLM_PROVIDER=claude), SUPABASE_JWT_SECRET
+
+# Frontend auth needs its own env file — create apps/web-app/.env.local with:
+#   NEXT_PUBLIC_SUPABASE_URL=<your Supabase project URL>
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
 
 # 3. Start all services
 make dev
@@ -106,5 +105,6 @@ npm run build
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/) and is maintained as an Obsidian vault.
-Open the repo root as a vault in Obsidian to browse it. See [`docs/obsidian-setup.md`](docs/obsidian-setup.md) for setup instructions.
+- **Backend** — [`apps/api-server/README.md`](apps/api-server/README.md): architecture diagrams, the full deck-generation pipeline walkthrough, DI patterns, session lifecycle, and a worked request/response example.
+- **Frontend** — [`apps/web-app/README.md`](apps/web-app/README.md): routes, components, the Supabase auth flow, and how SSE progress is consumed.
+- Full living documentation lives in [`docs/`](docs/) and is maintained as an Obsidian vault. Open the repo root as a vault in Obsidian to browse it. See [`docs/obsidian-setup.md`](docs/obsidian-setup.md) for setup instructions.

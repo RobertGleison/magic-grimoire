@@ -136,3 +136,29 @@ async def test_delete_foreign_deck_403(client, session_factory):
 
 async def test_delete_missing_deck_404(client, db_engine):
     assert (await client.delete(f"/api/v1/decks/{uuid.uuid4()}", headers=AUTH)).status_code == 404
+
+
+async def test_generate_forwards_colors_to_broker(client, session_factory, broker, fake_redis):
+    res = await client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "azorius control", "format": "modern", "colors": ["W", "U"]},
+        headers=AUTH,
+    )
+    assert res.status_code == 202
+    body = res.json()
+
+    broker.assert_called_once()
+    assert broker.call_args.kwargs["args"] == [body["deck_id"], "azorius control", "modern", ["W", "U"], 60]
+
+
+async def test_generate_forwards_deck_size_to_broker(client, session_factory, broker, fake_redis):
+    res = await client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "commander deck", "format": "commander", "deck_size": 100},
+        headers=AUTH,
+    )
+    assert res.status_code == 202
+    body = res.json()
+
+    broker.assert_called_once()
+    assert broker.call_args.kwargs["args"] == [body["deck_id"], "commander deck", "commander", None, 100]

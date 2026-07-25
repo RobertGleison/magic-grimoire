@@ -52,7 +52,7 @@ def test_pool_reused_within_same_loop(monkeypatch):
     monkeypatch.setattr(redis_cache, "_pool_loop", None)
 
     async def _pools() -> tuple:
-        return redis_cache._get_client().connection_pool, redis_cache._get_client().connection_pool
+        return redis_cache.get_client().connection_pool, redis_cache.get_client().connection_pool
 
     first, second = asyncio.run(_pools())
     assert first is second
@@ -64,6 +64,6 @@ def test_pool_rebuilt_for_new_event_loop(monkeypatch):
     monkeypatch.setattr(redis_cache, "_pool_loop", None)
 
     async def _pool():
-        return redis_cache._get_client().connection_pool
+        return redis_cache.get_client().connection_pool
 
     assert asyncio.run(_pool()) is not asyncio.run(_pool())

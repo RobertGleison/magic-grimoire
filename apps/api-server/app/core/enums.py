@@ -16,9 +16,6 @@ class TaskStatus(StrEnum):
 
 
 class TaskProgress(StrEnum):
-    """Statuses published over the task SSE channel — a superset of the terminal
-    TaskStatus values, adding the mid-pipeline progress steps the frontend renders."""
-
     PROCESSING      = "processing"
     SEARCHING_CARDS = "searching_cards"
     COMPOSING_DECK  = "composing_deck"
@@ -33,6 +30,15 @@ class DeckFormat(StrEnum):
     PIONEER   = "pioneer"
     LEGACY    = "legacy"
     COMMANDER = "commander"
+
+
+class MTGColor(StrEnum):
+    WHITE     = "W"
+    BLUE      = "U"
+    BLACK     = "B"
+    RED       = "R"
+    GREEN     = "G"
+    COLORLESS = "C"
 
 
 class TaskType(StrEnum):

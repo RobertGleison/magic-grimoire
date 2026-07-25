@@ -6,6 +6,9 @@ def create_llm_service() -> LLMService:
     provider = settings.LLM_PROVIDER
 
     if provider == "claude":
+        if not settings.ANTHROPIC_API_KEY:
+            raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER=claude")
+
         from app.services.llm.claude import ClaudeService
 
         return ClaudeService(

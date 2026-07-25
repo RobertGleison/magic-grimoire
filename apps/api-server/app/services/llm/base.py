@@ -43,12 +43,14 @@ class LLMService(ABC):
             max_tokens=1024,
         )
 
-    def compose_deck(self, intent: dict, cards: list[dict], format: str) -> dict:
-        """Compose a 60-card deck from candidate cards and intent."""
+    def compose_deck(self, intent: dict, cards: list[dict], format: str, deck_size: int) -> dict:
+        """Compose a deck of the requested size from candidate cards and intent."""
         cards_text = "\n".join(f"- {c.get('name', 'Unknown')}" for c in cards)
         return self._complete_json(
-            COMPOSE_DECK_SYSTEM,
-            COMPOSE_DECK_TEMPLATE.format(format=format, intent=json.dumps(intent), cards=cards_text),
+            COMPOSE_DECK_SYSTEM.format(deck_size=deck_size),
+            COMPOSE_DECK_TEMPLATE.format(
+                format=format, intent=json.dumps(intent), cards=cards_text, deck_size=deck_size
+            ),
             max_tokens=2048,
         )
 

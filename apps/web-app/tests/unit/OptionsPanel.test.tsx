@@ -41,3 +41,17 @@ describe('OptionsPanel — clear chat', () => {
     expect(onClearChat).not.toHaveBeenCalled();
   });
 });
+
+describe('OptionsPanel — colors', () => {
+  it('renders a colorless swatch', () => {
+    render(<OptionsPanel {...baseProps()} />);
+    expect(screen.getByTitle('Colorless')).toBeInTheDocument();
+  });
+
+  it('calls toggleColor with COLORLESS when clicked', () => {
+    const toggleColor = vi.fn();
+    render(<OptionsPanel {...baseProps({ toggleColor })} />);
+    fireEvent.click(screen.getByTitle('Colorless'));
+    expect(toggleColor).toHaveBeenCalledWith('COLORLESS');
+  });
+});

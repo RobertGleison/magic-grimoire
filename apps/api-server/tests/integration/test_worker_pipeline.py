@@ -147,3 +147,40 @@ async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_r
     async with session_factory() as db:
         deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
     assert deck.status == DeckStatus.FAILED
+
+
+@respx.mock
+async def test_pipeline_explicit_colors_override_parse_intent(session_factory, llm, fake_redis):
+    _mock_scryfall()
+    deck_id, task_id = await _seed(session_factory)
+
+    await DeckGenerationPipeline(
+        task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern", colors=["W", "U"],
+    ).run()
+
+    async with session_factory() as db:
+        deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
+
+    assert deck.colors == ["W", "U"]
+
+
+@respx.mock
+async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, fake_redis):
+    _mock_scryfall()
+    deck_id, task_id = await _seed(session_factory)
+
+    await DeckGenerationPipeline(
+        task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern", deck_size=100,
+    ).run()
+
+    assert llm.compose_deck.call_args.args[-1] == 100
+
+
+@respx.mock
+async def test_pipeline_defaults_deck_size_to_60_when_omitted(session_factory, llm, fake_redis):
+    _mock_scryfall()
+    deck_id, task_id = await _seed(session_factory)
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    assert llm.compose_deck.call_args.args[-1] == 60

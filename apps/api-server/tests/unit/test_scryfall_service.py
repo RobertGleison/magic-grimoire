@@ -51,6 +51,10 @@ def test_query_defaults_to_creatures_when_intent_empty():
     assert _build_scryfall_query({}) == "type:creature"
 
 
+def test_query_colorless_uses_c_colorless():
+    assert _build_scryfall_query({"colors": ["C"]}) == "c:colorless"
+
+
 # --- search_cards ---
 
 @respx.mock

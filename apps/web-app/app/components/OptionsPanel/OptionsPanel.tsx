@@ -1,7 +1,7 @@
 'use client';
 
 import { ManaSymbol } from '../ManaSymbol/ManaSymbol';
-import { ALL_FORMATS, BASIC_COLORS, COLOR_LABEL } from '../../enums';
+import { ALL_FORMATS, SELECTABLE_COLORS, COLOR_LABEL } from '../../enums';
 import './OptionsPanel.css';
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -75,12 +75,13 @@ function ColorSelector({ colors, toggleColor }: {
   return (
     <OptionsSection label="Colors">
       <div className="options-panel-color-row">
-        {BASIC_COLORS.map(c => (
+        {SELECTABLE_COLORS.map(c => (
           <button
             key={c}
             className={`options-panel-color-btn${colors.includes(c) ? ' options-panel-color-btn-on' : ''}`}
             onClick={() => toggleColor(c)}
             title={COLOR_LABEL[c]}
+            aria-pressed={colors.includes(c)}
           >
             <ManaSymbol symbol={c} size={30} />
           </button>

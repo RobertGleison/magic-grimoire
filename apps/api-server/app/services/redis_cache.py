@@ -15,7 +15,7 @@ _pool: aioredis.ConnectionPool | None = None
 _pool_loop: asyncio.AbstractEventLoop | None = None
 
 
-def _get_client() -> aioredis.Redis:
+def get_client() -> aioredis.Redis:
     """Return a client backed by a connection pool shared within the current event loop."""
     global _pool, _pool_loop
     loop = asyncio.get_running_loop()
@@ -27,14 +27,14 @@ def _get_client() -> aioredis.Redis:
 
 async def get(key: str) -> str | None:
     """Retrieve a cached value by key. Returns None on cache miss."""
-    async with _get_client() as client:
+    async with get_client() as client:
         value: str | None = await client.get(key)
         return value
 
 
 async def set(key: str, value: str, ttl: int = CACHE_TTL) -> None:
     """Store a value in Redis with the given TTL in seconds (default 24h)."""
-    async with _get_client() as client:
+    async with get_client() as client:
         await client.set(key, value, ex=ttl)
 
 
@@ -45,5 +45,5 @@ async def publish(channel: str, message: dict | str) -> None:
     """
     if isinstance(message, dict):
         message = json.dumps(message)
-    async with _get_client() as client:
+    async with get_client() as client:
         await client.publish(channel, message)

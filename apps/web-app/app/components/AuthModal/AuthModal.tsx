@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { SealLogo, Ornament } from '../ArcaneSigilLogo/ArcaneSigilLogo';
-import { supabase } from '../../lib/supabase';
+import { getSupabase } from '../../lib/supabase';
 import './AuthModal.css';
 
 type OAuthProvider = 'google' | 'github';
@@ -76,6 +76,8 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
     setError(null);
     setNotice(null);
 
+    const supabase = getSupabase();
+
     if (mode === 'signup') {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -100,6 +102,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   const oauth = async (provider: OAuthProvider) => {
     setOauthBusy(provider);
     setError(null);
+    const supabase = getSupabase();
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: window.location.href },

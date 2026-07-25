@@ -39,6 +39,7 @@ async def generate_deck(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=rejection)
 
     deck = Deck(
+        id=uuid.uuid4(),
         prompt=request.prompt,
         format=request.format,
         status=DeckStatus.PENDING,
@@ -46,15 +47,13 @@ async def generate_deck(
     )
     db.add(deck)
 
+    # Generate task_id here so we can commit before apply_async — eliminates the race
+    # condition where the worker tries to read the Task record before it's committed.
+    task_id = str(uuid.uuid4())
+    task = Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED)
+    db.add(task)
+
     try:
-        await db.flush()
-
-        # Generate task_id here so we can commit before apply_async — eliminates the race
-        # condition where the worker tries to read the Task record before it's committed.
-        task_id = str(uuid.uuid4())
-        task = Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED)
-        db.add(task)
-
         await db.commit()
     except SQLAlchemyError:
         _log.exception("Database error creating deck/task (prompt=%r, format=%s)", request.prompt, request.format)
@@ -66,7 +65,13 @@ async def generate_deck(
 
     try:
         generate_deck_task.apply_async(
-            args=[str(deck.id), request.prompt, request.format],
+            args=[
+                str(deck.id),
+                request.prompt,
+                request.format,
+                [c.value for c in request.colors] if request.colors else None,
+                request.deck_size,
+            ],
             task_id=task_id,
         )
     except Exception:
