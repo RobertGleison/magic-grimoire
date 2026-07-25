@@ -81,6 +81,7 @@ function ColorSelector({ colors, toggleColor }: {
             className={`options-panel-color-btn${colors.includes(c) ? ' options-panel-color-btn-on' : ''}`}
             onClick={() => toggleColor(c)}
             title={COLOR_LABEL[c]}
+            aria-pressed={colors.includes(c)}
           >
             <ManaSymbol symbol={c} size={30} />
           </button>
