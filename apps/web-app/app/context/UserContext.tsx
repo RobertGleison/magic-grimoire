@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { getSupabase } from '../lib/supabase';
 
 export interface User {
   email: string;
@@ -44,6 +44,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
+    const supabase = getSupabase();
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setReady(true);
@@ -62,7 +64,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       user: toUser(session),
       token: session?.access_token ?? null,
       ready,
-      signOut: () => { supabase.auth.signOut(); },
+      signOut: () => { getSupabase().auth.signOut(); },
       authOpen,
       openAuth: () => setAuthOpen(true),
       closeAuth: () => setAuthOpen(false),
