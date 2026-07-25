@@ -71,21 +71,22 @@ class DatabaseSessionManager:
             await session.close()
 
 
+# echo=True logs all SQL statements to stdout
+# pool_pre_ping=True ensures the connection is alive before returning it to the pool with a lighweight check select 1
+# pool_size=10 and max_overflow=20 ensures we have a pool of 10 connections and 20 idle connections
+# max_overflow=20 ensures we don't create more than 20 idle connections at a time
+sessionmanager = DatabaseSessionManager(
+    settings.DATABASE_URL,
+    {
+        "echo": settings.ENVIRONMENT == "development",
+        "pool_pre_ping": True,
+        "pool_size": 10,
+        "max_overflow": 20,
+    },
+)
+
+
 async def get_db() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency; overridden in tests via app.dependency_overrides[get_db]."""
-    # echo=True logs all SQL statements to stdout
-    # pool_pre_ping=True ensures the connection is alive before returning it to the pool with a lighweight check select 1
-    # pool_size=10 and max_overflow=20 ensures we have a pool of 10 connections and 20 idle connections
-    # max_overflow=20 ensures we don't create more than 20 idle connections at a time
-    sessionmanager = DatabaseSessionManager(
-        settings.DATABASE_URL,
-        {
-            "echo": settings.ENVIRONMENT == "development",
-            "pool_pre_ping": True,
-            "pool_size": 10,
-            "max_overflow": 20,
-        },
-    )
-
     async with sessionmanager.session() as session:
         yield session
