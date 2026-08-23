@@ -1,6 +1,6 @@
 import httpx
 
-from app.services.llm.base import LLMService, LLMServiceError
+from app.llm.base import LLMService, LLMServiceError
 
 
 class OllamaService(LLMService):

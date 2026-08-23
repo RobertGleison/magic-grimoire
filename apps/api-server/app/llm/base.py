@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import TypeVar
 
-from app.services.llm.prompts import (
+from app.llm.prompts import (
     CHAT_SYSTEM,
     COMPOSE_DECK_SYSTEM,
     COMPOSE_DECK_TEMPLATE,

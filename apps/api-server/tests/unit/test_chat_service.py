@@ -5,7 +5,7 @@ import pytest
 from app.chat.dtos import ChatContextDTO, ChatMessageDTO, ChatStrategy
 from app.chat.service import ChatProviderUnavailable, ChatValidationError, chat_with_grimoire
 from app.core.enums import DeckFormat
-from app.services.llm.base import LLMServiceError
+from app.llm.base import LLMServiceError
 
 _MESSAGES = [ChatMessageDTO(role="user", content="help me build a deck")]
 

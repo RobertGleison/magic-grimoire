@@ -1,10 +1,10 @@
 import pytest
 
 from app.core.config import settings
-from app.services.llm import create_llm_service
-from app.services.llm.claude import ClaudeService
-from app.services.llm.ollama import OllamaService
-from app.services.llm.prompts import CHAT_SYSTEM, PARSE_INTENT_SYSTEM
+from app.llm import create_llm_service
+from app.llm.claude import ClaudeService
+from app.llm.ollama import OllamaService
+from app.llm.prompts import CHAT_SYSTEM, PARSE_INTENT_SYSTEM
 
 
 def test_factory_returns_claude(monkeypatch):

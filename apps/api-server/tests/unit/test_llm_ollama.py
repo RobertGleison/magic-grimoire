@@ -4,8 +4,8 @@ import httpx
 import pytest
 import respx
 
-from app.services.llm.base import LLMServiceError
-from app.services.llm.ollama import OllamaService
+from app.llm.base import LLMServiceError
+from app.llm.ollama import OllamaService
 
 BASE = "http://fake-ollama:11434"
 

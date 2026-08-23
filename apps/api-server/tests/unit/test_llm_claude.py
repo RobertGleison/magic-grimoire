@@ -3,14 +3,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.llm.base import LLMServiceError
-from app.services.llm.claude import ClaudeService
+from app.llm.base import LLMServiceError
+from app.llm.claude import ClaudeService
 
 
 def _service_with_reply(reply: str) -> tuple[ClaudeService, MagicMock]:
     client = MagicMock()
     client.messages.create.return_value = SimpleNamespace(content=[SimpleNamespace(text=reply)])
-    with patch("app.services.llm.claude.anthropic.Anthropic", return_value=client):
+    with patch("app.llm.claude.anthropic.Anthropic", return_value=client):
         service = ClaudeService(api_key="test-key", model="claude-test")
     return service, client
 
