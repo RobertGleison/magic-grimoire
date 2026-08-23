@@ -1,0 +1,85 @@
+/* ==========================================================================
+   ArcaneSigil
+   --------------------------------------------------------------------------
+   No Figma source — a port of the legacy sigil onto the v2 tokens. Ring speeds
+   and directions are unchanged from `apps/web-app`; the `spinCW` / `spinCCW`
+   keyframes already live in globals.css.
+   ========================================================================== */
+
+.arcane-sigil {
+  --sigil-glow-blur: 20px;
+
+  display: block;
+  filter: drop-shadow(0 0 var(--sigil-glow-blur) rgba(var(--accent-glow), 0.4));
+}
+
+/* ---- Rings --------------------------------------------------------------- */
+
+.arcane-sigil-ring {
+  transform-origin: center;
+}
+
+.arcane-sigil-ring-1 {
+  animation: spinCW 90s linear infinite;
+}
+
+.arcane-sigil-ring-2 {
+  animation: spinCCW 60s linear infinite;
+}
+
+.arcane-sigil-ring-3 {
+  animation: spinCW 45s linear infinite;
+}
+
+.arcane-sigil-ring-4 {
+  animation: spinCCW 110s linear infinite;
+}
+
+/* ---- Runes --------------------------------------------------------------- */
+
+.arcane-sigil-rune {
+  font-family: var(--font-display);
+  font-size: 12px;
+  fill: var(--accent);
+  opacity: 0.8;
+}
+
+/* ---- Mana pips ----------------------------------------------------------- */
+
+/* Counter-rotates ring 4 so every pip stays upright while the ring turns. */
+.arcane-sigil-pip {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spinCW 110s linear infinite;
+}
+
+.arcane-sigil-pip-glyph {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Mana identity is theme-invariant, so the glyph borrows --mana-b / --mana-c /
+   --mana-w as its ink rather than --cream, which would flip with the theme. */
+.arcane-sigil-pip-glyph-w {
+  fill: var(--mana-b);
+}
+
+.arcane-sigil-pip-glyph-b {
+  fill: var(--mana-c);
+}
+
+.arcane-sigil-pip-glyph-u,
+.arcane-sigil-pip-glyph-r,
+.arcane-sigil-pip-glyph-g {
+  fill: var(--mana-w);
+}
+
+/* ---- Motion -------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .arcane-sigil-ring,
+  .arcane-sigil-pip {
+    animation: none;
+  }
+}

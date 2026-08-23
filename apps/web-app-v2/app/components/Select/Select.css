@@ -1,0 +1,120 @@
+/* Select — harvested from the library sort control (9:48) and the
+   deck-builder strategy picker (10:125).
+     surface  #1d2520 → --void-3        hairline #6b5837 → --line-strong
+     radius   6px     → --radius-md     padding  8px 14px / 12px 16px
+     value    13px Regular #d6d5c9      chevron  10px, --muted            */
+
+.select-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.select-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--accent);
+}
+
+.select-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.select-control {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: var(--void-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--cream);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.select-control-md {
+  padding: var(--space-12) var(--space-40) var(--space-12) var(--space-16);
+  font-size: var(--text-lg);
+}
+
+.select-control-sm {
+  padding: var(--space-8) var(--space-32) var(--space-8) var(--space-16);
+  font-size: var(--text-base);
+}
+
+.select-control:hover:not(:disabled) {
+  border-color: var(--line-accent);
+}
+
+.select-control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--glow-accent);
+}
+
+.select-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.select-control:disabled {
+  background: var(--void-1);
+  color: var(--faint);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.select-control[aria-invalid='true'] {
+  border-color: var(--crimson);
+}
+
+.select-control[aria-invalid='true']:focus {
+  border-color: var(--crimson);
+  box-shadow: var(--glow-crimson-sm);
+}
+
+/* The native arrow is suppressed above; this is the design's 10px chevron. */
+.select-chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--space-16);
+  width: var(--space-10);
+  height: var(--space-10);
+  color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: var(--transition);
+}
+
+.select-control:hover:not(:disabled) ~ .select-chevron,
+.select-control:focus ~ .select-chevron {
+  color: var(--accent);
+}
+
+/* Native option lists are painted by the OS; give it the panel colours so a
+   dark-theme dropdown does not flash white on Windows/Linux. */
+.select-control option {
+  background: var(--void-2);
+  color: var(--cream);
+}
+
+.select-hint {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--faint);
+}
+
+.select-error {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--crimson);
+}

@@ -25,9 +25,9 @@ Both light blocks carry identical payloads.
 | Raw hex (dark) | Raw hex (light) | Token | Dark | Light | Role |
 |---|---|---|---|---|---|
 | `#0a100d` | `#faf9f6` | `--void-0` | `#0a100d` | `#faf9f6` | Page ground (root frames `3:4` / `20:7`) |
-| `#101613` | `#f2f4f1` | `--void-1` | `#101613` | `#f2f4f1` | Recessed — text inputs, search boxes |
+| `#101613` | `#f2f4f1` | `--void-1` | `#101613` | `#f2f4f1` | Recessed — the library search field (9:45) only |
 | `#131a16` | `#ffffff` | `--void-2` | `#131a16` | `#ffffff` | Panel / card surface |
-| `#1d2520` | `#f2f4f1` | `--void-3` | `#1d2520` | `#f2f4f1` | Inset surface inside a panel — chips, tiles, segmented controls, list rows |
+| `#1d2520` | `#f2f4f1` | `--void-3` | `#1d2520` | `#f2f4f1` | Inset surface inside a panel — chips, tiles, segmented controls, list rows, and the standard text-input / select ground (`16:376`, `9:48`) |
 
 > In dark, "inset" is **lighter** than the panel; in light it is **darker** than the
 > panel. Same semantic role, so it is one token.

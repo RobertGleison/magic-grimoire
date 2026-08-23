@@ -1,0 +1,345 @@
+/* ==========================================================================
+   Header — Figma nodes 3:5 (dark marketing), 20:8 (light marketing),
+            9:7 / 10:7 (app chrome, identical to each other)
+   Tokens only. Values that carry no design source are declared as local
+   custom properties with an "INVENTED" comment — the Figma file is 1440px
+   only, so every responsive number below is a design decision, not a copy.
+   ========================================================================== */
+
+.header {
+  position: relative;
+  z-index: 20;
+  height: var(--header-h);
+  border-bottom: 1px solid var(--line);
+  background: var(--void-0);
+
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-24);
+  height: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--page-pad);
+}
+
+/* ---- Brand --------------------------------------------------------------- */
+
+.header-brand {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.header-brand-icon {
+  /* 28px in the design (node 3:408); no 28px spacing token exists. */
+  width: var(--space-28);
+  height: var(--space-28);
+  color: var(--crimson);
+  transition: var(--transition);
+}
+
+.header-brand:hover .header-brand-icon {
+  filter: drop-shadow(var(--glow-crimson-sm));
+}
+
+.header-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+/* ---- Nav ----------------------------------------------------------------- */
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-32);
+}
+
+.header-nav-link {
+  font-family: var(--font-ui);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  color: var(--muted);
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.header-nav-link:hover {
+  color: var(--cream);
+}
+
+.header-nav-link[aria-current='page'] {
+  font-weight: 700;
+  color: var(--cream);
+}
+
+/* ---- Right-hand cluster -------------------------------------------------- */
+
+.header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.header-actions-auth {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.header-signin {
+  font-family: var(--font-ui);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  color: var(--muted);
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.header-signin:hover {
+  color: var(--cream);
+}
+
+.header-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-10) var(--space-20);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-sm);
+  background: var(--crimson);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-label);
+  color: var(--on-crimson);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.header-cta:hover {
+  box-shadow: var(--glow-crimson-sm);
+}
+
+/* ---- Signed-in profile (nodes 9:18 / 10:17) ------------------------------ */
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.header-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  line-height: var(--leading-snug);
+}
+
+.header-user-name {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+.header-user-rank {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.header-user-avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  /* 36px in the design (node 9:22); no 36px spacing token exists. */
+  width: var(--space-36);
+  height: var(--space-36);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-pill);
+  background: var(--void-3);
+  object-fit: cover;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--accent);
+  overflow: hidden;
+}
+
+/* ---- Hamburger (INVENTED — no mobile frame in the design) ---------------- */
+
+.header-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-40);
+  height: var(--space-40);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--cream);
+  transition: var(--transition);
+}
+
+.header-menu-toggle:hover {
+  border-color: var(--line-accent);
+  color: var(--accent);
+}
+
+.header-menu-icon {
+  width: var(--space-20);
+  height: var(--space-20);
+}
+
+/* ---- Slide-out panel (INVENTED) ----------------------------------------- */
+
+.header-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: none;
+  background: var(--scrim);
+  animation: fadeIn var(--dur) var(--ease);
+}
+
+.header-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-32);
+  /* INVENTED: panel width has no design source. */
+  --header-menu-w: 320px;
+  width: min(88vw, var(--header-menu-w));
+  padding: var(--space-24);
+  border-left: 1px solid var(--line);
+  background: var(--void-2);
+  box-shadow: var(--shadow-3);
+  overflow-y: auto;
+  animation: panelIn var(--dur) var(--ease);
+}
+
+.header-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.header-menu-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--cream);
+}
+
+.header-menu-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header-menu-link {
+  padding: var(--space-12) var(--space-8);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.header-menu-link:hover {
+  background: var(--void-3);
+  color: var(--cream);
+}
+
+.header-menu-link[aria-current='page'] {
+  font-weight: 700;
+  color: var(--cream);
+  box-shadow: inset var(--space-2) 0 0 0 var(--crimson);
+}
+
+.header-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding-top: var(--space-24);
+  border-top: 1px solid var(--line);
+}
+
+.header-menu-actions .header-cta {
+  justify-content: center;
+}
+
+.header-menu-actions .header-user {
+  justify-content: flex-start;
+}
+
+.header-menu-actions .header-user-meta {
+  align-items: flex-start;
+}
+
+/* ==========================================================================
+   Responsive — INVENTED. The Figma file has a 1440px frame only.
+   1024px : the 1440px three-zone bar stops fitting, so the nav + auth
+            cluster move into the slide-out panel and the gutters drop
+            from --page-pad (80px) to --space-40.
+   640px  : compact bar — --space-64 tall, --space-20 gutters, smaller
+            wordmark, so the brand + toggle + hamburger fit 375px.
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  .header-inner {
+    padding: 0 var(--space-40);
+  }
+
+  .header-nav,
+  .header-actions-auth {
+    display: none;
+  }
+
+  .header-menu-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 639px) {
+  .header {
+    height: var(--space-64);
+  }
+
+  .header-inner {
+    gap: var(--space-12);
+    padding: 0 var(--space-20);
+  }
+
+  .header-wordmark {
+    font-size: var(--text-3xl);
+  }
+
+  .header-actions {
+    gap: var(--space-8);
+  }
+}

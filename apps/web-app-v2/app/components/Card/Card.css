@@ -1,0 +1,131 @@
+/* Card — the design's one surface container, seen as:
+     pricing tier   3:193/3:217/3:244  --void-2, radius-xl, pad 32, 1–2px border
+     auth card      16:367             --void-2, radius-xl, pad 48, 2px, shadow
+     feature card   3:91               --void-2, radius-lg, --line-strong
+     filter bar     9:32               --void-2, radius 8px, pad 16
+     sync banner    9:227              --void-2, radius-lg, pad 20, --line
+     deck card      9:53               --void-2, radius 14px, --line-accent, shadow-1
+     stat block     9:64               --void-3, radius-md, pad 10            */
+
+.card {
+  position: relative;
+  transition: var(--transition);
+}
+
+/* ---- Surface ------------------------------------------------------------- */
+
+.card-panel {
+  background: var(--void-2);
+}
+
+.card-inset {
+  background: var(--void-3);
+}
+
+.card-plain {
+  background: transparent;
+}
+
+/* ---- Border -------------------------------------------------------------- */
+
+.card-border-default {
+  border: 1px solid var(--line);
+}
+
+.card-border-strong {
+  border: 1px solid var(--line-strong);
+}
+
+/* the auth cards' 2px gold-grey frame — dark 16:367 (light 20:1000 draws 1px;
+   dark geometry is canonical, so 2px in both themes) */
+.card-border-thick {
+  border: 2px solid var(--line-strong);
+}
+
+.card-border-accent {
+  border: 1px solid var(--line-accent);
+}
+
+/* pricing's featured tier is the only 2px crimson frame in the design (3:244) */
+.card-border-crimson {
+  border: 2px solid var(--crimson);
+}
+
+.card-border-none {
+  border: none;
+}
+
+/* ---- Radius -------------------------------------------------------------- */
+
+.card-radius-md {
+  border-radius: var(--radius-md);
+}
+
+.card-radius-lg {
+  border-radius: var(--radius-lg);
+}
+
+.card-radius-xl {
+  border-radius: var(--radius-xl);
+}
+
+/* ---- Padding ------------------------------------------------------------- */
+
+.card-pad-none {
+  padding: 0;
+}
+
+.card-pad-sm {
+  padding: var(--space-10);
+}
+
+.card-pad-md {
+  padding: var(--space-16);
+}
+
+.card-pad-lg {
+  padding: var(--space-20);
+}
+
+.card-pad-xl {
+  padding: var(--space-32);
+}
+
+/* ---- Elevation ----------------------------------------------------------- */
+
+.card-elev-0 {
+  box-shadow: none;
+}
+
+.card-elev-1 {
+  box-shadow: var(--shadow-1);
+}
+
+.card-elev-2 {
+  box-shadow: var(--shadow-2);
+}
+
+.card-elev-3 {
+  box-shadow: var(--shadow-3);
+}
+
+.card-elev-4 {
+  box-shadow: var(--shadow-4);
+}
+
+/* ---- Interactive --------------------------------------------------------- */
+
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  border-color: var(--line-accent);
+  box-shadow: var(--shadow-3);
+  transform: translateY(-2px);
+}
+
+.card-interactive:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

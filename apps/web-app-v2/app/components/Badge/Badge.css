@@ -1,0 +1,134 @@
+/* Badge — the design's pill/tag family.
+     hero eyebrow    3:20   --crimson-soft, 1px --crimson, radius-pill, 6/12, 11px
+     pricing ribbon  3:245  --crimson,      1px --accent,  radius-sm,   4/12, 10px
+     CTA eyebrow     3:321  --crimson-soft, 1px --crimson, radius-sm,   4/12, 10px
+     deck format tag 9:61   --crimson-soft, 1px --crimson, radius-sm,   2/8,  10px
+   All of them: DM Sans Bold, uppercase, --cream label.                       */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  border: 1px solid transparent;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  white-space: nowrap;
+}
+
+.badge-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---- Size + shape -------------------------------------------------------- */
+
+.badge-sm {
+  padding: var(--space-2) var(--space-8);
+  font-size: var(--text-xs);
+}
+
+.badge-md {
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-sm);
+}
+
+.badge-square {
+  border-radius: var(--radius-sm);
+}
+
+.badge-pill {
+  border-radius: var(--radius-pill);
+}
+
+/* ---- Harvested variants -------------------------------------------------- */
+
+.badge-neutral {
+  background: var(--void-3);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.badge-accent {
+  background: var(--accent-deep);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.badge-accent-solid {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* hero pill 3:20 / deck format tag 9:61 */
+.badge-crimson {
+  background: var(--crimson-soft);
+  border-color: var(--crimson);
+  color: var(--cream);
+}
+
+/* pricing "MOST SYNERGIZED" ribbon 3:245 */
+.badge-crimson-solid {
+  background: var(--crimson);
+  border-color: var(--line-accent);
+  color: var(--on-crimson);
+}
+
+/* ---- Deck status (addition — no source node) ------------------------------
+   queued/pending → gold, processing → crimson + ember pulse,
+   completed → the design's "lands" green, failed → solid crimson.           */
+
+.badge-pending {
+  background: var(--accent-deep);
+  border-color: var(--accent-mid);
+  color: var(--accent);
+}
+
+.badge-processing {
+  background: var(--crimson-soft);
+  border-color: var(--crimson);
+  color: var(--cream);
+  animation: emberPulse 2s var(--ease) infinite;
+}
+
+.badge-completed {
+  background: transparent;
+  border-color: var(--type-land);
+  color: var(--type-land);
+}
+
+.badge-failed {
+  background: var(--crimson);
+  border-color: var(--line-accent);
+  color: var(--on-crimson);
+}
+
+/* ---- Deck category (colours harvested from the card-grid rules 16:7 /
+   16:95 / 16:151; the badge shape around them is an addition) -------------- */
+
+.badge-creature {
+  background: transparent;
+  border-color: var(--type-creature);
+  color: var(--type-creature);
+}
+
+.badge-spell {
+  background: transparent;
+  border-color: var(--type-spell);
+  color: var(--type-spell);
+}
+
+.badge-land {
+  background: transparent;
+  border-color: var(--type-land);
+  color: var(--type-land);
+}
+
+/* ---- Pulse --------------------------------------------------------------- */
+
+.badge-pulse {
+  animation: emberPulse 2s var(--ease) infinite;
+}

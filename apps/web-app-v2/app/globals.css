@@ -17,7 +17,12 @@
 
      const dmSans = DM_Sans({
        subsets: ['latin'],
-       weight: ['400', '500', '600', '700'],   // Regular / Medium / SemiBold / Bold
+       axes: ['opsz'],                        // NOT weight: the two are mutually
+                                         // exclusive in next/font/google, and
+                                         // without opsz the font-variation-settings
+                                         // 'opsz' 14 set on body below is a no-op.
+                                         // The variable wght axis already covers
+                                         // 400/500/600/700. See app/layout.tsx.
        variable: '--font-dm-sans',
        display: 'swap',
      });
@@ -95,7 +100,12 @@
   --cream: #d6d5c9; /* primary text + headings */
   --muted: #b9baa3; /* secondary / body text */
   --faint: #7b8380; /* tertiary: timestamps, legal, placeholders */
-  --on-accent: #0a100d; /* text sitting on --accent / --crimson fills */
+  --on-accent: #0a100d; /* text on an --accent (GOLD) fill only — never on --crimson, use --on-crimson */
+  /* Text on a --crimson fill. NOT --on-accent: #0a100d on #a22c29 is
+     2.68:1, failing even WCAG AA-large. This is the design's own value,
+     4.86:1 AA. Primary buttons MUST use --on-crimson. */
+  --on-crimson: #d6d5c9;
+  --legal-fg: #b9baa3; /* footer legal strip (node 3:359) */
 
   /* ---- Lines ------------------------------------------------------------- */
   --line: rgba(var(--accent-glow), 0.2); /* default hairline / border */
@@ -121,6 +131,13 @@
   --type-creature: #a22c29;
   --type-spell: #a68a56;
   --type-land: #4a6741;
+  /* Category colours above are FILL values straight from the design. As TEXT on
+     a dark surface, creature (2.68:1) and land (2.47:1) both fail WCAG AA.
+     Use the -fg variants for text, the base tokens for fills. */
+  --type-creature-fg: #d97b76; /* 5.27:1 worst-case (on --void-3) */
+  --type-spell-fg: #a68a56;    /* base already passes at 4.78:1 */
+  --type-land-fg: #6f9a5f;     /* 4.83:1 worst-case */
+  --surface-strip: #111111;    /* design's tile strip ground */
 
   /* ======================================================================
      Theme-invariant tokens below this line — declared once, never overridden
@@ -180,15 +197,20 @@
 
   /* ---- Spacing scale (named by px so it can never be misread) ----------- */
   --space-2: 2px;
+  --space-3: 3px;  /* card-tile head bottom padding */
   --space-4: 4px;
   --space-6: 6px;
+  --space-5: 5px;  /* card-tile strips (16:39, 16:44, 16:46) */
   --space-8: 8px;
   --space-10: 10px;
   --space-12: 12px;
   --space-16: 16px;
+  --space-14: 14px; /* full-width card CTA vertical padding (3:215, 3:242, 16:390) */
   --space-20: 20px;
   --space-24: 24px;
+  --space-28: 28px; /* header book icon (node 3:408) */
   --space-32: 32px;
+  --space-36: 36px; /* avatar (node 9:22) */
   --space-40: 40px;
   --space-48: 48px;
   --space-64: 64px;
@@ -219,6 +241,7 @@
   --dur-fast: 0.15s;
   --dur: 0.25s;
   --dur-slow: 0.4s;
+  --dur-stagger: 60ms; /* per-item delay, e.g. ManaCurve bar growth */
   --transition: all var(--dur) ease;
 }
 
@@ -254,6 +277,8 @@
   --muted: #525955;
   --faint: #7b8380;
   --on-accent: #ffffff;
+  --on-crimson: #ffffff; /* 7.17:1 AAA on --crimson */
+  --legal-fg: #7b8380; /* node 20:397 */
 
   /* Lines */
   --line: #e1e4e1;
@@ -279,6 +304,10 @@
   --type-creature: #a22c29;
   --type-spell: #a68a56;
   --type-land: #4a6741;
+  --surface-strip: #eceeec;
+  --type-creature-fg: #a22c29; /* 6.48:1 on light */
+  --type-spell-fg: #7a6a38;   /* base gold is 2.97:1 on light — too low for text */
+  --type-land-fg: #4a6741;    /* 5.74:1 on light */
 }
 
 /* ==========================================================================
@@ -315,6 +344,8 @@
     --muted: #525955;
     --faint: #7b8380;
     --on-accent: #ffffff;
+    --on-crimson: #ffffff;
+    --legal-fg: #7b8380;
 
     /* Lines */
     --line: #e1e4e1;
@@ -340,6 +371,10 @@
     --type-creature: #a22c29;
     --type-spell: #a68a56;
     --type-land: #4a6741;
+    --surface-strip: #eceeec;
+    --type-creature-fg: #a22c29;
+    --type-spell-fg: #7a6a38;
+    --type-land-fg: #4a6741;
   }
 }
 

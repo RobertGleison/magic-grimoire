@@ -42,6 +42,15 @@ Loop exits when every box is checked and the Wave 5 gate passes.
   so map raw hex from the design onto the token names in `globals.css`.
 - Every screen must render correctly in **both** themes (see Wave 1a).
 - Touch only the files your task owns. Two agents editing one file is a bug.
+- **DARK IS THE CANONICAL GEOMETRY.** Where a dark frame and its `-light`
+  counterpart disagree on any pixel value — padding, gap, size, radius, font
+  size, line height — **take the dark frame's number** and use it in both
+  themes. The light frames override **colour only**. Read light frames for
+  colour and nothing else. Do not average, do not branch geometry per theme.
+  Known divergences this resolves: hero top padding `180` (dark `3:18`), not
+  `120` (light `20:22`); landing height `5484` not `5524`; my-decks `1744` not
+  `1888`; sign-up card `813` not `805`; login card `663` not `659`; 404 inner
+  frame `431` not `435`. If you find another, use dark and report it.
 
 ## Backlog
 
@@ -68,12 +77,12 @@ Loop exits when every box is checked and the Wave 5 gate passes.
 **Gate:** `npm run typecheck` and `npm run lint` clean; `npm run test:unit` green.
 
 ### Wave 2 — shared shell + primitives (deps: 1a, 1b)
-- [ ] **2a — app shell.** `app/layout.tsx` (fonts, providers, theme attribute),
+- [x] **2a — app shell.** `app/layout.tsx` (fonts, providers, theme attribute),
       `app/components/Header/` and `app/components/Footer/` from nodes `3:5`
       and `3:331` (+ light `20:8`/`20:368`). Responsive down to 375px.
-- [ ] **2b — primitives.** `Button`, `Input`, `Select`, `Card`, `Badge`,
+- [x] **2b — primitives.** `Button`, `Input`, `Select`, `Card`, `Badge`,
       `Modal`, `Spinner` — variants driven by the design, each its own folder.
-- [ ] **2c — MTG components.** `ManaSymbol` (all of W/U/B/R/G/C + generic),
+- [x] **2c — MTG components.** `ManaSymbol` (all of W/U/B/R/G/C + generic),
       `ManaCurve` chart from node `3:117`, `CardTile`, `ArcaneSigil`.
 
 **Gate:** typecheck + lint clean; every primitive renders in both themes.
@@ -195,8 +204,75 @@ _Appended by the controller as waves land._
 - **`--crimson-glow` is `144, 41, 35`, deliberately not the RGB of `--crimson`
   (`162, 44, 41`)** — that is what Figma reports for the red drop-shadows.
 - Hero top padding differs by theme in the design: `180px` dark (`3:18`) vs
-  `120px` light (`20:22`). **Wave 3a must decide if that is intentional.**
+  `120px` light (`20:22`). **RESOLVED by user decision: dark wins (`180px`).**
+  Generalised into a binding rule under "Rules for every subagent" — dark is the
+  canonical geometry for every screen, light overrides colour only.
 - Smell to watch: the type scale has 22 steps including `--text-pico` (5px) and
   `--text-nano` (6px), harvested verbatim from deck-builder mini-card badges.
   Faithful, but if Wave 3 barely uses the bottom rungs, collapse them.
+
+### Wave 2 findings (verified by controller)
+
+- **Contrast bug in Wave 1a's rule, caught independently by 2a and 2b.** The rule
+  "primary buttons use `--crimson` + `--on-accent`" was wrong: `--on-accent`
+  `#0a100d` on `--crimson` `#a22c29` measures **2.68:1**, failing even WCAG
+  AA-large. The design itself uses cream. **Added `--on-crimson`** (dark
+  `#d6d5c9` = 4.86:1 AA, light `#ffffff` = 7.17:1 AAA). Use it for anything on a
+  crimson fill; `--on-accent` is for gold fills only. Would have shipped a
+  failure on every primary button across all six screens.
+- **The design's category colours fail as TEXT, differently per theme.** Fills are
+  fine; text is not. Dark: creature 2.68:1, land 2.47:1 both FAIL. Light: spell
+  (gold) 2.97:1 FAILS. Added `--type-{creature,spell,land}-fg` — AA-safe in both
+  themes, base tokens retained for fills. 2b flagged land; creature and the
+  light-theme spell failure were missed by both agents and found by the
+  controller.
+- **SYSTEMIC, NEEDS A DECISION: `--accent` gold as text fails across the whole
+  light theme** — `#a68a56` measures 2.97–3.29:1 on every light surface. This is
+  the design's own colour, so it is a design-level accessibility problem, not an
+  implementation slip. Wave 5b's axe pass will fail on it. Deferred pending user
+  decision; see the open question at the end of this file.
+- **`--type-pico`/`--type-nano` (5px/6px) earn their keep** — CardTile uses both.
+  Wave 1a's open question about collapsing the bottom rungs is answered: don't.
+- **Three tokens collapse to `#f2f4f1` in light** (`--accent-soft`, `--void-1`,
+  `--void-3`), flattening any component that stacks two of them. Added
+  `--surface-strip` which resolves 2c's case; the underlying collision remains.
+  Wave 3b's deck builder will hit it hardest. Wave 5 item.
+- **Legacy shipped ~45 mana PNGs; v2 renders pips in pure CSS instead.**
+  `apps/web-app-v2/public/` is empty by design. If Wave 5 wants pixel-identical
+  legacy pips, that is the decision point.
+- **Header hairline:** `3:5` (landing) has none, but the other three dark headers
+  (`9:7`, `10:7`, `16:207`) all carry `rgba(166,138,86,0.2)`. 2a made it
+  always-on since dark-canonical majority says present. Wave 5 may rule otherwise.
+- **`Header` variant axis is auth state, not route** — `user?: HeaderUser | null`.
+  Signed-out `/library` must still show Sign In. Wave 4a wires it from context.
+- **Footer hrefs are invented.** The design links to features that do not exist
+  (Mana Optimizer, Meta Ticker, API Docs…). Labels kept verbatim, each pointed at
+  the nearest real route. Re-point as routes land.
+- **Breakpoints 1024px and 640px are INVENTED** — the file is 1440px only. Marked
+  as such in the CSS so Wave 5 parity does not flag them.
+- **`next/font/google` `axes` and `weight` are mutually exclusive.** DM Sans must
+  load with `axes: ['opsz']`, otherwise the `font-variation-settings: 'opsz' 14`
+  on `body` is a silent no-op. Corrected in the `globals.css` header comment.
+- **Stale `.next` can fail the typecheck gate** — `tsconfig.json` includes
+  `.next/types/**/*.ts`, so artifacts from a deleted route produce TS2307 on files
+  nobody wrote. **Always `rm -rf .next` before a wave gate.**
+- **`npm run build` does not exercise the shell while `app/page.tsx` is absent** —
+  Next silently falls back to the pages-router 404 and never compiles
+  `layout.tsx`. The build gate only becomes meaningful from Wave 3 on.
+- `DeckSummaryCard` (my-decks `9:53`, 384x402) is a distinct component from
+  `CardTile` (80x112), not a variant. **Wave 3c owns it.**
+- `next.config.ts` has no `images` config, so `CardTile` uses a plain `<img>`.
+  Wave 4b decides whether to add Scryfall `remotePatterns` and use `next/image`.
+
+## Open question for the user
+
+**Light-theme gold.** `--accent` `#a68a56` is the design's ornamental colour and
+is used for text. On light surfaces it measures 2.97–3.29:1 — below WCAG AA (4.5)
+and below even AA-large (3.0) on two of the three surfaces. Options:
+1. Darken `--accent` in light theme only (e.g. `#7a6a38`, 4.81:1). Deviates from
+   the design's hex but keeps the look and passes.
+2. Keep the design's value and accept the axe failures in light theme.
+3. Keep gold for ornament/borders/fills, never for text in light — needs a
+   per-usage audit in Wave 5.
+Currently unresolved; Wave 3 agents use `--accent` as the design specifies.
 
