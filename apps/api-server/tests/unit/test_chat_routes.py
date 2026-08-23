@@ -24,7 +24,7 @@ def test_chat_returns_200():
 
 
 def test_chat_maps_provider_failure_to_503():
-    from app.services.llm.base import LLMServiceError
+    from app.llm.base import LLMServiceError
 
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()

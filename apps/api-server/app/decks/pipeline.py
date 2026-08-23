@@ -11,7 +11,7 @@ from app.core.database import DatabaseSessionManager
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
 from app.services import redis_cache, scryfall_service
-from app.services.llm import create_llm_service
+from app.llm import create_llm_service
 from app.tasks.model import Task
 from app.tasks.streaming import task_channel
 

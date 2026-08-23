@@ -377,7 +377,7 @@ Statuses emitted, in order: `processing` → `searching_cards` → `composing_de
 
 ## LLM Abstraction
 
-The pipeline is provider-agnostic (`app/services/llm/`). `LLMService` is a **deep interface**: it concretely owns prompt formatting, JSON parsing, error normalization, and retries — adapters implement only `_complete()`, the raw provider request:
+The pipeline is provider-agnostic (`app/llm/`). `LLMService` is a **deep interface**: it concretely owns prompt formatting, JSON parsing, error normalization, and retries — adapters implement only `_complete()`, the raw provider request:
 
 ```mermaid
 classDiagram

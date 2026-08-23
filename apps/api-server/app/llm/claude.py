@@ -1,6 +1,6 @@
 import anthropic
 
-from app.services.llm.base import LLMService, LLMServiceError
+from app.llm.base import LLMService, LLMServiceError
 
 
 class ClaudeService(LLMService):

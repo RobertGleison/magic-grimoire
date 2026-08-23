@@ -1,5 +1,5 @@
 from app.core.config import settings
-from app.services.llm.base import LLMService
+from app.llm.base import LLMService
 
 
 def create_llm_service() -> LLMService:
@@ -9,7 +9,7 @@ def create_llm_service() -> LLMService:
         if not settings.ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER=claude")
 
-        from app.services.llm.claude import ClaudeService
+        from app.llm.claude import ClaudeService
 
         return ClaudeService(
             api_key=settings.ANTHROPIC_API_KEY,
@@ -17,7 +17,7 @@ def create_llm_service() -> LLMService:
         )
 
     if provider == "ollama":
-        from app.services.llm.ollama import OllamaService
+        from app.llm.ollama import OllamaService
 
         return OllamaService(
             base_url=settings.OLLAMA_BASE_URL,

@@ -2,8 +2,8 @@ import asyncio
 
 from app.chat.dtos import ChatContextDTO, ChatMessageDTO
 from app.core.guards import sanitize_prompt
-from app.services.llm import create_llm_service
-from app.services.llm.base import LLMServiceError
+from app.llm import create_llm_service
+from app.llm.base import LLMServiceError
 
 
 class ChatValidationError(Exception):

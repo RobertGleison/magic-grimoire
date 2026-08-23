@@ -8,8 +8,8 @@ import json
 
 import pytest
 
-from app.services.llm.base import LLMService, LLMServiceError
-from app.services.llm.prompts import CHAT_SYSTEM
+from app.llm.base import LLMService, LLMServiceError
+from app.llm.prompts import CHAT_SYSTEM
 
 
 class StubService(LLMService):

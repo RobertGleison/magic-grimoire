@@ -2,10 +2,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.chat.dtos import ChatContextDTO, ChatMessageDTO, ChatStrategy
+from app.chat.dtos import ChatContextDTO, ChatMessageDTO
 from app.chat.service import ChatProviderUnavailable, ChatValidationError, chat_with_grimoire
 from app.core.enums import DeckFormat
-from app.services.llm.base import LLMServiceError
+from app.llm.base import LLMServiceError
 
 _MESSAGES = [ChatMessageDTO(role="user", content="help me build a deck")]
 
@@ -28,7 +28,7 @@ async def test_reply_passes_through():
 
 async def test_context_fields_forwarded_to_llm():
     llm = _mock_llm("Noted.")
-    context = ChatContextDTO(format=DeckFormat.MODERN, colors=["R", "G"], strategy=ChatStrategy.AGGRESSIVE)
+    context = ChatContextDTO(format=DeckFormat.MODERN, colors=["R", "G"], strategy="Aggressive")
     with patch("app.chat.service.create_llm_service", return_value=llm):
         await chat_with_grimoire(_MESSAGES, context=context)
 

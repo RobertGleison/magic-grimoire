@@ -36,8 +36,8 @@ apps/api-server/app/
 ├── core/
 │   ├── config.py       # Settings from env vars (Pydantic BaseSettings)
 │   └── database.py     # Async SQLAlchemy engine + session factory
+├── llm/                # LLM abstraction: claude.py, ollama.py, factory.py
 ├── services/
-│   ├── llm/            # LLM abstraction: claude.py, ollama.py, factory.py
 │   ├── scryfall_service.py  # Scryfall API: search_cards(), enrich_cards()
 │   └── redis_cache.py       # Redis get/set helpers
 ├── decks/
