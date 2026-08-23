@@ -106,7 +106,7 @@ Loop exits when every box is checked and the Wave 5 gate passes.
 ### Wave 4 — integration (deps: wave 3)
 - [ ] **4a — auth flow.** `app/context/UserContext.tsx`, session persistence,
       route guarding for `/library`, redirect-after-login, sign-out.
-- [ ] **4b — repo wiring.** Makefile targets (`dev-v2`, `build-v2`,
+- [x] **4b — repo wiring.** *(pulled forward out of order — needed no Figma)* Makefile targets (`dev-v2`, `build-v2`,
       `lint-web-app-v2`, `test-web-app-v2`), `.github/workflows/web-app-v2.yml`
       scoped to `apps/web-app-v2/**`, `apps/web-app-v2/README.md`.
 
@@ -226,11 +226,15 @@ _Appended by the controller as waves land._
   themes, base tokens retained for fills. 2b flagged land; creature and the
   light-theme spell failure were missed by both agents and found by the
   controller.
-- **SYSTEMIC, NEEDS A DECISION: `--accent` gold as text fails across the whole
-  light theme** — `#a68a56` measures 2.97–3.29:1 on every light surface. This is
-  the design's own colour, so it is a design-level accessibility problem, not an
-  implementation slip. Wave 5b's axe pass will fail on it. Deferred pending user
-  decision; see the open question at the end of this file.
+- **RESOLVED (user decision): light-theme gold darkened.** `--accent` in the
+  light and media blocks is now `#7a6a38` (4.81–5.32:1, AA on all three light
+  surfaces). **Dark theme keeps the design's `#a68a56` untouched.** This also
+  fixed an unnoticed second failure: the gold *fill* button in light was white on
+  `#a68a56` at 3.12:1, now 5.32:1.
+  Still sub-AA in light and needing a per-usage audit in Wave 5:
+  `--accent-mid` `#8b7a40` (3.83:1 — fine for large text/UI, not body text) and
+  `--line-accent` `#a68a56` (2.97:1 — it is a border, so the bar is 3:1 not 4.5:1,
+  and it lands just under on `--void-1`/`--void-3`).
 - **`--type-pico`/`--type-nano` (5px/6px) earn their keep** — CardTile uses both.
   Wave 1a's open question about collapsing the bottom rungs is answered: don't.
 - **Three tokens collapse to `#f2f4f1` in light** (`--accent-soft`, `--void-1`,
@@ -264,15 +268,38 @@ _Appended by the controller as waves land._
 - `next.config.ts` has no `images` config, so `CardTile` uses a plain `<img>`.
   Wave 4b decides whether to add Scryfall `remotePatterns` and use `next/image`.
 
-## Open question for the user
+### Wave 4b findings
 
-**Light-theme gold.** `--accent` `#a68a56` is the design's ornamental colour and
-is used for text. On light surfaces it measures 2.97–3.29:1 — below WCAG AA (4.5)
-and below even AA-large (3.0) on two of the three surfaces. Options:
-1. Darken `--accent` in light theme only (e.g. `#7a6a38`, 4.81:1). Deviates from
-   the design's hex but keeps the look and passes.
-2. Keep the design's value and accept the axe failures in light theme.
-3. Keep gold for ornament/borders/fills, never for text in light — needs a
-   per-usage audit in Wave 5.
-Currently unresolved; Wave 3 agents use `--accent` as the design specifies.
+- Makefile gained `dev-v2` / `build-v2` / `lint-web-app-v2` / `test-web-app-v2`;
+  `lint` now includes v2. **Every legacy target is byte-identical** — verified by
+  diff. `docker-compose.yml` untouched: the frontend is not a compose service.
+- CI `.github/workflows/web-app-v2.yml` pins **node 22**, scoped to
+  `apps/web-app-v2/**`. No e2e step — `tests/` has no `*.spec.ts` until Wave 5b,
+  and Playwright exits non-zero on "no tests found".
+- **The aggregate `test` target deliberately excludes v2** for the same reason.
+  Flip `test-web-app-v2` from `test:unit` to `npm test` and add it to `test` once
+  5b lands.
+- `vitest.config.ts` renamed to **`.mts`** (not `"type": "module"`, which would
+  also change resolution for `next.config.ts`, `playwright.config.ts` and
+  `eslint.config.mjs`). Vite CJS warning gone. Controller then added `**/*.mts`
+  to `tsconfig.json` `include`, which the rename had silently excluded from
+  typechecking.
+- `"engines": { "node": ">=20.12" }` added to `package.json`.
+- **Still open — `next/image`:** `CardTile` uses a plain `<img>` for Scryfall art.
+  Adding `images.remotePatterns` for `cards.scryfall.io` buys lazy loading and
+  srcset but routes every card through the Next optimizer, which on a 60-card
+  grid needs a caching/deploy answer. **Settle in Wave 5a.**
+
+## Resuming this build in a fresh session
+
+This file is the whole state. To pick up after a restart or context loss:
+
+1. `cd apps/web-app-v2` and read this file top to bottom — the backlog checkboxes
+   say what is done, the Findings sections say what was learned and what must not
+   be repeated.
+2. Confirm the Figma MCP server is connected and can read file
+   `pgLzux7WT7F98ZEwDpw8lh`, then resume at the lowest wave with unchecked boxes.
+3. Gate command (Node >= 20.12 required):
+   `rm -rf .next && npx tsc --noEmit && npm run lint && npm run test:unit`
+4. Baseline at the time of writing: **142 unit tests, 4 files, all green.**
 

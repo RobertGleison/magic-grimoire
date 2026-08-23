@@ -259,7 +259,7 @@
   --void-3: #f2f4f1;
 
   /* Gold accent */
-  --accent: #a68a56;
+  --accent: #7a6a38; /* NOT the design's #a68a56: that is 2.97-3.29:1 on light surfaces, below AA-large. 4.81:1. Dark keeps #a68a56. */
   --accent-mid: #8b7a40;
   --accent-dim: #e1e4e1;
   --accent-soft: #f2f4f1;
@@ -326,7 +326,7 @@
     --void-3: #f2f4f1;
 
     /* Gold accent */
-    --accent: #a68a56;
+    --accent: #7a6a38; /* NOT the design's #a68a56: that is 2.97-3.29:1 on light surfaces, below AA-large. 4.81:1. Dark keeps #a68a56. */
     --accent-mid: #8b7a40;
     --accent-dim: #e1e4e1;
     --accent-soft: #f2f4f1;

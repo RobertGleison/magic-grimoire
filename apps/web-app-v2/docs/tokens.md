@@ -36,7 +36,7 @@ Both light blocks carry identical payloads.
 
 | Raw hex (dark) | Raw hex (light) | Token | Dark | Light | Role |
 |---|---|---|---|---|---|
-| `#a68a56` | `#a68a56` | `--accent` | `#a68a56` | `#a68a56` | Gold accent: labels, ornament, secondary buttons, emphasis borders |
+| `#a68a56` | `#7a6a38` | `--accent` | `#a68a56` | `#a68a56` | Gold accent: labels, ornament, secondary buttons, emphasis borders |
 | `#8b7a40` | `#8b7a40` | `--accent-mid` | `#8b7a40` | `#8b7a40` | De-emphasised gold text (mini-card type lines) |
 | `#6b5837` | `#e1e4e1` | `--accent-dim` | `#6b5837` | `#e1e4e1` | Card / section borders, slider tracks |
 | `#1a1008` | — | `--accent-soft` | `#1a1008` | `#f2f4f1` | Gold-tinted card ground (deck-builder mini card renders) |
