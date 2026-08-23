@@ -1,0 +1,2 @@
+1- Save favorite cards to a list where the AI agents have access
+2- Implement an AI pipeline to train a model with new collection cards
