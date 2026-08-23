@@ -1,19 +1,11 @@
-from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.enums import DeckFormat
+from app.core.guards import sanitize_prompt
 
 _ManaColor = Literal["W", "U", "B", "R", "G"]
-
-
-class ChatStrategy(StrEnum):
-    BALANCED   = "Balanced"
-    AGGRESSIVE = "Aggressive"
-    DEFENSIVE  = "Defensive"
-    BUDGET     = "Budget"
-    SPICY      = "Spicy"
 
 
 class ChatMessageDTO(BaseModel):
@@ -24,7 +16,18 @@ class ChatMessageDTO(BaseModel):
 class ChatContextDTO(BaseModel):
     format: DeckFormat | None = None
     colors: list[_ManaColor] | None = None
-    strategy: ChatStrategy | None = None
+    strategy: str | None = Field(default=None, max_length=50)
+
+    @field_validator("strategy")
+    @classmethod
+    def _screen_strategy(cls, value: str | None) -> str | None:
+        """Strategy is free-form but reaches the prompt verbatim, so screen it."""
+        if value is None:
+            return None
+        valid, rejection = sanitize_prompt(value)
+        if not valid:
+            raise ValueError(rejection)
+        return value
 
 
 class ChatRequestDTO(BaseModel):
