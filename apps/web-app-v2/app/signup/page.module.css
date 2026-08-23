@@ -1,0 +1,43 @@
+/* ==========================================================================
+   /signup — Figma page 16:364, card 16:367 (dark, canonical geometry:
+   480x813, not the light frame's 805). Shared card / heading / divider /
+   social styles live in ../login/AuthScaffold.module.css; only what is
+   specific to this screen is here.
+   ========================================================================== */
+
+.pending {
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - var(--header-h));
+  padding: var(--space-80) var(--space-24);
+}
+
+/* The card owns the 32px stack gap, so the form re-states it for its own
+   children (fields -> status -> submit). Nodes 16:373 -> 16:390. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-32);
+}
+
+/* 20px between the four fields — node 16:373 */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+/* node 16:390 — 14px vertical padding, not the 16px of the shared `lg` size. */
+.submit.submit {
+  padding-block: var(--space-14);
+}
+
+@media (max-width: 640px) {
+  .pending {
+    padding: var(--space-48) var(--space-16);
+  }
+
+  .form {
+    gap: var(--space-24);
+  }
+}

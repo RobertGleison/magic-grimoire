@@ -1,0 +1,237 @@
+/* ==========================================================================
+   Shared auth chrome — /login (16:407 / 16:410) and /signup (16:364 / 16:367).
+   Dark frames are the canonical geometry; the light frames (20:997/20:1000,
+   20:1042/20:1045) contributed colour only, and every colour they carry
+   already resolves through an existing token.
+
+   Selectors written twice (`.x.x`) are deliberate: they raise specificity
+   above the primitives' own `.btn-sm` / `.card-pad-*` rules so stylesheet
+   injection order cannot decide the winner.
+   ========================================================================== */
+
+.page {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - var(--header-h));
+  padding: var(--space-80) var(--space-24);
+  overflow: hidden;
+}
+
+/* --- Background orbs, node 16:365 / 16:366 -------------------------------
+   Crimson 450px @ 12% top-left, gold 400px @ 8% bottom-right, both blurred
+   160px in the design. Positions are the design's px converted to % of the
+   1440x1000 frame so they hold their composition at any width.             */
+
+.orb {
+  position: absolute;
+  z-index: 0;
+  border-radius: var(--radius-full);
+  filter: blur(var(--space-120));
+  pointer-events: none;
+}
+
+.orbCrimson {
+  top: 10%;
+  left: 7%;
+  width: 450px;
+  height: 450px;
+  background: rgba(var(--crimson-glow), 0.12);
+}
+
+.orbAccent {
+  top: 45%;
+  left: 65%;
+  width: 400px;
+  height: 400px;
+  background: rgba(var(--accent-glow), 0.08);
+}
+
+/* --- Card ---------------------------------------------------------------- */
+
+.card.card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-32);
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-48);
+}
+
+/* --- Heading (16:368 / 16:411) ------------------------------------------- */
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  text-align: center;
+}
+
+.bookIcon {
+  width: var(--space-36);
+  height: var(--space-36);
+  color: var(--accent);
+}
+
+.title {
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-7xl);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  color: var(--cream);
+}
+
+.subtitle {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--muted);
+}
+
+/* --- Divider (16:392 / 16:431) ------------------------------------------- */
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.dividerRule {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.dividerLabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* --- Social row (16:396 / 16:435) ---------------------------------------- */
+
+.socialRow {
+  display: flex;
+  gap: var(--space-12);
+}
+
+/* The design fills these with the card ground in dark (#131a16 → --void-2)
+   and with the inset ground in light (#f2f4f1 → --void-3). Button's `subtle`
+   variant hardcodes --void-2, which in light is the same #ffffff as the card
+   behind it, so the button disappears. --void-3 is correct in light and reads
+   as a near-identical panel in dark. See the report: this wants a dedicated
+   token rather than a page-local override. */
+.socialButton.socialButton {
+  gap: var(--space-10);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--void-3);
+}
+
+.socialButton.socialButton:hover:not(:disabled) {
+  background: var(--void-1);
+}
+
+.socialLabel {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.socialIcon {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+/* --- Cross-link (16:403 / 16:442) ---------------------------------------- */
+
+.switchRow {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  text-align: center;
+}
+
+.switchPrompt {
+  color: var(--muted);
+}
+
+.switchLink {
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  transition: var(--transition);
+}
+
+.switchLink:hover {
+  color: var(--cream);
+}
+
+/* --- Form-level status --------------------------------------------------- */
+
+.alertError,
+.alertNotice {
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: var(--leading-body);
+}
+
+.alertError {
+  border-color: var(--crimson);
+  background: var(--crimson-soft);
+  color: var(--on-crimson);
+}
+
+.alertNotice {
+  border-color: var(--line-accent);
+  background: var(--void-3);
+  color: var(--cream);
+}
+
+/* --- Responsive ----------------------------------------------------------
+   1024px / 640px / 400px are INVENTED breakpoints — the Figma file is
+   1440px-only (see RALPH wave-2 findings). At 375px the 480px card goes
+   full-bleed inside the page gutters.                                       */
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-48) var(--space-16);
+  }
+
+  .card.card {
+    gap: var(--space-24);
+    padding: var(--space-24);
+  }
+
+  .title {
+    font-size: var(--text-6xl);
+  }
+
+  .orb {
+    filter: blur(var(--space-80));
+  }
+
+  .orbCrimson,
+  .orbAccent {
+    width: 280px;
+    height: 280px;
+  }
+}
+
+@media (max-width: 400px) {
+  .socialRow {
+    flex-direction: column;
+  }
+}

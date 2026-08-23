@@ -1,0 +1,152 @@
+/* ==========================================================================
+   404 — page-scoped styles for app/not-found.tsx.
+   Source: Figma 16:349 (dark, canonical geometry) + 20:981 (colour only).
+
+   Layout constants below have NO counterpart in the token vocabulary — the
+   globals only define --page-max / --page-pad / --header-h — so they live
+   here, named and commented, exactly as page.module.css is meant to hold
+   page-scoped values. Candidate promotions are listed in the wave report.
+   Every colour, font, radius and spacing value is a token.
+   ========================================================================== */
+
+.page {
+  /* Inner frame 16:351 is 680px wide. */
+  --nf-measure: 680px;
+  /* Backdrop ellipse 16:350: 600x600, feGaussianBlur stdDeviation 90. */
+  --nf-glow-size: 600px;
+  --nf-glow-blur: 90px;
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Design page is 1440x900 with the 431px frame centred; here the shell's
+     header and footer take their own height, so the section just needs to
+     fill what is left. */
+  min-height: calc(100vh - var(--header-h));
+  padding: var(--space-120) var(--page-pad);
+  overflow: hidden;
+}
+
+/* ---- Backdrop ------------------------------------------------------------ */
+
+.glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--nf-glow-size);
+  height: var(--nf-glow-size);
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-full);
+  background: var(--crimson);
+  opacity: 0.15;
+  filter: blur(var(--nf-glow-blur));
+  pointer-events: none;
+}
+
+/* ---- Frame 16:351 (680x431, gap 32) -------------------------------------- */
+
+.frame {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-32);
+  width: 100%;
+  max-width: var(--nf-measure);
+}
+
+/* ---- Masthead 16:352 (gap 12) -------------------------------------------- */
+
+.masthead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+}
+
+/* 16:353 — DM Serif Text 160px, #a22c29, line-height none.
+   160px = 4 x --text-9xl (40px); expressed as calc so no raw font size is
+   hardcoded. Scales with the viewport below ~800px so 375px still fits.
+   Requested token: --text-mega: 160px (and --leading-none: 1). */
+.numeral {
+  font-family: var(--font-display);
+  font-size: clamp(var(--text-hero), 20vw, calc(var(--text-9xl) * 4));
+  line-height: var(--leading-tight);
+  color: var(--crimson);
+  text-align: center;
+}
+
+/* ---- Copy 16:356 (gap 16) ------------------------------------------------ */
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  width: 100%;
+  text-align: center;
+}
+
+/* 16:357 — DM Serif Text 40px, --cream. globals sets the family and colour on
+   h1 already; only the scale and leading are overridden. */
+.heading {
+  font-size: var(--text-9xl);
+  line-height: var(--leading-body);
+}
+
+/* 16:358 — DM Sans 16px/1.6, --muted. */
+.body {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}
+
+/* ---- Actions ------------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+}
+
+/* 16:360 — 16x16, inherits --on-crimson from the button label. */
+.sparkle {
+  flex: none;
+}
+
+/* ==========================================================================
+   Responsive. The Figma file is 1440px only, so these breakpoints are
+   INVENTED and match the ones Wave 2a already chose for the shell.
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .page {
+    padding: var(--space-80) var(--space-40);
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-64) var(--space-24);
+  }
+
+  .heading {
+    font-size: var(--text-7xl);
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+}

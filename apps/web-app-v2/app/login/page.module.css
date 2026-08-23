@@ -1,0 +1,88 @@
+/* ==========================================================================
+   /login — Figma page 16:407, card 16:410 (dark, canonical geometry).
+   Shared card / heading / divider / social styles live in
+   AuthScaffold.module.css; only what is specific to this screen is here.
+   ========================================================================== */
+
+.pending {
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - var(--header-h));
+  padding: var(--space-80) var(--space-24);
+}
+
+/* The card owns the 32px stack gap, so the form re-states it for its own
+   children (fields → status → submit). Nodes 16:416 → 16:429. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-32);
+}
+
+/* 20px between fields — node 16:416 */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+/* Password field plus its meta row, 8px apart — node 16:421 */
+.passwordGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* node 16:426 */
+.passwordMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+  font-size: var(--text-sm);
+}
+
+.secureNote {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.forgotLink {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  transition: var(--transition);
+}
+
+.forgotLink:hover:not(:disabled) {
+  color: var(--cream);
+}
+
+.forgotLink:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* node 16:429 — 14px vertical padding, not the 16px of the shared `lg` size. */
+.submit.submit {
+  padding-block: var(--space-14);
+}
+
+@media (max-width: 640px) {
+  .pending {
+    padding: var(--space-48) var(--space-16);
+  }
+
+  .form {
+    gap: var(--space-24);
+  }
+
+  .passwordMeta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-6);
+  }
+}

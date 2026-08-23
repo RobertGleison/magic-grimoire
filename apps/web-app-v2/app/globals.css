@@ -135,6 +135,13 @@
      a dark surface, creature (2.68:1) and land (2.47:1) both fail WCAG AA.
      Use the -fg variants for text, the base tokens for fills. */
   --type-creature-fg: #d97b76; /* 5.27:1 worst-case (on --void-3) */
+  /* Crimson as TEXT. Same values as --type-creature-fg but named for the role;
+     the design's #a22c29 is ~2.2:1 on --void-2 in dark, an outright AA failure. */
+  --crimson-fg: #d97b76;
+  --surface-subtle: #131a16; /* subtle/social button ground - design uses the CARD ground in dark */
+  --shadow-auth: 0 16px 16px rgba(0, 0, 0, 0.67); /* auth card 16:367 - matches no other rung */
+  --border-thick: 1.5px; /* deck card 1.5px accent frame (9:53) */
+  --shadow-card: 0 8px 8px rgba(0, 0, 0, 0.4); /* 9:53 */
   --type-spell-fg: #a68a56;    /* base already passes at 4.78:1 */
   --type-land-fg: #6f9a5f;     /* 4.83:1 worst-case */
   --surface-strip: #111111;    /* design's tile strip ground */
@@ -214,6 +221,7 @@
   --space-40: 40px;
   --space-48: 48px;
   --space-64: 64px;
+  --space-60: 60px; /* FAQ section top padding (16:323) */
   --space-80: 80px;
   --space-100: 100px;
   --space-120: 120px;
@@ -226,6 +234,7 @@
   --radius-md: 6px; /* inputs, segmented, mini cards, tiles */
   --radius: 8px; /* default: chat bubbles, zoom previews */
   --radius-lg: 12px; /* panels, feature cards, MTG card frames */
+  --radius-14: 14px; /* deck summary card frame (9:53) */
   --radius-xl: 16px; /* pricing cards */
   --radius-pill: 20px; /* pills, mana pickers */
   --radius-full: 999px;
@@ -306,6 +315,11 @@
   --type-land: #4a6741;
   --surface-strip: #eceeec;
   --type-creature-fg: #a22c29; /* 6.48:1 on light */
+  --crimson-fg: #a22c29; /* AA-safe crimson TEXT on light (6.48:1) */
+  --surface-subtle: #f2f4f1; /* design uses the INSET ground here in light */
+  --shadow-auth: 0 16px 16px rgba(10, 16, 13, 0.06);
+  --border-thick: 1.5px;
+  --shadow-card: 0 8px 8px rgba(10, 16, 13, 0.06);
   --type-spell-fg: #7a6a38;   /* base gold is 2.97:1 on light — too low for text */
   --type-land-fg: #4a6741;    /* 5.74:1 on light */
 }
@@ -373,6 +387,11 @@
     --type-land: #4a6741;
     --surface-strip: #eceeec;
     --type-creature-fg: #a22c29;
+    --crimson-fg: #a22c29;
+    --surface-subtle: #f2f4f1;
+    --shadow-auth: 0 16px 16px rgba(10, 16, 13, 0.06);
+    --border-thick: 1.5px;
+    --shadow-card: 0 8px 8px rgba(10, 16, 13, 0.06);
     --type-spell-fg: #7a6a38;
     --type-land-fg: #4a6741;
   }

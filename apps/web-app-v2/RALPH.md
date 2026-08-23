@@ -35,6 +35,14 @@ Loop exits when every box is checked and the Wave 5 gate passes.
 - Stack is fixed: Next.js 15.5.18 App Router, React 19, TypeScript strict,
   plain CSS, framer-motion, `@supabase/supabase-js`. **No Tailwind, no CSS-in-JS,
   no new dependencies** without flagging it first.
+- **Load the Figma design-to-code guidance BEFORE your first `get_design_context`
+  call** — try the `figma-design-to-code` skill; if it is not listed, read the MCP
+  resource `skill://figma/figma-design-to-code/SKILL.md`. The server requires it.
+- **Screen sections stay page-local.** Six screen agents run in parallel, so a
+  shared `components/` folder is a collision. Define sub-components in the page
+  file or beside it in the page's own directory, and put page styles in
+  `page.module.css`. Cross-screen duplication is expected and is a Wave 5
+  dedupe task — do NOT try to pre-share.
 - Read design values with `get_design_context(fileKey, nodeId)` on the
   **section-level** node IDs in `docs/figma-node-map.md` — never a whole page
   frame, it truncates. Use `get_screenshot` for visual reference.
@@ -88,18 +96,18 @@ Loop exits when every box is checked and the Wave 5 gate passes.
 **Gate:** typecheck + lint clean; every primitive renders in both themes.
 
 ### Wave 3 — screens (deps: 2a, 2b, 2c) — all parallel
-- [ ] **3a — landing** `app/page.tsx` + `app/page.module.css`. Sections
+- [x] **3a — landing** `app/page.tsx` + `app/page.module.css`. Sections
       `3:5 3:18 3:78 3:91 3:117 3:163 3:187 3:273 3:318 3:331`.
-- [ ] **3b — deck builder** `app/deck-builder/page.tsx`. Node `10:4`,
+- [x] **3b — deck builder** `app/deck-builder/page.tsx`. Node `10:4`,
       workspace `10:22`. Wires `POST /chat`, `POST /decks/generate`,
       `useTaskStream`.
-- [ ] **3c — my decks** `app/library/page.tsx`. Node `9:4`, content `9:23`.
+- [x] **3c — my decks** `app/library/page.tsx`. Node `9:4`, content `9:23`.
       Wires `GET /decks`, `DELETE /decks/{id}`.
-- [ ] **3d — pricing** `app/pricing/page.tsx`. Nodes `16:204`, `16:221`,
+- [x] **3d — pricing** `app/pricing/page.tsx`. Nodes `16:204`, `16:221`,
       `16:228`, `16:323`.
-- [ ] **3e — auth** `app/login/page.tsx` + `app/signup/page.tsx`. Nodes
+- [x] **3e — auth** `app/login/page.tsx` + `app/signup/page.tsx`. Nodes
       `16:407`/`16:410` and `16:364`/`16:367`. Supabase Google + GitHub OAuth.
-- [ ] **3f — 404** `app/not-found.tsx`. Node `16:349`/`16:351`.
+- [x] **3f — 404** `app/not-found.tsx`. Node `16:349`/`16:351`.
 
 **Gate:** typecheck + lint clean; `npm run build` succeeds.
 
@@ -302,4 +310,91 @@ This file is the whole state. To pick up after a restart or context loss:
 3. Gate command (Node >= 20.12 required):
    `rm -rf .next && npx tsc --noEmit && npm run lint && npm run test:unit`
 4. Baseline at the time of writing: **142 unit tests, 4 files, all green.**
+
+### Wave 3 findings (verified by controller)
+
+**Two shipped bugs found by screen agents and fixed at the source:**
+- `Button` `.btn-subtle` used `--void-2`, which in light is `#ffffff` — identical
+  to `Card`'s panel ground, so subtle buttons were INVISIBLE on cards. Added
+  `--surface-subtle` (dark `#131a16`, light `#f2f4f1`) and repointed it.
+- `Badge` used `--type-{creature,spell,land}` as **text** colour in 4 rules —
+  2.47:1, the exact failure the `-fg` tokens were added to prevent. Controller's
+  own miss: the `-fg` tokens were added AFTER Wave 2b built `Badge` and existing
+  usage was never swept. Text now uses `-fg`; borders keep the design hue.
+
+**Three agents independently refused to fabricate data.** The design shows
+`Synergy Match 94%`, `Win Rate 64.2%`, `SYNERGY RATIO 94.8%` and
+`64.2% Estimated Winrate`. No backing field exists anywhere in the backend.
+3b and 3c both **deleted** these rather than hardcoding plausible numbers, and
+kept the surrounding geometry using only real fields. Also dropped for the same
+reason: `Duplicate` (no endpoint), `Save Deck` (no endpoint — replaced with a
+`?deck=` permalink), `Export PDF` (needs a dependency), and the `sync-banner`
+claiming "MTG Arena & Moxfield Integration Active" for a feature that does not
+exist. **These are design-vs-reality gaps for the user to reconcile, not bugs.**
+
+**Contrast, third instance.** `--crimson` as TEXT is 2.68:1 on `--void-0` and
+2.46:1 on `--void-2` — the landing stat numbers fail even the 3:1 large-text bar.
+Added `--crimson-fg` (dark `#d97b76`, light `#a22c29`); requested independently
+by 3a and 3d. That is now three separate contrast failures in the source design.
+
+**A real responsive bug, found and fixed by 3a:** fixed grid tracks
+(`repeat(4, minmax(296px,1fr))` with `min-width: 405px` cards) demanded 1280px of
+track between 1024px and ~1264px, where neither breakpoint applies — content
+clipped under the global `overflow-x: hidden`. Fixed with
+`repeat(auto-fit, minmax(min(<card-w>, 100%), 1fr))`. **Other screens likely have
+the same latent bug — Wave 5 must check every grid.**
+
+**Concurrent `npm run build` in one working tree corrupts `.next`.** Four agents
+hit distinct post-compile filesystem races (`build-manifest.json`,
+`500.html` rename, `pages-manifest.json`, `PageNotFoundError: /_document`), none
+of them code faults. **Wave gates must serialise the build.**
+
+**`useAutoScroll` was the wrong tool for the chat transcript** — it is a
+horizontal infinite marquee scroller, not a vertical pin-to-bottom. Controller's
+briefing error; `ChatPanel` keeps a 3-line local effect.
+
+**Design vs Supabase mismatch, NEEDS A DECISION:** the auth frames show
+**Google + Discord**, with Lucide placeholder glyphs (`circle-x`, `app-window`)
+rather than brand marks. Discord is NOT configured in Supabase and would 400.
+Wired Google + GitHub (matching legacy). Either enable Discord or accept the
+design is out of date.
+
+**Open-redirect guard:** `resolveNextPath()` in `app/login/authShared.ts` is the
+single chokepoint for the whole auth surface — rejects absolute,
+protocol-relative, backslash-smuggled and `://`-bearing values. **Wave 4a MUST
+route through it and never pass a raw query value to `router.replace`.**
+OAuth uses supabase-js implicit flow, so no `/auth/callback` route is needed
+today; moving to PKCE means adding one and editing `oauthRedirectTo()` only.
+
+**Controller token audit (replaces the one 3f lost):**
+- Tokens referenced but undefined: **none**. (`--bar-fill`/`--bar-index` in
+  `ManaCurve.css` are set inline from TSX — a false positive.)
+- Hardcoded colours outside `globals.css`: **4**, all in `ManaSymbol.css`, all
+  theme-invariant physical shading on the pips (inset highlight/shadow), and
+  documented in-file. Accepted.
+- Light-block parity: **46 tokens in each**, perfectly symmetric.
+
+**Other seams and gaps:**
+- `GET /decks` has **no sort or filter params** (hardwired `created_at DESC`), so
+  library sort/search/filter act on the loaded page only. Surfaced in the UI.
+- `docs/api-contract.md` omits that `GET /decks` returns full `DeckResponseDTO`s
+  **including `cards`** — that is what makes real cover art possible.
+- `/deck-builder?deck=<uuid>` is 3c's Edit target and 3b's permalink. Both sides
+  implemented; confirm end to end in Wave 5.
+- Budget + sideboard have no field in `DeckGenerateRequest`; 3b folds them into
+  the prompt prose that `parse_intent` reads, rather than shipping dead widgets.
+- All raster assets are Figma-CDN URLs on 7-day expiry and `public/` is empty —
+  hero card art, feature plates, testimonial portraits and the CTA photograph are
+  all token-built surfaces. **Wave 5a decision: export real assets or keep these.**
+- Pricing FAQ is native `<details>`/`<summary>` — zero client JS, works with JS
+  off. Node `16:323` contradicts itself (a `+` marker on every row AND every
+  answer expanded); resolved in favour of the marker. Parity diff is intentional.
+- The auth frames have no header/footer, but `layout.tsx` wraps every route.
+  Wave 5a parity decision.
+- **`figma-design-to-code` skill is NOT registered in this harness** and agents
+  have no MCP-resource reader, so the Figma server's required guidance could not
+  be loaded by any Wave 3 agent. Register it before Wave 5a.
+
+**Wave 3 gate (serial): tsc clean, eslint clean, 247 tests / 7 files, build green
+with all 7 routes prerendered static.**
 

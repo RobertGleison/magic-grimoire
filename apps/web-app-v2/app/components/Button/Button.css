@@ -141,7 +141,9 @@
 
 /* auth social buttons 16:397 — bg #131a16, 1px rgba(166,138,86,.2) */
 .btn-subtle {
-  background: var(--void-2);
+  /* NOT --void-2: in light that is #ffffff, identical to Card's panel ground,
+     so the button vanished into the card. --surface-subtle is theme-correct. */
+  background: var(--surface-subtle);
   border-color: var(--line);
   color: var(--cream);
 }

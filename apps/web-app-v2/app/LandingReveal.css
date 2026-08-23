@@ -1,0 +1,29 @@
+/* ==========================================================================
+   LandingReveal — see LandingReveal.tsx for why this lives beside the page.
+
+   The hidden start state is scoped to `prefers-reduced-motion: no-preference`
+   so a reduced-motion visitor never depends on JavaScript to see the content,
+   and `app/page.tsx` ships a <noscript> override for the same reason.
+   ========================================================================== */
+
+.landing-reveal {
+  /* No token exists for a translate distance; the spacing scale supplies it. */
+  --reveal-shift: var(--space-16);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-reveal {
+    opacity: 0;
+    transform: translateY(var(--reveal-shift));
+    transition:
+      opacity var(--dur-slow) var(--ease),
+      transform var(--dur-slow) var(--ease);
+    will-change: opacity, transform;
+  }
+
+  .landing-reveal.is-revealed {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+}

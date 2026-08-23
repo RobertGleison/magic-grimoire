@@ -1,0 +1,403 @@
+/* ==========================================================================
+   /pricing — Figma nodes 16:221 (hero), 16:228 (grid), 16:323 (FAQ);
+   light counterparts 20:846 / 20:853 / 20:948 read for COLOUR ONLY.
+
+   Tokens only. Two one-off widths taken straight from the design are local
+   custom properties that cite their node, following the pattern Footer.css
+   established in Wave 2a.
+
+   Rules honoured here:
+     - dark is the canonical geometry; light overrides colour, never pixels
+     - text on a crimson fill uses --on-crimson (via Button/Badge variants)
+     - --space-14 is the full-width card CTA vertical padding (16:255/289/321)
+
+   OVERRIDING THE WAVE 2 PRIMITIVES
+   Button/Badge/Card ship their own single-class rules (`.btn-md`, `.badge-sm`).
+   A CSS-module class is also a single class, so source order would decide the
+   winner. Every rule below that corrects a primitive doubles its selector
+   (`.x.x`, specificity 0,2,0) so it wins deterministically regardless of the
+   order the two stylesheets land in the bundle.
+   ========================================================================== */
+
+.page {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   Hero — 16:221 (light 20:846)
+   ========================================================================== */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-80) var(--page-pad) var(--space-48);
+  text-align: center;
+}
+
+/* Badge `md` gaps at 6px; the hero pill 16:222 gaps at 8px. */
+.heroPill.heroPill {
+  gap: var(--space-8);
+}
+
+.heroTitle {
+  font-size: var(--text-11xl);
+}
+
+.heroLead {
+  /* Verbatim from node 16:227. */
+  --hero-lead-w: 720px;
+  max-width: var(--hero-lead-w);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-relaxed);
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Tier grid — 16:228 (light 20:853)
+   ========================================================================== */
+
+.gridSection {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-24) var(--page-pad) var(--space-80);
+}
+
+.grid {
+  /* Card width verbatim from nodes 16:229 / 16:257 / 16:291. */
+  --tier-w: 400px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, var(--tier-w)));
+  justify-content: center;
+  align-items: start;
+  gap: var(--space-32);
+}
+
+.tier {
+  /* Repainted per tier by the .accent* modifiers below; drives the eyebrow
+     and the feature bullets (Figma ships one sparkle asset per tier colour). */
+  --tier-accent: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-24);
+}
+
+.accentMuted {
+  --tier-accent: var(--muted);
+}
+
+.accentGold {
+  --tier-accent: var(--accent);
+}
+
+/* The design paints this tier's eyebrow and bullets in --crimson (#a22c29),
+   which measures ~2.2:1 on --void-2 in dark and fails WCAG AA outright.
+   --type-creature-fg is the AA-safe crimson the controller added in Wave 2
+   (dark #d97b76, light #a22c29 — so light IS the design's exact value).
+   Reusing it here is a naming compromise: see the report's token request for
+   a --crimson-fg alias. */
+.accentCrimson {
+  --tier-accent: var(--type-creature-fg);
+}
+
+/* The "MOST POPULAR" ribbon (16:258) hangs 16px above the card's top edge. */
+.tierFeatured {
+  overflow: visible;
+}
+
+.ribbon.ribbon {
+  position: absolute;
+  top: calc(var(--space-16) * -1);
+  right: var(--space-14);
+  padding: var(--space-4) var(--space-12);
+}
+
+/* ---- Card head 16:230 ---------------------------------------------------- */
+
+.tierHead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.tierEyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--tier-accent);
+}
+
+.tierName {
+  font-size: var(--text-7xl);
+}
+
+.tierDescription {
+  font-size: var(--text-base);
+  color: var(--muted);
+}
+
+/* ---- Price 16:234 -------------------------------------------------------- */
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.price {
+  font-family: var(--font-display);
+  font-size: var(--text-10xl);
+  line-height: var(--leading-tight);
+  color: var(--cream);
+}
+
+.pricePeriod {
+  font-size: var(--text-lg);
+  color: var(--muted);
+}
+
+/* ---- Divider 16:237 (globals paints the hairline with --line) ------------ */
+
+.divider {
+  width: 100%;
+}
+
+/* ---- Feature list 16:238 ------------------------------------------------- */
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--cream);
+}
+
+/* The design centres the 14px glyph against a single line. Anchoring to the
+   top instead keeps it right when a label wraps at narrow widths; --space-3
+   is half the difference between the 19.5px line box and the 14px glyph. */
+.featureIcon {
+  flex: none;
+  margin-block-start: var(--space-3);
+  color: var(--tier-accent);
+}
+
+/* ---- CTAs 16:255 / 16:289 / 16:321 --------------------------------------- */
+
+/* Button `md` pads 12px vertically; every full-width card CTA in the design
+   pads 14px — the reason --space-14 exists. */
+.tierCta.tierCta {
+  padding-block: var(--space-14);
+}
+
+/* "Start Free" 16:256 labels in --cream, not the muted the shared secondary
+   variant uses. */
+.ctaOutline.ctaOutline {
+  color: var(--cream);
+}
+
+/* "Go Archmage" 16:321 carries no resting crimson glow, unlike the hero
+   button the primary variant was harvested from. Hover keeps its glow. */
+.ctaSolid.ctaSolid {
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   FAQ — 16:323 (light 20:948)
+   ========================================================================== */
+
+.faq {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  /* Design pads 60px top; the scale has no 60. --space-64 is the closest
+     rung — see the report's token request for --space-60. */
+  padding: var(--space-64) var(--page-pad) var(--space-100);
+}
+
+.faqInner {
+  /* 16:323 pads 240px each side of a 1440 frame, i.e. a 960px column. */
+  --faq-w: 960px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-40);
+  max-width: var(--faq-w);
+  margin: 0 auto;
+}
+
+.faqHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  text-align: center;
+}
+
+/* Design sets 36px; the scale has no 36. --text-8xl (38px) is the closest
+   rung — see the report's token request. */
+.faqTitle {
+  font-size: var(--text-8xl);
+}
+
+.faqSubtitle {
+  font-size: var(--text-lg);
+  color: var(--muted);
+}
+
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.faqItem {
+  padding: var(--space-24);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--void-2);
+  box-shadow: var(--shadow-1);
+  transition: var(--transition);
+}
+
+/* `list-style` covers Chrome/Firefox, the pseudo-element covers older Safari. */
+.faqSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  list-style: none;
+  cursor: pointer;
+}
+
+.faqSummary::-webkit-details-marker {
+  display: none;
+}
+
+.faqSummary::marker {
+  content: '';
+}
+
+.faqQuestion {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-3xl);
+}
+
+.faqIcon {
+  flex: none;
+  color: var(--accent);
+  transition:
+    transform var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.faqSummary:hover .faqIcon {
+  color: var(--cream);
+}
+
+/* Collapsed shows the design's "+" (16:446); open rotates it into a close
+   "x" so the marker stays truthful. */
+.faqItem[open] .faqIcon {
+  transform: rotate(45deg);
+}
+
+.faqAnswer {
+  margin-block-start: var(--space-12);
+  font-size: var(--text-lg);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Responsive — breakpoints match the Wave 2a shell (Header.css / Footer.css).
+   INVENTED: the Figma file is 1440px only.
+     1024px : the 3x400 row no longer fits, so the grid drops to two columns
+              and the gutters fall from --page-pad (80px) to --space-40
+     640px  : single column, --space-20 gutters, display type steps down
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  .hero {
+    padding: var(--space-64) var(--space-40) var(--space-40);
+  }
+
+  .heroTitle {
+    font-size: var(--text-9xl);
+  }
+
+  .gridSection {
+    padding: var(--space-24) var(--space-40) var(--space-64);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, var(--tier-w)));
+  }
+
+  .faq {
+    padding: var(--space-48) var(--space-40) var(--space-64);
+  }
+}
+
+@media (max-width: 639px) {
+  .hero {
+    gap: var(--space-12);
+    padding: var(--space-48) var(--space-20) var(--space-32);
+  }
+
+  .heroTitle {
+    font-size: var(--text-8xl);
+  }
+
+  .heroLead {
+    font-size: var(--text-lg);
+  }
+
+  .gridSection {
+    padding: var(--space-20) var(--space-20) var(--space-48);
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, var(--tier-w));
+  }
+
+  .price {
+    font-size: var(--text-9xl);
+  }
+
+  .faq {
+    padding: var(--space-40) var(--space-20) var(--space-48);
+  }
+
+  .faqInner {
+    gap: var(--space-32);
+  }
+
+  .faqTitle {
+    font-size: var(--text-6xl);
+  }
+
+  .faqQuestion {
+    font-size: var(--text-2xl);
+  }
+
+  .faqItem {
+    padding: var(--space-20);
+  }
+}

@@ -97,7 +97,7 @@
 .badge-completed {
   background: transparent;
   border-color: var(--type-land);
-  color: var(--type-land);
+  color: var(--type-land-fg);
 }
 
 .badge-failed {
@@ -112,19 +112,19 @@
 .badge-creature {
   background: transparent;
   border-color: var(--type-creature);
-  color: var(--type-creature);
+  color: var(--type-creature-fg);
 }
 
 .badge-spell {
   background: transparent;
   border-color: var(--type-spell);
-  color: var(--type-spell);
+  color: var(--type-spell-fg);
 }
 
 .badge-land {
   background: transparent;
   border-color: var(--type-land);
-  color: var(--type-land);
+  color: var(--type-land-fg);
 }
 
 /* ---- Pulse --------------------------------------------------------------- */

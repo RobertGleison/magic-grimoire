@@ -1,0 +1,222 @@
+/* ==========================================================================
+   DeckSummaryCard — my-decks `mtg-card-frame` (dark 9:53, 384x402).
+   Dark is canonical geometry; the light frame contributes colour only, and
+   every colour here resolves through a token, so there is no light override.
+
+   Harvested values → tokens:
+     surface     #131a16            → --void-2      (Card variant="panel")
+     frame       1.5px #a68a56      → --line-accent (Card border="accent", 1px:
+                                      no 1.5px border-width token exists)
+     radius      14px               → --radius-lg   (12px — nearest rung)
+     shadow      0 8px 8px /.4      → --shadow-1    (0 6px 6px /.4)
+     padding+gap 12px               → --space-12
+     dividers    1px #6b5837        → --line-strong
+     title       18px DM Serif Text → --text-3xl / --font-display / --cream
+     art         160px, radius 4px  → --radius-sm
+     count       11px SemiBold      → --text-sm / --muted
+     stat block  #1d2520, r6, p10   → --void-3 / --radius-md / --space-10
+     stat rows   12px + 11px        → --text-md / --text-sm
+   ========================================================================== */
+
+.deck-summary {
+  /* Component-local geometry, the pattern CardTile/ManaCurve already use for
+     one-off design measurements that no global rung matches. */
+  --deck-art-h: 160px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  min-width: 0;
+}
+
+.deck-summary:hover {
+  box-shadow: var(--shadow-2);
+}
+
+/* ---- Heading (9:54) ------------------------------------------------------ */
+
+.deck-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.deck-summary-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 400;
+  line-height: normal;
+  color: var(--cream);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Colour identity (9:56) — 8px dots, 4px apart. */
+.deck-summary-pips {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+/* The design's dots carry no glyph, so the pip's letter is suppressed here
+   rather than in ManaSymbol, which other screens need unchanged. */
+.deck-summary-pip .mana-symbol-glyph {
+  display: none;
+}
+
+.deck-summary-colorless {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ---- Cover art (9:59) ---------------------------------------------------- */
+
+.deck-summary-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--deck-art-h);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--void-1);
+}
+
+.deck-summary-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.deck-summary-art-fallback {
+  font-family: var(--font-display);
+  font-size: var(--text-10xl);
+  line-height: 1;
+  color: var(--accent-dim);
+}
+
+/* A deck still being generated has no art yet — sweep the empty plate so the
+   card reads as working rather than broken. */
+.deck-summary-art-working {
+  background-image: linear-gradient(
+    90deg,
+    var(--void-1) 0%,
+    var(--void-3) 50%,
+    var(--void-1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s var(--ease) infinite;
+}
+
+/* ---- Format strip (9:60) ------------------------------------------------- */
+
+.deck-summary-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-2) var(--space-6);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.deck-summary-count {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---- Stat block (9:64) --------------------------------------------------- */
+
+.deck-summary-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-10);
+  border-radius: var(--radius-md);
+  background: var(--void-3);
+}
+
+.deck-summary-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: var(--space-16);
+}
+
+.deck-summary-stat-label {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.deck-summary-stat-value {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--cream);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The design's third row drops a size and loses its emphasis (9:71). */
+.deck-summary-stat-quiet .deck-summary-stat-label,
+.deck-summary-stat-quiet .deck-summary-stat-value {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* ---- Failure reason (no source node — `error_message` has nowhere else) --- */
+
+.deck-summary-error {
+  padding: var(--space-8) var(--space-10);
+  border: 1px solid var(--crimson);
+  border-radius: var(--radius-md);
+  background: var(--crimson-soft);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--cream);
+}
+
+/* ---- Actions (9:74) ------------------------------------------------------ */
+
+.deck-summary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+/* ---- Narrow viewports ---------------------------------------------------
+   Breakpoint is an addition — the Figma file is 1440px only (Wave 2 finding). */
+
+@media (max-width: 640px) {
+  .deck-summary-title {
+    font-size: var(--text-2xl);
+  }
+
+  .deck-summary {
+    --deck-art-h: 140px;
+  }
+}

@@ -1,0 +1,356 @@
+/* ==========================================================================
+   /library — "My Grimoire" page styles.
+   Design: dark `9:4` / content `9:23` (canonical geometry, 1744px page);
+   light `20:401` / `20:420` contributes colour only, and every colour here
+   resolves through a token, so there is no light-theme block.
+
+   Harvested values → tokens:
+     gutters        80px            → --page-pad
+     content top    60px            → --space-64 (no 60 rung exists)
+     content bottom 80px            → --space-80
+     block gaps     40px            → --space-40
+     grid gap       24px            → --space-24
+     h1             40px DM Serif   → --text-9xl / --font-display / --cream
+     subtitle       16px DM Sans    → --text-2xl / --muted
+     filter bar     #131a16, 1px #6b5837, r8, p16
+                                    → --void-2 / --line-strong / --radius
+     chip gap       12px            → --space-12
+     tools gap      16px            → --space-16
+     search box     220px wide, 14px icon
+   ========================================================================== */
+
+.page {
+  width: 100%;
+  padding: var(--space-64) var(--page-pad) var(--space-80);
+}
+
+.inner {
+  /* Page-local geometry — the CardTile/ManaCurve pattern for one-off design
+     measurements that no global rung matches. */
+  --search-w: 220px;   /* node 9:45 */
+  --sort-w: 190px;     /* 9:48 is 150px; widened for the longer real labels */
+  --deck-col-min: 320px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-40);
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+}
+
+/* ---- Header row (9:24) --------------------------------------------------- */
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-24);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-9xl);
+  font-weight: 400;
+  line-height: normal;
+  color: var(--cream);
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: normal;
+  color: var(--muted);
+}
+
+.sparkleIcon {
+  width: var(--space-16);
+  height: var(--space-16);
+  color: currentColor;
+}
+
+/* ---- Filter bar (9:32) --------------------------------------------------- */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--void-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+/* The chips are `Button variant="ghost"` (9:36, the inactive state). The
+   selected chip (9:34) is a state the primitive has no variant for, so it is
+   expressed here off `aria-pressed` — tokens only, and Button stays untouched
+   for the other screens building against it in parallel. */
+.chips button {
+  text-transform: capitalize;
+}
+
+.chips button[aria-pressed='true'] {
+  background: var(--void-3);
+  border-color: var(--line-accent);
+  color: var(--cream);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  flex-shrink: 0;
+}
+
+/* ---- Search (9:45) ------------------------------------------------------- */
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-16);
+  z-index: 1;
+  width: var(--space-14);
+  height: var(--space-14);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.searchField {
+  width: var(--search-w);
+}
+
+/* Two classes so this beats `.input-control-sm`'s own padding regardless of
+   stylesheet injection order. */
+.search .searchInput {
+  padding-left: var(--space-40);
+}
+
+/* ---- Sort (9:48) --------------------------------------------------------- */
+
+.sortField {
+  width: var(--sort-w);
+}
+
+/* ---- Result / filter caption (addition — no source node) ------------------ */
+
+.resultLine {
+  margin-top: calc(var(--space-24) * -1);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  color: var(--faint);
+}
+
+/* ---- Deck grid (9:51) ----------------------------------------------------
+   The design lays three fixed 384px cards in a 1280px row, leaving an 80px
+   trailing gutter. Fluid columns are used instead so the grid survives every
+   viewport down to 375px; the 24px gap and 3-up desktop intent are kept. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--deck-col-min), 1fr));
+  gap: var(--space-24);
+  transition: opacity var(--dur) var(--ease);
+}
+
+.grid[data-loading] {
+  opacity: 0.5;
+}
+
+.gridItem {
+  display: flex;
+  min-width: 0;
+}
+
+.gridItem > * {
+  width: 100%;
+}
+
+/* ---- Panels: signed out / empty / error (no source nodes) ----------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-64) var(--space-32);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--void-2);
+  text-align: center;
+}
+
+.panelTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-7xl);
+  font-weight: 400;
+  color: var(--cream);
+}
+
+.panelBody {
+  max-width: 52ch;
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-12);
+}
+
+/* ---- Loading + error strips ---------------------------------------------- */
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-80) 0;
+}
+
+.inlineError {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--crimson);
+  border-radius: var(--radius-md);
+  background: var(--crimson-soft);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--cream);
+}
+
+.modalError {
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--crimson);
+  border-radius: var(--radius-md);
+  background: var(--crimson-soft);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--cream);
+}
+
+/* ---- Pagination (addition — the design shows six decks and no paginator,
+   but `GET /decks` is paginated at 1..100 per page) ------------------------- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+  padding-top: var(--space-8);
+}
+
+.pageCount {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---- Narrow viewports ---------------------------------------------------
+   1024 / 640 / 420 are additions — the Figma file is 1440px only. */
+
+@media (max-width: 1023px) {
+  .page {
+    padding: var(--space-48) var(--page-pad-app) var(--space-64);
+  }
+
+  .headerRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tools {
+    justify-content: space-between;
+  }
+
+  .searchField {
+    width: 100%;
+  }
+
+  .search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .page {
+    padding: var(--space-32) var(--space-20) var(--space-48);
+  }
+
+  .inner {
+    gap: var(--space-32);
+  }
+
+  .title {
+    font-size: var(--text-10xl);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: var(--space-40) var(--space-20);
+  }
+
+  .panelTitle {
+    font-size: var(--text-6xl);
+  }
+
+  .tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sortField {
+    width: 100%;
+  }
+}
+
+@media (max-width: 419px) {
+  .title {
+    font-size: var(--text-8xl);
+  }
+
+  .pagination {
+    gap: var(--space-8);
+  }
+}
