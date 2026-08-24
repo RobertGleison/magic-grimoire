@@ -18,6 +18,7 @@ compared side by side against the same API.
 - [Tech Stack](#tech-stack)
 - [Project Layout](#project-layout)
 - [Local Development](#local-development)
+- [Mock authentication](#mock-authentication)
 - [Node Version](#node-version)
 - [Theming Contract](#theming-contract)
 - [Component Conventions](#component-conventions)
@@ -94,12 +95,69 @@ then runs the v2 dev server in the foreground.
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` | Supabase project URL (client-side) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Supabase anon key (client-side) |
+| `NEXT_PUBLIC_MOCK_AUTH` | `.env.local` | **Dev only.** `true` replaces Supabase auth with a stub — see [Mock authentication](#mock-authentication). Absent/`false` = real auth. |
 | `API_ORIGIN` | shell / `.env.local` | Backend origin for the `/api/*` proxy. Defaults to `http://localhost:8000`. |
 
 `next.config.ts` rewrites `/api/:path*` → `${API_ORIGIN}/api/:path*`, so every
 `/api/v1/...` call — the SSE progress stream included — goes through the Next dev
 server to the locally running FastAPI backend. There is no Docker service for the
 frontend; run it locally alongside `docker compose up` for the backend.
+
+---
+
+## Mock authentication
+
+> **Never deploy with `NEXT_PUBLIC_MOCK_AUTH=true`.** It disables authentication
+> completely. Anyone who can open the page is signed in.
+
+Real Supabase auth is deferred, so the app ships a development stub behind one
+environment variable.
+
+```bash
+# apps/web-app-v2/.env.local
+NEXT_PUBLIC_MOCK_AUTH=true    # stub on   — any credentials work
+NEXT_PUBLIC_MOCK_AUTH=false   # stub off  — real Supabase auth (also the default
+                              #             when the line is absent entirely)
+```
+
+Only the exact string `true` enables it. Next.js inlines `NEXT_PUBLIC_*` at build
+time, so restart the dev server after changing it.
+
+**What the stub does** (`app/lib/mockAuth.ts`):
+
+- **Any** non-empty password signs in, for any address that looks like an email.
+  The email is still shape-checked so the form's own validation stays meaningful.
+- Sign-up works the same and remembers the display name; with no name given, one
+  is derived from the email local-part.
+- **The password is never stored** — not hashed, not compared, not logged. It is
+  read once to confirm it is non-empty and discarded.
+- The Google and GitHub buttons are hard no-ops. They resolve without navigating
+  and the form shows "provider sign-in is disabled", never a fake success.
+- The fake session lives in `localStorage` under `mg.mockAuth.session`. Every
+  read and write is wrapped in `try`/`catch`, so private windows still work.
+- `mg.mockAuth.session` holds `accessToken: 'mock-access-token'`, which is a
+  placeholder, **not** a JWT, and is never sent anywhere.
+
+**How you can tell it is on:**
+
+1. A red banner across every page: "Authentication is MOCKED…" (dismissible for
+   the current tab only).
+2. A `console.warn` on load naming `NEXT_PUBLIC_MOCK_AUTH`.
+3. `localStorage` shows a key with `mock` in its name.
+
+**What still does not work while mocked.** The backend is untouched and still
+requires a real Supabase JWT. `app/lib/supabase.ts#getAccessToken()` reads the
+*Supabase* session, which does not exist in mock mode, so no `Authorization`
+header is sent and `GET /decks` / `DELETE /decks/{id}` return **401**. `/library`
+therefore lets you in (the client-side guard sees a session) and then shows its
+"The seal is closed" panel when the list request 401s. `POST /decks/generate`,
+`GET /decks/{id}` and `POST /chat` are unauthenticated server-side and work
+normally.
+
+**Turning it off restores real auth with no code change.**
+`app/context/UserContext.tsx` implements *both* branches — mock and
+`@supabase/supabase-js` — and `app/lib/supabase.ts`, `app/login/authShared.ts`
+and the open-redirect guard `resolveNextPath()` were never modified for the stub.
 
 ---
 

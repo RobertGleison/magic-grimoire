@@ -112,7 +112,7 @@ Loop exits when every box is checked and the Wave 5 gate passes.
 **Gate:** typecheck + lint clean; `npm run build` succeeds.
 
 ### Wave 4 — integration (deps: wave 3)
-- [ ] **4a — auth flow.** `app/context/UserContext.tsx`, session persistence,
+- [x] **4a — auth flow.** `app/context/UserContext.tsx`, session persistence,
       route guarding for `/library`, redirect-after-login, sign-out.
 - [x] **4b — repo wiring.** *(pulled forward out of order — needed no Figma)* Makefile targets (`dev-v2`, `build-v2`,
       `lint-web-app-v2`, `test-web-app-v2`), `.github/workflows/web-app-v2.yml`
@@ -276,6 +276,34 @@ _Appended by the controller as waves land._
 - `next.config.ts` has no `images` config, so `CardTile` uses a plain `<img>`.
   Wave 4b decides whether to add Scryfall `remotePatterns` and use `next/image`.
 
+### Wave 4a findings (verified by controller)
+
+- **Real Supabase auth ships as the only production path; a mock stub was added
+  for local dev only**, gated behind `NEXT_PUBLIC_MOCK_AUTH=true` (default off).
+  `UserContext.tsx` branches once per action on `MOCK_AUTH_ENABLED` — every
+  branch pair is symmetric, so turning the flag off restores real auth with no
+  code change. Documented at length in the README (`Mock authentication`); not
+  duplicated here.
+- **Session state lives in a module-level store (`useSyncExternalStore`), not
+  provider state.** Guarantees exactly one Supabase/mock listener per page load
+  regardless of consumer count, and lets `useUser()` work in a test that never
+  mounts `<UserProvider>` — used by `library/layout.tsx`'s route guard tests.
+- **`Header`'s `user` prop changed meaning:** `undefined` (the new default) now
+  means "read from `UserContext`"; `null` forces signed-out; an object forces
+  signed-in. This is a deliberate break from Wave 2a/3's `user = null` default,
+  needed so the header can show live session state on every route without every
+  screen agent's page wiring it manually. Existing screen usages were audited —
+  none passed `user` explicitly, so nothing broke.
+- **`/library` is the only guarded route**, per the Wave 1b finding that `GET
+  /decks`/`DELETE /decks/{id}` are the only bearer-token endpoints.
+  `/deck-builder` stays open on purpose. The guard renders through on
+  `checking` (matches the prerendered HTML, avoids a hydration mismatch) and
+  redirects only once `status === 'signed-out'`, via `resolveNextPath()` — the
+  same open-redirect chokepoint Wave 3 flagged as mandatory.
+- `MockAuthBanner` is dev-only chrome: gated both by a parent `{MOCK_AUTH_ENABLED
+  ? ... : null}` in `layout.tsx` and inside the component itself, so the
+  bundler can tree-shake it out of a real-auth build.
+
 ### Wave 4b findings
 
 - Makefile gained `dev-v2` / `build-v2` / `lint-web-app-v2` / `test-web-app-v2`;
@@ -309,7 +337,7 @@ This file is the whole state. To pick up after a restart or context loss:
    `pgLzux7WT7F98ZEwDpw8lh`, then resume at the lowest wave with unchecked boxes.
 3. Gate command (Node >= 20.12 required):
    `rm -rf .next && npx tsc --noEmit && npm run lint && npm run test:unit`
-4. Baseline at the time of writing: **142 unit tests, 4 files, all green.**
+4. Baseline at the time of writing: **268 unit tests, 8 files, all green.**
 
 ### Wave 3 findings (verified by controller)
 

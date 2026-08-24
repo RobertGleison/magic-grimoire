@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '../components/Button/Button';
 import { Input } from '../components/Input/Input';
-import { getSupabase } from '../lib/supabase';
+import { useUser } from '../context/UserContext';
 import {
   AuthDivider,
   AuthHeading,
@@ -35,10 +35,16 @@ import styles from './page.module.css';
  * path rather than promoted to `app/components/`.
  *
  * Passwords live only in this component's local state and are cleared as soon
- * as Supabase has them. Nothing is logged.
+ * as the auth layer has them. Nothing is logged.
+ *
+ * Auth goes through `UserContext`, which owns the single Supabase-vs-mock
+ * branch (`NEXT_PUBLIC_MOCK_AUTH`). This component never touches
+ * `@supabase/supabase-js` directly, and `resolveNextPath` remains the only
+ * way a destination reaches `router.replace`.
  */
 export function SignupForm() {
   const router = useRouter();
+  const { signUp, signInWithProvider, isMocked } = useUser();
   const searchParams = useSearchParams();
   const nextParam = searchParams?.get('next') ?? null;
   const destination = resolveNextPath(nextParam);
@@ -59,7 +65,8 @@ export function SignupForm() {
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<AuthProvider | null>(null);
 
-  const configured = isSupabaseConfigured();
+  // The mock needs no Supabase project, so it satisfies the config check.
+  const configured = isMocked || isSupabaseConfigured();
   const locked = busy || oauthBusy !== null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -78,24 +85,21 @@ export function SignupForm() {
 
     setBusy(true);
     try {
-      const { data, error } = await getSupabase().auth.signUp({
-        email: email.trim(),
+      const { error, pendingConfirmation } = await signUp({
+        email,
         password,
-        options: {
-          data: { name: handle.trim() },
-          emailRedirectTo: oauthRedirectTo(nextParam),
-        },
+        name: handle,
+        redirectTo: oauthRedirectTo(nextParam),
       });
       if (error) {
-        setFormError(describeAuthError(error));
+        setFormError(error);
         return;
       }
 
       setPassword('');
       setConfirmPassword('');
 
-      // No session means the project has email confirmation switched on.
-      if (!data.session) {
+      if (pendingConfirmation) {
         setNotice('Check your inbox to confirm your account, then sign in.');
         return;
       }
@@ -112,13 +116,18 @@ export function SignupForm() {
     setNotice(null);
     setOauthBusy(provider);
     try {
-      const { error } = await getSupabase().auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: oauthRedirectTo(nextParam) },
+      const { error, notice: disabled } = await signInWithProvider(provider, {
+        redirectTo: oauthRedirectTo(nextParam),
       });
-      // On success the browser leaves for the provider; only errors land here.
       if (error) {
-        setFormError(describeAuthError(error));
+        setFormError(error);
+        setOauthBusy(null);
+        return;
+      }
+      // Mock mode: the provider is a no-op, so say so and release the button.
+      // Real mode: the browser has already left for the provider.
+      if (disabled) {
+        setNotice(disabled);
         setOauthBusy(null);
       }
     } catch (error) {

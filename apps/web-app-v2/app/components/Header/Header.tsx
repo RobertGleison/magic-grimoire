@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from '../ThemeToggle/ThemeToggle';
+import { useUser } from '../../context/UserContext';
 import './Header.css';
 
 const HEADER_MENU_ID = 'header-menu';
@@ -50,17 +51,31 @@ export interface HeaderUser {
 
 interface HeaderProps {
   /**
-   * Present → the design's user-profile cluster (nodes 9:18 / 10:17).
-   * Absent → the marketing "Sign In" + "Start Free" pair (node 3:14).
-   * This is the only structural difference between the marketing header
-   * (3:5 / 20:8) and the app headers (9:7 / 10:7), so auth state — not the
-   * route — is the variant axis.
+   * Non-`undefined` → the design's user-profile cluster (nodes 9:18 / 10:17)
+   * for an object, the marketing "Sign In" + "Start Free" pair (node 3:14)
+   * for `null`. Auth state — not the route — is the variant axis, so this is
+   * the only structural difference between the marketing header (3:5 / 20:8)
+   * and the app headers (9:7 / 10:7).
+   *
+   * Omit it (the normal case) and the header reads the signed-in user from
+   * `UserContext` instead. The prop stays an explicit override for tests and
+   * for any future route that must force one variant.
    */
   user?: HeaderUser | null;
 }
 
-export function Header({ user = null }: HeaderProps) {
+export function Header({ user }: HeaderProps) {
   const pathname = usePathname() ?? '/';
+  const { user: sessionUser, signOut } = useUser();
+  // While the session is still `checking` this is null, so the signed-out
+  // pair renders — the same markup the server produced, so the first client
+  // paint never mismatches and the "Sign In" link exists with JS disabled.
+  const activeUser: HeaderUser | null =
+    user !== undefined
+      ? user
+      : sessionUser
+        ? { name: sessionUser.name, avatarUrl: sessionUser.avatarUrl }
+        : null;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -125,20 +140,30 @@ export function Header({ user = null }: HeaderProps) {
     };
   }, [isMenuOpen]);
 
-  const authCluster = user ? (
+  const authCluster = activeUser ? (
     <div className="header-user">
       <span className="header-user-meta">
-        <span className="header-user-name">{user.name}</span>
-        {user.rank ? <span className="header-user-rank">{user.rank}</span> : null}
+        <span className="header-user-name">{activeUser.name}</span>
+        {activeUser.rank ? <span className="header-user-rank">{activeUser.rank}</span> : null}
       </span>
-      {user.avatarUrl ? (
+      {activeUser.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- avatar hosts are not in next.config images.remotePatterns
-        <img className="header-user-avatar" src={user.avatarUrl} alt="" width={36} height={36} />
+        <img
+          className="header-user-avatar"
+          src={activeUser.avatarUrl}
+          alt=""
+          width={36}
+          height={36}
+        />
       ) : (
         <span className="header-user-avatar" aria-hidden="true">
-          {user.name.trim().charAt(0).toUpperCase()}
+          {activeUser.name.trim().charAt(0).toUpperCase()}
         </span>
       )}
+      <button type="button" className="header-signout" onClick={() => void signOut()}>
+        Sign Out
+        <span className="visually-hidden">{` — ${activeUser.name}`}</span>
+      </button>
     </div>
   ) : (
     <>

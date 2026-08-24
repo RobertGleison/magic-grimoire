@@ -2,8 +2,11 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { DM_Sans, DM_Serif_Text } from 'next/font/google';
 import { ThemeProvider, themeInitScript } from './context/ThemeContext';
+import { UserProvider } from './context/UserContext';
 import { Header } from './components/Header/Header';
 import { Footer } from './components/Footer/Footer';
+import { MockAuthBanner } from './components/MockAuthBanner/MockAuthBanner';
+import { MOCK_AUTH_ENABLED } from './lib/mockAuth';
 import './globals.css';
 import './layout.css';
 
@@ -59,16 +62,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ThemeProvider>
-          <a className="skip-link" href="#main-content">
-            Skip to content
-          </a>
-          <div className="app-shell">
-            <Header />
-            <main id="main-content" className="app-main" tabIndex={-1}>
-              {children}
-            </main>
-            <Footer />
-          </div>
+          <UserProvider>
+            <a className="skip-link" href="#main-content">
+              Skip to content
+            </a>
+            <div className="app-shell">
+              {/* DEVELOPMENT ONLY. Present only while NEXT_PUBLIC_MOCK_AUTH=true,
+                  where every email/password combination signs in. Gated here as
+                  well as inside the component so the bundler can drop it. */}
+              {MOCK_AUTH_ENABLED ? <MockAuthBanner /> : null}
+              <Header />
+              <main id="main-content" className="app-main" tabIndex={-1}>
+                {children}
+              </main>
+              <Footer />
+            </div>
+          </UserProvider>
         </ThemeProvider>
       </body>
     </html>

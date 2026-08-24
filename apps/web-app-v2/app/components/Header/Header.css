@@ -185,6 +185,32 @@
   overflow: hidden;
 }
 
+/* Sign-out control. INVENTED — the design's profile cluster (9:18 / 10:17)
+   has no sign-out affordance, so this borrows the .header-signin treatment
+   and adds a hairline so it reads as a control rather than a nav link. */
+.header-signout {
+  flex-shrink: 0;
+  padding: var(--space-6) var(--space-12);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-label);
+  color: var(--muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.header-signout:hover {
+  border-color: var(--line-accent);
+  color: var(--cream);
+}
+
 /* ---- Hamburger (INVENTED — no mobile frame in the design) ---------------- */
 
 .header-menu-toggle {

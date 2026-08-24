@@ -8,8 +8,8 @@ import { Input } from '../components/Input/Input';
 import { Modal } from '../components/Modal/Modal';
 import { Select } from '../components/Select/Select';
 import { Spinner } from '../components/Spinner/Spinner';
+import { useUser } from '../context/UserContext';
 import { ApiError, deleteDeck, isAbortError, listDecks } from '../lib/apiClient';
-import { getSupabase } from '../lib/supabase';
 import { DECK_FORMATS, type DeckListResponse, type DeckResponse } from '../types/api';
 import styles from './page.module.css';
 
@@ -59,54 +59,16 @@ type DeleteState =
   | { kind: 'deleting' }
   | { kind: 'error'; message: string };
 
-/** Supabase's answer to "is anyone signed in", before any API call is made. */
-type SessionState = 'checking' | 'signed-in' | 'signed-out';
+/* ---------------------------------------------------------------- session
 
-/* ---------------------------------------------------------------- session */
-
-/**
- * SEAM FOR WAVE 4a. There is no auth context yet, so the session is read
- * straight off the Supabase client. When `app/context/UserContext.tsx` lands,
- * delete this hook and replace the single `useSession()` call below with the
- * context's equivalent — nothing else on this page touches Supabase.
- */
-function useSession(): SessionState {
-  const [state, setState] = useState<SessionState>('checking');
-
-  useEffect(() => {
-    let active = true;
-    let unsubscribe: (() => void) | undefined;
-
-    try {
-      const supabase = getSupabase();
-
-      void supabase.auth
-        .getSession()
-        .then(({ data }) => {
-          if (active) setState(data.session ? 'signed-in' : 'signed-out');
-        })
-        .catch(() => {
-          if (active) setState('signed-out');
-        });
-
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (active) setState(session ? 'signed-in' : 'signed-out');
-      });
-      unsubscribe = () => data.subscription.unsubscribe();
-    } catch {
-      // Supabase env vars are missing — no token can exist, so the API would
-      // 401 anyway. Show the sign-in prompt rather than a crash.
-      setState('signed-out');
-    }
-
-    return () => {
-      active = false;
-      unsubscribe?.();
-    };
-  }, []);
-
-  return state;
-}
+   Auth state comes from `app/context/UserContext.tsx` (WAVE 4a). Its
+   `status` values are the same three this page already branched on. Sign-in
+   is ENFORCED one level up, in `app/library/layout.tsx`, which bounces a
+   signed-out visitor to `/login?next=/library` through `resolveNextPath`.
+   The signed-out panel below stays as the honest fallback for the moment
+   before that redirect lands, for a session that expires mid-visit, and for
+   a 401 from the API while the client still believes it is signed in.
+   ------------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ icons */
 
@@ -177,7 +139,7 @@ function messageOf(error: unknown): string {
 /* ------------------------------------------------------------------- page */
 
 export default function LibraryPage() {
-  const session = useSession();
+  const { status: session } = useUser();
 
   const [state, setState] = useState<LibraryState>({ kind: 'loading', data: null });
   const [page, setPage] = useState(1);

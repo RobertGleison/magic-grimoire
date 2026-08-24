@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '../components/Button/Button';
 import { Input } from '../components/Input/Input';
-import { getSupabase } from '../lib/supabase';
+import { useUser } from '../context/UserContext';
 import {
   AuthDivider,
   AuthHeading,
@@ -35,9 +35,15 @@ import styles from './page.module.css';
  *
  * The password only ever lives in this component's local state and is cleared
  * on success. It is never logged, persisted, or put in a URL.
+ *
+ * Auth goes through `UserContext`, which owns the single
+ * Supabase-vs-mock branch (`NEXT_PUBLIC_MOCK_AUTH`). This component never
+ * touches `@supabase/supabase-js` directly, and `resolveNextPath` remains the
+ * only way a destination reaches `router.replace`.
  */
 export function LoginForm() {
   const router = useRouter();
+  const { signInWithPassword, signInWithProvider, resetPassword, isMocked } = useUser();
   const searchParams = useSearchParams();
   const nextParam = searchParams?.get('next') ?? null;
   const destination = resolveNextPath(nextParam);
@@ -51,7 +57,8 @@ export function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<AuthProvider | null>(null);
 
-  const configured = isSupabaseConfigured();
+  // The mock needs no Supabase project, so it satisfies the config check.
+  const configured = isMocked || isSupabaseConfigured();
   const locked = busy || oauthBusy !== null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -68,12 +75,9 @@ export function LoginForm() {
 
     setBusy(true);
     try {
-      const { error } = await getSupabase().auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const { error } = await signInWithPassword({ email, password });
       if (error) {
-        setFormError(describeAuthError(error));
+        setFormError(error);
         return;
       }
       setPassword('');
@@ -90,13 +94,18 @@ export function LoginForm() {
     setNotice(null);
     setOauthBusy(provider);
     try {
-      const { error } = await getSupabase().auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: oauthRedirectTo(nextParam) },
+      const { error, notice: disabled } = await signInWithProvider(provider, {
+        redirectTo: oauthRedirectTo(nextParam),
       });
-      // On success the browser leaves for the provider; only errors land here.
       if (error) {
-        setFormError(describeAuthError(error));
+        setFormError(error);
+        setOauthBusy(null);
+        return;
+      }
+      // Mock mode: the provider is a no-op, so say so and release the button.
+      // Real mode: the browser has already left for the provider.
+      if (disabled) {
+        setNotice(disabled);
         setOauthBusy(null);
       }
     } catch (error) {
@@ -118,11 +127,9 @@ export function LoginForm() {
 
     setBusy(true);
     try {
-      const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: oauthRedirectTo('/login'),
-      });
+      const { error } = await resetPassword(email, { redirectTo: oauthRedirectTo('/login') });
       if (error) {
-        setFormError(describeAuthError(error));
+        setFormError(error);
         return;
       }
       setNotice('If that address has an account, a reset link is on its way.');
