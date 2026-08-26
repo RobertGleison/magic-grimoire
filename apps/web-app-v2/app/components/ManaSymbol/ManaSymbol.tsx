@@ -29,6 +29,21 @@ const COLOR_NAMES: Record<ManaColor, string> = {
   C: 'colourless',
 };
 
+/**
+ * Basename of each colour's symbol art in `public/assets/mana-*.png`.
+ * Spelled the way the files are (`colorless`, not `colourless`), which is why
+ * this is its own map rather than a lowercase of `COLOR_NAMES`. Read by
+ * `ManaIcon`; the CSS pip below needs no art.
+ */
+export const MANA_COLOR_ASSETS: Record<ManaColor, string> = {
+  W: 'white',
+  U: 'blue',
+  B: 'black',
+  R: 'red',
+  G: 'green',
+  C: 'colorless',
+};
+
 /** Non-colour symbols the game uses that are not a plain numeral. */
 const SPECIAL_NAMES: Record<string, string> = {
   X: 'variable X',

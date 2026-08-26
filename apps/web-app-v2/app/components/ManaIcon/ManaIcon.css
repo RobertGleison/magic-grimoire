@@ -1,0 +1,14 @@
+/* ==========================================================================
+   ManaIcon
+   --------------------------------------------------------------------------
+   The PNGs already carry their own bevel and ring, so the only styling here is
+   the seat: no theme-dependent ground, and a drop shadow instead of the pip's
+   inset lighting so the symbol keeps its own shading in both themes.
+   ========================================================================== */
+
+.mana-icon {
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  user-select: none;
+}
