@@ -34,7 +34,7 @@ const dmSerifText = DM_Serif_Text({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Magic Grimoire — AI Magic: The Gathering deckbuilder',
+    default: 'Magic Grimoire - AI MTG deckbuilder',
     template: '%s · Magic Grimoire',
   },
   description:

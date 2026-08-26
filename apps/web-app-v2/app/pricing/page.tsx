@@ -21,7 +21,7 @@ import styles from './page.module.css';
 export const metadata: Metadata = {
   title: 'Pricing',
   description:
-    'Choose your Magic Grimoire tier — from the free Apprentice Pack to unlimited deck forging and team grimoire sharing.',
+    'Choose your Magic Grimoire tier from the free Apprentice Pack to unlimited deck forging and team grimoire sharing.',
 };
 
 export default function PricingPage() {
