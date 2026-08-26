@@ -6,7 +6,7 @@ import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
 import { useTaskStream } from '../hooks/useTaskStream';
 import { ApiError, generateDeck, getDeck, isAbortError, sendChat } from '../lib/apiClient';
-import type { ChatMessage, DeckResponse, MTGColor } from '../types/api';
+import type { ChatMessage, DeckResponse } from '../types/api';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
 import { ConfigPanel } from './ConfigPanel';
 import { DeckResultsPanel } from './DeckResultsPanel';
@@ -14,6 +14,7 @@ import { GenerationProgress } from './GenerationProgress';
 import {
   DEFAULT_DECK_CONFIG,
   buildGeneratePrompt,
+  chatColors,
   deckFileName,
   deckListText,
   type DeckConfig,
@@ -169,14 +170,16 @@ export default function DeckBuilderPage() {
       }))
       .slice(-CHAT_HISTORY_MAX);
 
+    const contextColors = chatColors(config.colors);
+
     try {
       const response = await sendChat(
         {
           messages: history,
           context: {
             format: config.format,
-            colors: config.colors.length > 0 ? config.colors : null,
-            strategy: config.strategy.trim().slice(0, 50) || null,
+            // `C` is dropped: the chat endpoint's `_ManaColor` omits it.
+            colors: contextColors.length > 0 ? contextColors : null,
           },
         },
         { signal: controller.signal },
@@ -206,7 +209,7 @@ export default function DeckBuilderPage() {
   const streaming = stream.phase === 'connecting' || stream.phase === 'streaming';
   const generating = submitting || streaming;
 
-  const generateHint = generating || prompt.length > 0 ? '' : 'Describe your deck first — then forge it.';
+  const generateHint = generating || prompt.length > 0 ? '' : 'Describe your deck first, then forge it.';
 
   const handleGenerate = useCallback(async () => {
     if (generating || prompt.length === 0) return;
@@ -234,7 +237,7 @@ export default function DeckBuilderPage() {
         {
           prompt,
           format: config.format,
-          colors: config.colors.length > 0 ? (config.colors as MTGColor[]) : null,
+          colors: config.colors.length > 0 ? config.colors : null,
           deck_size: config.deckSize,
         },
         { signal: controller.signal },

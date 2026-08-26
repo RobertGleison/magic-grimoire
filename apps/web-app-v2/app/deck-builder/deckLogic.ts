@@ -9,7 +9,14 @@
  */
 
 import { manaColorsOf, manaValue, MANA_COLORS, type ManaColor } from '../components/ManaSymbol/ManaSymbol';
-import { CHAT_COLORS, type CardInDeck, type ChatColor, type DeckFormat, type DeckResponse } from '../types/api';
+import {
+  MTG_COLORS,
+  type CardInDeck,
+  type ChatColor,
+  type DeckFormat,
+  type DeckResponse,
+  type MTGColor,
+} from '../types/api';
 
 /* ------------------------------------------------------------- categories */
 
@@ -222,9 +229,14 @@ export function deckFileName(deck: DeckResponse): string {
 
 /* ----------------------------------------------------------- config → API */
 
-/** Bounds enforced by `DeckGenerateRequest` server-side. */
+/**
+ * Deck-size bounds. `DeckGenerateRequest` server-side allows `60..250`; the
+ * builder deliberately stops at 200 — the upper stretch was never a deck
+ * anyone asked for, and a shorter stepper run is the whole point. Any value in
+ * this range is still a valid request body.
+ */
 export const DECK_SIZE_MIN = 60;
-export const DECK_SIZE_MAX = 250;
+export const DECK_SIZE_MAX = 200;
 export const DECK_SIZE_STEP = 5;
 /** `prompt` is `1..2000` chars in `app/decks/dtos.py`. */
 export const PROMPT_MAX = 2000;
@@ -234,13 +246,15 @@ export const BUDGET_MAX = 500;
 export const BUDGET_MIN = 10;
 
 export interface DeckConfig {
-  /** `ChatColor`, not `MTGColor`: the design's picker has no colourless slot. */
-  colors: ChatColor[];
+  /**
+   * `MTGColor`, so colourless `C` is pickable — `DeckGenerateRequest.colors` is
+   * `list[MTGColor]` server-side and accepts it. The chat endpoint's
+   * `_ManaColor` does NOT, so `chatColors` strips `C` on the way out.
+   */
+  colors: MTGColor[];
   format: DeckFormat;
   deckSize: number;
   budget: number;
-  strategy: string;
-  sideboard: boolean;
 }
 
 export const DEFAULT_DECK_CONFIG: DeckConfig = {
@@ -248,16 +262,23 @@ export const DEFAULT_DECK_CONFIG: DeckConfig = {
   format: 'standard',
   deckSize: 60,
   budget: 150,
-  strategy: 'Midrange synergy',
-  sideboard: false,
 };
 
-/** WUBRG order, so the request body is stable no matter the click order. */
-export function toggleDeckColor(colors: readonly ChatColor[], color: ChatColor): ChatColor[] {
+/** WUBRG+C order, so the request body is stable no matter the click order. */
+export function toggleDeckColor(colors: readonly MTGColor[], color: MTGColor): MTGColor[] {
   const next = new Set(colors);
   if (next.has(color)) next.delete(color);
   else next.add(color);
-  return CHAT_COLORS.filter((candidate) => next.has(candidate));
+  return MTG_COLORS.filter((candidate) => next.has(candidate));
+}
+
+/**
+ * The subset the chat endpoint accepts. `app/chat/dtos.py` types its context
+ * colours as `Literal["W","U","B","R","G"]`, so sending `C` would 422 the whole
+ * turn — dropping it keeps the rest of the picker's selection as context.
+ */
+export function chatColors(colors: readonly MTGColor[]): ChatColor[] {
+  return colors.filter((color): color is ChatColor => color !== 'C');
 }
 
 export function clampDeckSize(size: number): number {
@@ -272,10 +293,10 @@ export function clampDeckSize(size: number): number {
  * refine an idea, so "competitive Rakdos sacrifice" followed by "keep the curve
  * low" has to reach the generator as one brief.
  *
- * Budget and sideboard have NO field in `DeckGenerateRequest` — the backend
- * models neither. Rather than render two dead controls or drop two controls the
- * design has, they are folded into the prompt, which is exactly the surface the
- * pipeline's `parse_intent` step reads.
+ * Budget has NO field in `DeckGenerateRequest` — the backend does not model it.
+ * Rather than render a dead control or drop a control the design has, it is
+ * folded into the prompt, which is exactly the surface the pipeline's
+ * `parse_intent` step reads.
  *
  * Returns `''` when there is nothing to build from; the qualifiers alone are
  * not a deck description.
@@ -289,10 +310,7 @@ export function buildGeneratePrompt(
   if (parts.length === 0) return '';
 
   const qualifiers: string[] = [];
-  const strategy = config.strategy.trim();
-  if (strategy) qualifiers.push(`Strategy: ${strategy}.`);
   if (config.budget < BUDGET_MAX) qualifiers.push(`Keep the total budget under $${config.budget}.`);
-  if (config.sideboard) qualifiers.push('Include a 15-card sideboard.');
 
   return [...parts, ...qualifiers].join(' ').slice(0, PROMPT_MAX).trim();
 }

@@ -2,9 +2,8 @@
 
 import { useId } from 'react';
 
-import { Select } from '../components/Select/Select';
-import { ManaSymbol } from '../components/ManaSymbol/ManaSymbol';
-import { CHAT_COLORS, DECK_FORMATS, type ChatColor, type DeckFormat } from '../types/api';
+import { ManaIcon } from '../components/ManaIcon/ManaIcon';
+import { DECK_FORMATS, MTG_COLORS, type DeckFormat, type MTGColor } from '../types/api';
 import {
   BUDGET_MAX,
   BUDGET_MIN,
@@ -23,16 +22,28 @@ import styles from './page.module.css';
    --------------------------------------------------------------------------
    Deviations from the design, all deliberate:
 
-   • The mana pickers render a `ManaSymbol` pip instead of a bare letter. The
-     Figma file has no MTG palette at all (Wave 1a), so its pickers fall back to
-     neutral surfaces; `ManaSymbol` is the project's mana renderer and already
-     carries per-colour contrast. Selection keeps the design's crimson ground.
+   • The mana pickers render the real symbol art (`ManaIcon`, from
+     `public/assets/mana-*.png`) instead of the design's bare letter. The Figma
+     file has no MTG palette at all (Wave 1a), so its pickers fall back to
+     neutral surfaces. Selection keeps the design's crimson ground.
+   • The pickers list all six `MTG_COLORS`, including colourless `C`, not the
+     design's five. `DeckGenerateRequest.colors` is `list[MTGColor]` server-side
+     and accepts `C`, and eldrazi/artifact decks are unreachable without it.
    • The segmented format control lists all five `DeckFormat` values, not the
      design's three (Standard / Modern / Cmdr) — `pioneer` and `legacy` are
      legal server-side and would otherwise be unreachable. It wraps.
-   • Budget and sideboard have no field in `DeckGenerateRequest`. They are real
-     controls whose values are folded into the prompt by `buildGeneratePrompt`,
-     rather than two dead widgets or two missing ones.
+   • Budget has no field in `DeckGenerateRequest`. It is a real control whose
+     value is folded into the prompt by `buildGeneratePrompt`, rather than a
+     dead widget or a missing one.
+   • The design's "Strategy Style" select (`10:123`) and "Include Sideboard"
+     switch (`10:128`) are both removed by request. Neither had a request field
+     of its own, and both are things the chat brief can say better in prose —
+     a fixed seven-item strategy list could only contradict it.
+     `ChatContext.strategy` stays in the API types (the field still exists
+     server-side) but nothing sends it. `DeckResponse` cards flagged
+     `section: "sideboard"` are still grouped and rendered — that is the
+     backend's own output, unrelated to the removed toggle.
+   • Card count stops at `DECK_SIZE_MAX` (200), inside the server's `60..250`.
    ========================================================================== */
 
 const FORMAT_LABELS: Record<DeckFormat, string> = {
@@ -40,19 +51,8 @@ const FORMAT_LABELS: Record<DeckFormat, string> = {
   modern: 'Modern',
   pioneer: 'Pioneer',
   legacy: 'Legacy',
-  commander: 'Cmdr',
+  commander: 'Commander',
 };
-
-/** Free-form server-side (`<= 50` chars); these are the suggestions. */
-const STRATEGIES = [
-  'Aggro rush',
-  'Midrange synergy',
-  'Control lock',
-  'Combo engine',
-  'Ramp payoff',
-  'Tempo tricks',
-  'Budget brew',
-];
 
 interface ConfigPanelProps {
   config: DeckConfig;
@@ -65,9 +65,8 @@ export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelP
   const autoId = useId();
   const budgetId = `budget-${autoId}`;
   const countId = `count-${autoId}`;
-  const sideboardId = `sideboard-${autoId}`;
 
-  const setColor = (color: ChatColor) =>
+  const setColor = (color: MTGColor) =>
     onChange({ ...config, colors: toggleDeckColor(config.colors, color) });
 
   const setSize = (delta: number) =>
@@ -85,7 +84,7 @@ export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelP
           Mana Colors
         </span>
         <div className={styles.manaPickers} role="group" aria-labelledby={`colors-${autoId}`}>
-          {CHAT_COLORS.map((color) => {
+          {MTG_COLORS.map((color) => {
             const selected = config.colors.includes(color);
             return (
               <button
@@ -96,7 +95,7 @@ export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelP
                 disabled={disabled}
                 onClick={() => setColor(color)}
               >
-                <ManaSymbol symbol={color} size={20} decorative />
+                <ManaIcon color={color} size={24} />
                 <span className="visually-hidden">{MANA_COLOR_NAMES[color]}</span>
               </button>
             );
@@ -187,37 +186,6 @@ export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelP
           <span>${BUDGET_MIN}</span>
           <span>${BUDGET_MAX}+</span>
         </div>
-      </div>
-
-      {/* ---- Strategy (10:123) ----------------------------------------- */}
-      <Select
-        label="Strategy Style"
-        size="sm"
-        value={config.strategy}
-        disabled={disabled}
-        options={STRATEGIES.map((strategy) => ({ value: strategy, label: strategy }))}
-        onChange={(event) => onChange({ ...config, strategy: event.target.value })}
-      />
-
-      {/* ---- Sideboard (10:128) ---------------------------------------- */}
-      <div className={styles.sideboardRow}>
-        <span className={styles.sideboardText}>
-          <span className={styles.sideboardTitle} id={sideboardId}>
-            Include Sideboard
-          </span>
-          <span className={styles.sideboardHint}>15 optimal counter spells</span>
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={config.sideboard}
-          aria-labelledby={sideboardId}
-          disabled={disabled}
-          className={`${styles.switch} ${config.sideboard ? styles.switchOn : ''}`}
-          onClick={() => onChange({ ...config, sideboard: !config.sideboard })}
-        >
-          <span className={styles.switchKnob} aria-hidden="true" />
-        </button>
       </div>
     </section>
   );

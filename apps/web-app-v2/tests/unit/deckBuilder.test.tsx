@@ -20,6 +20,7 @@ import {
   DEFAULT_DECK_CONFIG,
   buildGeneratePrompt,
   categoriseCard,
+  chatColors,
   clampDeckSize,
   deckColorDistribution,
   deckFileName,
@@ -184,14 +185,22 @@ describe('deckListText / deckFileName', () => {
 });
 
 describe('config helpers', () => {
-  it('toggles colours back into WUBRG order', () => {
+  it('toggles colours back into WUBRG order, colourless last', () => {
     expect(toggleDeckColor(['R'], 'B')).toEqual(['B', 'R']);
     expect(toggleDeckColor(['B', 'R'], 'B')).toEqual(['R']);
+    expect(toggleDeckColor(['C', 'R'], 'W')).toEqual(['W', 'R', 'C']);
   });
 
-  it('clamps the deck size to the server-enforced 60..250', () => {
+  it('strips colourless from the chat context, which the endpoint rejects', () => {
+    expect(chatColors(['W', 'C', 'R'])).toEqual(['W', 'R']);
+    expect(chatColors(['C'])).toEqual([]);
+  });
+
+  it('clamps the deck size to the builder\'s 60..200', () => {
     expect(clampDeckSize(10)).toBe(60);
-    expect(clampDeckSize(400)).toBe(250);
+    expect(clampDeckSize(400)).toBe(200);
+    expect(clampDeckSize(201)).toBe(200);
+    expect(clampDeckSize(200)).toBe(200);
     expect(clampDeckSize(Number.NaN)).toBe(60);
   });
 });
@@ -200,22 +209,23 @@ describe('buildGeneratePrompt', () => {
   it('joins every user turn so the refinement reaches the generator', () => {
     const prompt = buildGeneratePrompt(['Rakdos sacrifice', 'keep the curve low'], '', {
       ...DEFAULT_DECK_CONFIG,
-      strategy: '',
       budget: BUDGET_MAX,
     });
     expect(prompt).toBe('Rakdos sacrifice keep the curve low');
   });
 
-  it('folds the budget and sideboard controls in as prose — they have no API field', () => {
+  it('folds the budget control in as prose — it has no API field', () => {
     const prompt = buildGeneratePrompt(['Rakdos sacrifice'], '', {
       ...DEFAULT_DECK_CONFIG,
-      strategy: 'Midrange synergy',
       budget: 150,
-      sideboard: true,
     });
-    expect(prompt).toContain('Strategy: Midrange synergy.');
-    expect(prompt).toContain('Keep the total budget under $150.');
-    expect(prompt).toContain('Include a 15-card sideboard.');
+    expect(prompt).toBe('Rakdos sacrifice Keep the total budget under $150.');
+  });
+
+  it('no longer emits the removed strategy and sideboard qualifiers', () => {
+    const prompt = buildGeneratePrompt(['Rakdos sacrifice'], '', DEFAULT_DECK_CONFIG);
+    expect(prompt).not.toContain('Strategy:');
+    expect(prompt).not.toContain('sideboard');
   });
 
   it('omits the budget qualifier once the slider reaches the ceiling', () => {
@@ -327,7 +337,7 @@ describe('DeckBuilderPage — shell', () => {
   it('blocks Generate until something has been described', () => {
     render(<DeckBuilderPage />);
     expect(screen.getByRole('button', { name: /generate deck/i })).toBeDisabled();
-    expect(screen.getByText('Describe your deck first — then forge it.')).toBeInTheDocument();
+    expect(screen.getByText('Describe your deck first, then forge it.')).toBeInTheDocument();
   });
 
   it('toggles a mana colour and reflects it back', () => {
@@ -338,6 +348,26 @@ describe('DeckBuilderPage — shell', () => {
     expect(screen.getByRole('button', { name: 'Black' })).toHaveAttribute('aria-pressed', 'true');
     // Read back in WUBRG order regardless of click order.
     expect(screen.getByText('Black · Red')).toBeInTheDocument();
+  });
+
+  it('offers colourless, which DeckGenerateRequest accepts', () => {
+    render(<DeckBuilderPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Colorless' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Red' }));
+    expect(screen.getByRole('button', { name: 'Colorless' })).toHaveAttribute('aria-pressed', 'true');
+    // WUBRG order puts colourless last, and the hint proves it reached the config.
+    expect(screen.getByText('Red · Colorless')).toBeInTheDocument();
+  });
+
+  it('renders each picker as its symbol art from public/assets', () => {
+    render(<DeckBuilderPage />);
+    const sources = screen
+      .getAllByRole('button')
+      .flatMap((button) => Array.from(button.querySelectorAll('img')))
+      .map((img) => decodeURIComponent(img.getAttribute('src') ?? ''));
+    for (const file of ['white', 'blue', 'black', 'red', 'green', 'colorless']) {
+      expect(sources.some((src) => src.includes(`/assets/mana-${file}.png`))).toBe(true);
+    }
   });
 
   it('steps the card count within the server-enforced bounds', () => {
@@ -351,7 +381,7 @@ describe('DeckBuilderPage — shell', () => {
 
   it('offers all five DeckFormat values, not just the design’s three', () => {
     render(<DeckBuilderPage />);
-    for (const label of ['Standard', 'Modern', 'Pioneer', 'Legacy', 'Cmdr']) {
+    for (const label of ['Standard', 'Modern', 'Pioneer', 'Legacy', 'Commander']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
     }
   });
@@ -372,7 +402,7 @@ describe('DeckBuilderPage — chat', () => {
     const body = JSON.parse(String(init.body)) as { messages: { role: string }[]; context: unknown };
     // The seeded intro bubble is UI, not a model turn.
     expect(body.messages).toEqual([{ role: 'user', content: 'Rakdos sacrifice please' }]);
-    expect(body.context).toEqual({ format: 'standard', colors: null, strategy: 'Midrange synergy' });
+    expect(body.context).toEqual({ format: 'standard', colors: null });
   });
 
   it('surfaces an ApiError as an error bubble that is never replayed to the model', async () => {
@@ -415,7 +445,7 @@ describe('DeckBuilderPage — generation pipeline', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/v1/decks/generate');
     expect(JSON.parse(String(init.body))).toEqual({
-      prompt: 'A Rakdos sacrifice deck Strategy: Midrange synergy. Keep the total budget under $150.',
+      prompt: 'A Rakdos sacrifice deck Keep the total budget under $150.',
       format: 'standard',
       colors: null,
       deck_size: 60,

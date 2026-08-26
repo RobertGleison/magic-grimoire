@@ -94,18 +94,29 @@
 
 /* ---- Mana pickers (10:86) — 40x40, 6px gutter --------------------------- */
 
+/* All six colours stay on one row. Six 40px pips at the design's 6px gap need
+   270, and the config column only offers 280 - 2 x 20 padding = 240 (less on a
+   platform whose scrollbar takes space), so a fixed size would wrap the lone
+   colourless pip onto a second line — reading as an afterthought rather than
+   the sixth member of the set.
+
+   Six equal fractions instead: the pips divide whatever the column gives them
+   and can never wrap, capped at the design's 40 so the row does not balloon
+   once the panel goes full-width on a narrow viewport. */
 .manaPickers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 .manaPicker {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-40);
-  height: var(--space-40);
+  width: 100%;
+  max-width: var(--space-40);
+  aspect-ratio: 1;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--void-3);
@@ -262,72 +273,6 @@
   color: var(--muted);
 }
 
-/* ---- Sideboard switch (10:128 / 10:132, 40x20) -------------------------- */
-
-.sideboardRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
-  padding-top: var(--space-12);
-  border-top: 1px solid var(--line);
-}
-
-.sideboardText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.sideboardTitle {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--cream);
-}
-
-.sideboardHint {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.switch {
-  position: relative;
-  flex-shrink: 0;
-  width: var(--space-40);
-  height: var(--space-20);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-full);
-  background: var(--void-3);
-  transition: var(--transition);
-}
-
-.switch:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.switchOn {
-  background: var(--crimson);
-  border-color: var(--line-accent);
-}
-
-.switchKnob {
-  position: absolute;
-  top: 50%;
-  left: var(--space-2);
-  width: var(--space-16);
-  height: var(--space-16);
-  border-radius: var(--radius-full);
-  background: var(--muted);
-  transform: translateY(-50%);
-  transition: var(--transition);
-}
-
-.switchOn .switchKnob {
-  left: calc(100% - var(--space-16) - var(--space-2));
-  background: var(--on-crimson);
-}
 
 /* ==========================================================================
    Chat panel — node 10:23
