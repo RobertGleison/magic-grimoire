@@ -233,7 +233,7 @@
   --radius-sm: 4px; /* buttons, tags */
   --radius-md: 6px; /* inputs, segmented, mini cards, tiles */
   --radius: 8px; /* default: chat bubbles, zoom previews */
-  --radius-lg: 12px; /* panels, feature cards, MTG card frames */
+  --radius-lg: 17px; /* panels, feature cards, MTG card frames */
   --radius-14: 14px; /* deck summary card frame (9:53) */
   --radius-xl: 16px; /* pricing cards */
   --radius-pill: 20px; /* pills, mana pickers */
@@ -262,7 +262,7 @@
   color-scheme: light;
 
   /* Surfaces */
-  --void-0: #faf9f6;
+  --void-0: rgb(253, 252, 250);
   --void-1: #f2f4f1;
   --void-2: #ffffff;
   --void-3: #f2f4f1;

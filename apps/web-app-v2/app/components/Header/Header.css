@@ -11,8 +11,9 @@
   z-index: 20;
   height: var(--header-h);
   border-bottom: 1px solid var(--line);
-  background: var(--void-0);
-
+  /* One rung above the `body` ground (--void-0), so the bar reads as its own
+     surface rather than merging into the page. */
+  background: var(--void-1);
 }
 
 .header-inner {
