@@ -73,7 +73,7 @@
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   /* The design paints these `--crimson`, which is 2.68:1 on `--void-0` and
-     fails WCAG AA. `--crimson-fg` carries the AA-safe crimson text value.  
+     fails WCAG AA. `--crimson-fg` carries the AA-safe crimson text value.
      AA-safe crimson pair (see globals.css). A dedicated `--crimson-fg` is
      requested in this task's report. */
   color: var(--crimson-fg);
@@ -214,10 +214,10 @@
 }
 
 /* ---- Hero visual (3:50) --------------------------------------------------
-   The design fills the two frames with a licensed MTG card render served from
-   Figma's asset CDN on a 7-day URL. `public/` is empty by design (RALPH Wave 2
-   findings), so the frames are drawn from tokens and the front one carries the
-   Wave 2c `ArcaneSigil`. Purely decorative — the whole block is aria-hidden. */
+   Both frames hold the `Magic Grimoire` card render (`public/hero-card.png`,
+   5:7 like the design's frames). The back one is pushed down in brightness so
+   the front reads first. The token gradient stays underneath as the paint
+   before the image decodes. Purely decorative — the block is aria-hidden. */
 
 .hero-visual {
   position: relative;
@@ -245,7 +245,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 2px solid var(--line-accent);
+  border: 2.5px solid var(--line-accent);
   border-radius: var(--radius-lg);
   background:
     radial-gradient(circle at 50% 35%, rgba(var(--accent-glow), 0.16) 0%, transparent 62%),
@@ -271,10 +271,12 @@
   transform: rotate(4deg);
 }
 
-.hero-card-sigil {
-  width: 88%;
-  height: auto;
-  opacity: 0.85;
+.hero-card-art {
+  object-fit: cover;
+}
+
+.hero-card-art-back {
+  filter: brightness(0.62) saturate(0.8);
 }
 
 /* ==========================================================================

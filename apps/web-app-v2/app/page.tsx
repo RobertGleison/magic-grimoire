@@ -1,6 +1,6 @@
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 
-import { ArcaneSigil } from './components/ArcaneSigil/ArcaneSigil';
 import { Badge } from './components/Badge/Badge';
 import { Button } from './components/Button/Button';
 import type { ButtonVariant } from './components/Button/Button';
@@ -26,8 +26,8 @@ import styles from './page.module.css';
 /* ------------------------------------------------------------------ icons */
 
 /* The design's 14px `sparkles` (3:363, 3:366, 3:420) and 16px `book-icon`
-   (3:414, 3:417) are Figma-hosted assets on 7-day URLs, and `public/` is empty
-   by design (RALPH Wave 2 findings). Both are inlined as token-coloured SVG. */
+   (3:414, 3:417) are Figma-hosted assets on 7-day URLs. Both are inlined as
+   token-coloured SVG rather than shipped as files. */
 
 function SparkleIcon({ size = 14 }: { size?: number }) {
   return (
@@ -67,22 +67,27 @@ function BookIcon({ size = 16 }: { size?: number }) {
 /* ------------------------------------------------------------------- copy */
 
 const HERO_LEAD =
-  'Unleash the ultimate deckbuilder. Input your playstyle, choose your format, and let Magic Grimoire compute synergized curves, sideboards, and simulated mana distributions in seconds.';
+  'Input your playstyle, choose your format and colors, explain your wishes to the AI and let Magic Grimoire compute synergized curves, sideboards, and simulated mana distributions in seconds.';
 
 const HERO_FORMATS = ['Commander / EDH', 'Modern', 'Standard', 'Pioneer', 'Legacy'] as const;
 
-interface Stat {
-  value: string;
-  label: string;
-}
+/* The `Magic Grimoire` card render, served from `public/` so `next/image` can
+   optimise it. Both hero frames (3:52 back, 3:65 front) share the one file. */
+const HERO_CARD_ART = '/hero-card.png';
 
-/* 3:79 3:82 3:85 3:88 */
-const STATS: readonly Stat[] = [
-  { value: '2.4M+', label: 'Decks Synthesized' },
-  { value: '94.8%', label: 'AI Synergy Accuracy' },
-  { value: '18.3%', label: 'Average Winrate Boost' },
-  { value: '150k+', label: 'Active Spellcasters' },
-];
+// Disabled together with `StatsSection` below — restore both at once.
+// interface Stat {
+//   value: string;
+//   label: string;
+// }
+//
+// /* 3:79 3:82 3:85 3:88 */
+// const STATS: readonly Stat[] = [
+//   { value: '2.4M+', label: 'Decks Synthesized' },
+//   { value: '94.8%', label: 'AI Synergy Accuracy' },
+//   { value: '18.3%', label: 'Average Winrate Boost' },
+//   { value: '150k+', label: 'Active Spellcasters' },
+// ];
 
 interface Feature {
   glyph: string;
@@ -292,9 +297,9 @@ function HeroSection() {
       <LandingReveal className={styles.inner}>
         <div className={styles['hero-inner']}>
           <div className={styles['hero-copy']}>
-            <Badge variant="crimson" size="md" shape="pill" icon={<SparkleIcon />}>
+            {/* <Badge variant="crimson" size="md" shape="pill" icon={<SparkleIcon />}>
               MTG AI Core v2.0 Live
-            </Badge>
+            </Badge> */}
 
             <div className={styles['hero-headline']}>
               <h1 id="hero-title" className={styles['hero-title']}>
@@ -310,7 +315,7 @@ function HeroSection() {
                 Conjure Your First Deck
               </Button>
               <Button href="/signup" variant="secondary" size="lg">
-                Explore Meta Archetypes
+                Explore Created Decks
               </Button>
             </div>
 
@@ -326,12 +331,28 @@ function HeroSection() {
             </div>
           </div>
 
-          {/* 3:50 — decorative only; the design's card renders are licensed art. */}
+          {/* 3:50 — decorative only; both frames hold the `Magic Grimoire` card render. */}
           <div className={styles['hero-visual']} aria-hidden="true">
-            <span className={styles['hero-halo']} />
-            <span className={styles['hero-card'] + ' ' + styles['hero-card-back']} />
+            <span className={styles['hero-halo']}  />
+            <span className={styles['hero-card'] + ' ' + styles['hero-card-back']}>
+              <Image
+                src={HERO_CARD_ART}
+                alt=""
+                fill
+                sizes="(max-width: 900px) 46vw, 240px"
+                className={styles['hero-card-art'] + ' ' + styles['hero-card-art-back']}
+                priority
+              />
+            </span>
             <span className={styles['hero-card'] + ' ' + styles['hero-card-front']}>
-              <ArcaneSigil size={180} intensity={0.6} className={styles['hero-card-sigil']} />
+              <Image
+                src={HERO_CARD_ART}
+                alt=""
+                fill
+                sizes="(max-width: 900px) 50vw, 260px"
+                className={styles['hero-card-art']}
+                priority
+              />
             </span>
           </div>
         </div>
@@ -340,25 +361,25 @@ function HeroSection() {
   );
 }
 
-function StatsSection() {
-  return (
-    <section className={styles.stats} aria-labelledby="stats-title">
-      <h2 id="stats-title" className="visually-hidden">
-        Magic Grimoire by the numbers
-      </h2>
-      <LandingReveal className={styles.inner}>
-        <ul className={styles['stats-list']}>
-          {STATS.map((stat) => (
-            <li key={stat.label} className={styles.stat}>
-              <span className={styles['stat-value']}>{stat.value}</span>
-              <span className={styles['stat-label']}>{stat.label}</span>
-            </li>
-          ))}
-        </ul>
-      </LandingReveal>
-    </section>
-  );
-}
+// function StatsSection() {
+//   return (
+//     <section className={styles.stats} aria-labelledby="stats-title">
+//       <h2 id="stats-title" className="visually-hidden">
+//         Magic Grimoire by the numbers
+//       </h2>
+//       <LandingReveal className={styles.inner}>
+//         <ul className={styles['stats-list']}>
+//           {STATS.map((stat) => (
+//             <li key={stat.label} className={styles.stat}>
+//               <span className={styles['stat-value']}>{stat.value}</span>
+//               <span className={styles['stat-label']}>{stat.label}</span>
+//             </li>
+//           ))}
+//         </ul>
+//       </LandingReveal>
+//     </section>
+//   );
+// }
 
 function FeaturesSection() {
   return (
@@ -638,7 +659,7 @@ export default function LandingPage(): ReactNode {
       </noscript>
 
       <HeroSection />
-      <StatsSection />
+      {/* <StatsSection /> */}
       <FeaturesSection />
       <ManaCurveSection />
       <HowItWorksSection />
