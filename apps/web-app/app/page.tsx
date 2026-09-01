@@ -67,7 +67,7 @@ function BookIcon({ size = 16 }: { size?: number }) {
 /* ------------------------------------------------------------------- copy */
 
 const HERO_LEAD =
-  'Input your playstyle, choose your format and colors, explain your wishes to the AI and let Magic Grimoire compute synergized curves, sideboards, and simulated mana distributions in seconds.';
+  'Input your playstyle, choose your format and colors, explain your thoughts to the AI and let Magic Grimoire generate a brand new deck.';
 
 const HERO_FORMATS = ['Commander / EDH', 'Modern', 'Standard', 'Pioneer', 'Legacy'] as const;
 
@@ -303,7 +303,7 @@ function HeroSection() {
 
             <div className={styles['hero-headline']}>
               <h1 id="hero-title" className={styles['hero-title']}>
-                Conjure Your Perfect
+                Create Your Perfect
                 <br />
                 MTG Deck with AI
               </h1>
