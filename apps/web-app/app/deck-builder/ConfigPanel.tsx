@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import { ManaIcon } from '../components/ManaIcon/ManaIcon';
 import { DECK_FORMATS, MTG_COLORS, type DeckFormat, type MTGColor } from '../types/api';
@@ -11,7 +11,7 @@ import {
   DECK_SIZE_MIN,
   DECK_SIZE_STEP,
   MANA_COLOR_NAMES,
-  clampDeckSize,
+  setDeckSizeBound,
   toggleDeckColor,
   type DeckConfig,
 } from './deckLogic';
@@ -43,8 +43,35 @@ import styles from './page.module.css';
      server-side) but nothing sends it. `DeckResponse` cards flagged
      `section: "sideboard"` are still grouped and rendered — that is the
      backend's own output, unrelated to the removed toggle.
-   • Card count stops at `DECK_SIZE_MAX` (200), inside the server's `60..250`.
+   • The panel retracts to a rail. The design has no such control, but the
+     workspace is three columns wide and the config is the one whose settings
+     you set once and stop looking at — collapsing it is what gives the deck
+     grid room without touching the splitter.
+   • Card count is a min/max pair of number fields, not the design's +/-
+     stepper (10:108) and not a slider — a range, so the generator has room
+     to land on a legal curve, and typed, because 60..200 is too long a run
+     to hit an exact count by dragging. Both ends clamp to `DECK_SIZE_MIN`
+     ..`DECK_SIZE_MAX` (60..200, inside the server's `60..250`) and push each
+     other rather than inverting; equal ends pin an exact size. `deck_size`
+     is a single `int` in the request, so the floor is what gets sent and
+     `buildGeneratePrompt` carries the ceiling.
    ========================================================================== */
+
+/** Points left when the panel is open (collapse) and right when it is a rail. */
+function Chevron({ direction }: { direction: 'left' | 'right' }) {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+      <path
+        d={direction === 'left' ? 'M7.5 1.5L3 6l4.5 4.5' : 'M4.5 1.5L9 6l-4.5 4.5'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 const FORMAT_LABELS: Record<DeckFormat, string> = {
   standard: 'Standard',
@@ -54,29 +81,129 @@ const FORMAT_LABELS: Record<DeckFormat, string> = {
   commander: 'Commander',
 };
 
+interface NumberFieldProps {
+  id: string;
+  label: string;
+  value: number;
+  disabled?: boolean;
+  /** Fires on blur/Enter, never per keystroke — see the draft note below. */
+  onCommit: (value: number) => void;
+}
+
+/**
+ * One end of the card-count range.
+ *
+ * While the field has focus it renders an uncommitted string rather than the
+ * committed number: clamping every keystroke makes the field unusable, since
+ * typing "120" passes through "1" and would snap to 60 before the second digit
+ * lands. The draft is released on blur, and `setDeckSizeBound` does the
+ * clamping once, on a value the user has finished typing.
+ */
+function NumberField({ id, label, value, disabled = false, onCommit }: NumberFieldProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    if (draft !== null) onCommit(Number(draft));
+    setDraft(null);
+  };
+
+  return (
+    <span className={styles.numberField}>
+      <label className={styles.numberFieldLabel} htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        className={styles.numberInput}
+        type="number"
+        inputMode="numeric"
+        min={DECK_SIZE_MIN}
+        max={DECK_SIZE_MAX}
+        step={DECK_SIZE_STEP}
+        value={draft ?? value}
+        disabled={disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+        }}
+      />
+    </span>
+  );
+}
+
 interface ConfigPanelProps {
   config: DeckConfig;
   onChange: (next: DeckConfig) => void;
   /** True while a generation is in flight — the whole panel goes inert. */
   disabled?: boolean;
+  /** Retracted to a rail. The settings stay in effect either way. */
+  collapsed?: boolean;
+  /** Omit to render a panel that cannot be retracted. */
+  onToggleCollapsed?: () => void;
 }
 
-export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelProps) {
+export function ConfigPanel({
+  config,
+  onChange,
+  disabled = false,
+  collapsed = false,
+  onToggleCollapsed,
+}: ConfigPanelProps) {
   const autoId = useId();
   const budgetId = `budget-${autoId}`;
   const countId = `count-${autoId}`;
+  const bodyId = `config-body-${autoId}`;
 
   const setColor = (color: MTGColor) =>
     onChange({ ...config, colors: toggleDeckColor(config.colors, color) });
 
-  const setSize = (delta: number) =>
-    onChange({ ...config, deckSize: clampDeckSize(config.deckSize + delta) });
+  /* Collapsing unmounts the controls rather than hiding them: `config` lives
+     on the page, so nothing about the brief is lost, and a rail that still
+     held 40-odd focusable widgets would be a tab trap with no visible target. */
+  if (collapsed && onToggleCollapsed) {
+    return (
+      <section className={`${styles.configPanel} ${styles.configRail}`} aria-label="Deck configuration">
+        <button
+          type="button"
+          className={styles.panelToggle}
+          onClick={onToggleCollapsed}
+          aria-expanded={false}
+          aria-controls={bodyId}
+          title="Expand deck configuration"
+        >
+          <Chevron direction="right" />
+          <span className="visually-hidden">Expand deck configuration</span>
+        </button>
+        <span className={styles.configRailLabel}>Deck Configuration</span>
+      </section>
+    );
+  }
 
   return (
-    <section className={styles.configPanel} aria-labelledby={`config-heading-${autoId}`}>
-      <h2 className={styles.panelTitle} id={`config-heading-${autoId}`}>
-        Deck Configuration
-      </h2>
+    <section
+      className={styles.configPanel}
+      id={bodyId}
+      aria-labelledby={`config-heading-${autoId}`}
+    >
+      <div className={styles.panelHead}>
+        <h2 className={styles.panelTitle} id={`config-heading-${autoId}`}>
+          Deck Configuration
+        </h2>
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            className={styles.panelToggle}
+            onClick={onToggleCollapsed}
+            aria-expanded
+            aria-controls={bodyId}
+            title="Collapse deck configuration"
+          >
+            <Chevron direction="left" />
+            <span className="visually-hidden">Collapse deck configuration</span>
+          </button>
+        )}
+      </div>
 
       {/* ---- Mana colours (10:84) ------------------------------------- */}
       <div className={styles.configGroup}>
@@ -134,46 +261,45 @@ export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelP
         <span className={styles.configLabel} id={countId}>
           Card Count
         </span>
-        <div className={styles.stepper} role="group" aria-labelledby={countId}>
-          <span className={styles.stepperValue} aria-live="polite">
-            {config.deckSize} Cards
+        <div className={styles.countRange} role="group" aria-labelledby={countId}>
+          <NumberField
+            id={`${countId}-min`}
+            label="Min"
+            value={config.deckSizeMin}
+            disabled={disabled}
+            onCommit={(value) => onChange(setDeckSizeBound(config, 'min', value))}
+          />
+          <span className={styles.countRangeDash} aria-hidden="true">
+            &ndash;
           </span>
-          <span className={styles.stepperButtons}>
-            <button
-              type="button"
-              className={styles.stepperButton}
-              onClick={() => setSize(-DECK_SIZE_STEP)}
-              disabled={disabled || config.deckSize <= DECK_SIZE_MIN}
-              aria-label={`Remove ${DECK_SIZE_STEP} cards`}
-            >
-              &minus;
-            </button>
-            <button
-              type="button"
-              className={styles.stepperButton}
-              onClick={() => setSize(DECK_SIZE_STEP)}
-              disabled={disabled || config.deckSize >= DECK_SIZE_MAX}
-              aria-label={`Add ${DECK_SIZE_STEP} cards`}
-            >
-              +
-            </button>
-          </span>
+          <NumberField
+            id={`${countId}-max`}
+            label="Max"
+            value={config.deckSizeMax}
+            disabled={disabled}
+            onCommit={(value) => onChange(setDeckSizeBound(config, 'max', value))}
+          />
         </div>
+        <p className={styles.configHint}>
+          {config.deckSizeMin === config.deckSizeMax
+            ? `Exactly ${config.deckSizeMin} cards.`
+            : `Between ${config.deckSizeMin} and ${config.deckSizeMax} cards.`}
+        </p>
       </div>
 
       {/* ---- Budget (10:113) ------------------------------------------- */}
       <div className={styles.configGroup}>
-        <div className={styles.budgetHead}>
+        <div className={styles.sliderHead}>
           <label className={styles.configLabel} htmlFor={budgetId}>
             Budget Range
           </label>
-          <span className={styles.budgetValue}>
+          <span className={styles.sliderValue}>
             {config.budget >= BUDGET_MAX ? 'No ceiling' : `$${config.budget} Max`}
           </span>
         </div>
         <input
           id={budgetId}
-          className={styles.budgetSlider}
+          className={styles.slider}
           type="range"
           min={BUDGET_MIN}
           max={BUDGET_MAX}
@@ -182,7 +308,7 @@ export function ConfigPanel({ config, onChange, disabled = false }: ConfigPanelP
           disabled={disabled}
           onChange={(event) => onChange({ ...config, budget: Number(event.target.value) })}
         />
-        <div className={styles.budgetScale}>
+        <div className={styles.sliderScale}>
           <span>${BUDGET_MIN}</span>
           <span>${BUDGET_MAX}+</span>
         </div>
