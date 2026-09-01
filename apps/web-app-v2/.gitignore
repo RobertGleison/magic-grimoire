@@ -1,9 +1,0 @@
-.next/
-node_modules/
-.env
-.env.local
-.env.*.local
-tsconfig.tsbuildinfo
-
-test-results/
-playwright-report/

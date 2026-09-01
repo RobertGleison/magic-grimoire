@@ -1,6 +1,15 @@
 # Magic Grimoire — Web App
 
-The frontend for Magic Grimoire: a Next.js 15 (App Router) + TypeScript client that lets a user describe a deck in plain language, watches it get built in real time over SSE, and renders the result as a browsable deck list.
+The Magic Grimoire frontend, built against the Figma design
+([`Magic-Grimoire`](https://www.figma.com/design/pgLzux7WT7F98ZEwDpw8lh/Magic-Grimoire)).
+
+It began as a from-scratch rebuild that ran beside the original frontend; that
+older app has since been deleted and this one moved into its place. The design
+was a rebrand rather than a reskin, so the token vocabulary carried over from the
+old app but every value behind it changed. The build history is logged in
+[`RALPH.md`](./RALPH.md).
+
+The dev server runs on **port 3000**.
 
 ---
 
@@ -8,12 +17,14 @@ The frontend for Magic Grimoire: a Next.js 15 (App Router) + TypeScript client t
 
 - [Tech Stack](#tech-stack)
 - [Project Layout](#project-layout)
-- [Auth Flow](#auth-flow)
-- [Real-Time Progress (SSE)](#real-time-progress-sse)
 - [Local Development](#local-development)
+- [Mock authentication](#mock-authentication)
+- [Node Version](#node-version)
+- [Theming Contract](#theming-contract)
+- [Component Conventions](#component-conventions)
 - [Testing](#testing)
-- [Build & Deploy](#build--deploy)
-- [Known Limitations](#known-limitations)
+- [Repo Targets & CI](#repo-targets--ci)
+- [Docs](#docs)
 
 ---
 
@@ -23,77 +34,42 @@ The frontend for Magic Grimoire: a Next.js 15 (App Router) + TypeScript client t
 |---|---|
 | Framework | Next.js 15.5 (App Router), React 19 |
 | Language | TypeScript (strict) |
-| Styling | Tailwind CSS 4 |
+| Styling | **Plain CSS with custom properties** — one `.css` file per component |
 | Animation | Framer Motion |
-| Auth | Supabase JS client (Google + GitHub OAuth, email/password) |
+| Auth | Supabase JS client (Google + GitHub OAuth) |
 | Unit tests | Vitest + Testing Library |
-| E2E tests | Playwright (+ axe-core for accessibility) |
+| E2E tests | Playwright (+ `@axe-core/playwright`) — specs land in RALPH wave 5b |
+
+> **There is no Tailwind here.** The repo-root `CLAUDE.md` claims "Tailwind CSS 4"
+> for the frontend; that is wrong for *both* apps. Neither `apps/web-app` nor
+> `apps/web-app` has a Tailwind dependency. The real convention is
+> component-scoped plain CSS driven by custom properties declared in
+> `app/globals.css`. No CSS-in-JS, no utility framework.
 
 ---
 
 ## Project Layout
 
 ```
-apps/web-app/app/
-├── layout.tsx              # Root layout — fonts, UserProvider, SpineNav, AuthGate
-├── page.tsx                 # Landing page ("/")
-├── deck-builder/
-│   └── page.tsx              # Core app screen ("/deck-builder") — chat + options + deck panel
-├── library/
-│   └── page.tsx              # Saved decks screen ("/library", auth-gated)
-├── enums.ts                  # ManaColor / Format / Archetype / Strategy + color-toggle helpers
-├── context/
-│   └── UserContext.tsx        # Supabase session state, exposes useUser()
-├── lib/
-│   └── supabase.ts             # Lazy Supabase client singleton
-├── hooks/
-│   └── useAutoScroll.ts        # Horizontal auto-scroll loop (currently unused, see Known Limitations)
-└── components/
-    ├── ArcaneSigil/             # Animated hero SVG (landing page)
-    ├── ArcaneSigilLogo/         # Logo + Ornament/Frame layout helpers
-    ├── AuthGate/                # Mounts AuthModal when auth is requested
-    ├── AuthModal/                # Login/signup dialog (email + OAuth)
-    ├── ChatInput/                 # Prompt textarea, suggestion chips, send/stop controls
-    ├── ChatMessage/               # One chat bubble (user or oracle), lightweight markdown
-    ├── DeckPanel/                 # Generated-deck viewer: grouping, mana curve, export, card preview
-    ├── ManaSymbol/                # Mana pip / cost renderer
-    ├── NavBar/                    # SpineNav — top nav, auth-aware links
-    ├── OptionsPanel/              # Format / colors / deck-size controls
-    ├── PromptCarousel/            # Swipeable example-prompt carousel (currently unused)
-    └── Toast/                     # One-time localStorage-gated dev notice
+apps/web-app/
+├── app/
+│   ├── globals.css          # Every design token, all three theme blocks
+│   ├── layout.tsx           # Fonts, providers, blocking theme init script
+│   ├── layout.css
+│   ├── components/          # One folder per component: Name/Name.tsx + Name/Name.css
+│   ├── context/
+│   │   └── ThemeContext.tsx  # Theme state + exported `themeInitScript`
+│   ├── hooks/                # useTaskStream (SSE), useAutoScroll
+│   ├── lib/                  # apiClient (typed fetch, Bearer injection), supabase
+│   └── types/api.ts          # Mirrors the backend, not docs/api-contract.md — see below
+├── docs/                     # tokens.md, api-contract.md, figma-node-map.md
+├── tests/
+│   ├── setup.ts
+│   └── unit/                 # Vitest specs
+├── next.config.ts            # /api/* proxy
+├── vitest.config.mts
+└── RALPH.md                  # Build plan, wave findings, open questions
 ```
-
-### Routes
-
-| Route | Purpose |
-|---|---|
-| `/` | Marketing landing page — hero, how-it-works, features, example-prompt marquee, CTA. |
-| `/deck-builder` | The main app: chat with the Grimoire, set format/colors/deck size, watch generation progress, browse the result. Redirects guests to `/` and opens the auth modal. |
-| `/library` | Saved decks. **Currently backed by a hardcoded example list**, not a real backend fetch — see [Known Limitations](#known-limitations). |
-
----
-
-## Auth Flow
-
-- `app/lib/supabase.ts` lazily builds a singleton Supabase client from `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — lazy on purpose, so `createClient` never runs during SSR/prerendering.
-- `UserProvider` (`app/context/UserContext.tsx`) wraps the whole app in the root layout. It loads `supabase.auth.getSession()` on mount and subscribes to `onAuthStateChange`, exposing `user`, `token` (the Supabase JWT), `ready`, `signOut`, and the global `authOpen`/`openAuth`/`closeAuth` controls via `useUser()`.
-- `AuthModal` handles both email/password (`signInWithPassword` / `signUp`) and OAuth (`signInWithOAuth({ provider: 'google' | 'github' })`); `AuthGate` just mounts it when `authOpen` is true.
-- The deck-builder page reads `token` from `useUser()` and attaches it as `Authorization: Bearer <token>` on its REST calls (`POST /api/v1/chat`, `POST /api/v1/decks/generate`, `GET /api/v1/decks/:id`).
-- **The SSE connection is not authenticated** — native `EventSource` can't set custom headers, so the JWT isn't attached to `GET /api/v1/tasks/:id/stream`. Access control for that endpoint currently relies on the caller knowing the `task_id`, not on the bearer token.
-
----
-
-## Real-Time Progress (SSE)
-
-All of this lives in `app/deck-builder/page.tsx`, in `handleGenerateDeck`:
-
-1. `POST /api/v1/decks/generate` with `{ prompt, format, colors, deck_size }` returns `{ task_id, deck_id }`. A `429` means the guest's one free build is used up — the UI opens the auth modal.
-2. `new EventSource('/api/v1/tasks/${task_id}/stream')` opens the progress stream.
-3. Each message is parsed as `{ status }` and mapped through a fixed `STATUS_TO_STAGE` table to one of four stages — *parsing intent → searching cards → composing deck → enriching* — driving an animated progress UI in place of the assistant's chat bubble.
-4. `status === 'completed'` closes the stream and calls `GET /api/v1/decks/:id` to populate the `DeckPanel`. `status === 'failed'` closes the stream and shows an error message. Unparseable messages (e.g. SSE keepalive comments) are silently ignored.
-5. `onerror` (dropped connection) falls back to fetching the deck anyway, unless the user has clicked **Stop**.
-
-In dev, `next.config.ts` rewrites `/api/:path*` → `http://localhost:8000/api/:path*`, so the Next.js dev server proxies every `/api/v1/...` call — including the SSE stream — to the locally running backend.
 
 ---
 
@@ -107,13 +83,166 @@ npm install
 #   NEXT_PUBLIC_SUPABASE_URL=<your Supabase project URL>
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
 
-npm run dev
+npm run dev        # http://localhost:3000
 ```
 
-The backend (FastAPI + Postgres + Redis) needs to be running separately — see the root [`README.md`](../../README.md) or [`apps/api-server/README.md`](../api-server/README.md). There is no Docker service for the frontend; it's meant to run locally via `npm run dev` alongside `docker compose up` for the backend (see [Known Limitations](#known-limitations)).
+From the repo root, `make dev` brings the backend up with Docker Compose and
+then runs the dev server in the foreground.
 
-**Lint:** `npm run lint`
-**Build:** `npm run build`
+### Environment variables
+
+| Variable | Where | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` | Supabase project URL (client-side) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Supabase anon key (client-side) |
+| `NEXT_PUBLIC_MOCK_AUTH` | `.env.local` | **Dev only.** `true` replaces Supabase auth with a stub — see [Mock authentication](#mock-authentication). Absent/`false` = real auth. |
+| `API_ORIGIN` | shell / `.env.local` | Backend origin for the `/api/*` proxy. Defaults to `http://localhost:8000`. |
+
+`next.config.ts` rewrites `/api/:path*` → `${API_ORIGIN}/api/:path*`, so every
+`/api/v1/...` call — the SSE progress stream included — goes through the Next dev
+server to the locally running FastAPI backend. There is no Docker service for the
+frontend; run it locally alongside `docker compose up` for the backend.
+
+---
+
+## Mock authentication
+
+> **Never deploy with `NEXT_PUBLIC_MOCK_AUTH=true`.** It disables authentication
+> completely. Anyone who can open the page is signed in.
+
+Real Supabase auth is deferred, so the app ships a development stub behind one
+environment variable.
+
+```bash
+# apps/web-app/.env.local
+NEXT_PUBLIC_MOCK_AUTH=true    # stub on   — any credentials work
+NEXT_PUBLIC_MOCK_AUTH=false   # stub off  — real Supabase auth (also the default
+                              #             when the line is absent entirely)
+```
+
+Only the exact string `true` enables it. Next.js inlines `NEXT_PUBLIC_*` at build
+time, so restart the dev server after changing it.
+
+**What the stub does** (`app/lib/mockAuth.ts`):
+
+- **Any** non-empty password signs in, for any address that looks like an email.
+  The email is still shape-checked so the form's own validation stays meaningful.
+- Sign-up works the same and remembers the display name; with no name given, one
+  is derived from the email local-part.
+- **The password is never stored** — not hashed, not compared, not logged. It is
+  read once to confirm it is non-empty and discarded.
+- The Google and GitHub buttons are hard no-ops. They resolve without navigating
+  and the form shows "provider sign-in is disabled", never a fake success.
+- The fake session lives in `localStorage` under `mg.mockAuth.session`. Every
+  read and write is wrapped in `try`/`catch`, so private windows still work.
+- `mg.mockAuth.session` holds `accessToken: 'mock-access-token'`, which is a
+  placeholder, **not** a JWT, and is never sent anywhere.
+
+**How you can tell it is on:**
+
+1. A red banner across every page: "Authentication is MOCKED…" (dismissible for
+   the current tab only).
+2. A `console.warn` on load naming `NEXT_PUBLIC_MOCK_AUTH`.
+3. `localStorage` shows a key with `mock` in its name.
+
+**What still does not work while mocked.** The backend is untouched and still
+requires a real Supabase JWT. `app/lib/supabase.ts#getAccessToken()` reads the
+*Supabase* session, which does not exist in mock mode, so no `Authorization`
+header is sent and `GET /decks` / `DELETE /decks/{id}` return **401**. `/library`
+therefore lets you in (the client-side guard sees a session) and then shows its
+"The seal is closed" panel when the list request 401s. `POST /decks/generate`,
+`GET /decks/{id}` and `POST /chat` are unauthenticated server-side and work
+normally.
+
+**Turning it off restores real auth with no code change.**
+`app/context/UserContext.tsx` implements *both* branches — mock and
+`@supabase/supabase-js` — and `app/lib/supabase.ts`, `app/login/authShared.ts`
+and the open-redirect guard `resolveNextPath()` were never modified for the stub.
+
+---
+
+## Node Version
+
+**Node >= 20.12 is required** (`engines` enforces the floor; CI pins 22).
+
+Vitest 4 pulls in rolldown, which imports `styleText` from `node:util`. That
+export landed in 20.12, so anything older dies at test startup with:
+
+```
+SyntaxError: The requested module 'node:util' does not provide an export named 'styleText'
+```
+
+If you use nvm and its default is older (18.x is a common one here), switch
+before running the test suite.
+
+### Known npm bug: missing rolldown binary
+
+npm's optional-dependency resolution can leave `@rolldown/binding-darwin-arm64`
+in `package-lock.json` but absent from `node_modules`, so Vitest fails to start
+on a *fresh* install. Workaround:
+
+```bash
+npm install --no-save @rolldown/binding-darwin-arm64
+```
+
+(Substitute the binding for your platform on non-Apple-Silicon machines.)
+
+---
+
+## Theming Contract
+
+Dark is the primary theme and the **canonical geometry**. Light overrides colour
+only — where a dark Figma frame and its light counterpart disagree on any pixel
+value (padding, gap, size, radius, font size, line height), the dark number wins
+in both themes.
+
+Three blocks in `app/globals.css`, in this order:
+
+1. `:root` — **dark**, the default.
+2. `:root[data-theme="light"]` — explicit user choice.
+3. `@media (prefers-color-scheme: light) :root:not([data-theme="dark"])` —
+   system-preference fallback for visitors who have not chosen.
+
+**Every token must be defined in all three blocks.** A token that only exists in
+`:root` silently keeps its dark value when the page flips to light, which reads as
+a one-off contrast bug rather than a missing declaration. Blocks 2 and 3 carry
+identical payloads.
+
+`themeInitScript` (exported from `app/context/ThemeContext.tsx`) **must stay a
+blocking inline `<script dangerouslySetInnerHTML>` in `<head>`** — it reads
+localStorage and stamps `data-theme` before first paint. Do not convert it to
+`next/script`: every strategy that component offers runs post-hydration, which
+reintroduces the flash of the wrong theme. `<html>` carries
+`suppressHydrationWarning` because of it.
+
+Add tokens per [`docs/tokens.md` § How to add a token](./docs/tokens.md). During
+the RALPH loop, `app/globals.css` is owned by the controller — subagents report
+the token they need instead of editing it.
+
+---
+
+## Component Conventions
+
+**[`.claude/skills/frontend-robert/SKILL.md`](../../.claude/skills/frontend-robert/SKILL.md)
+is the binding convention for every component, page and stylesheet in this app.**
+Read it before writing UI code. In short: one folder per component
+(`Name/Name.tsx` + `Name/Name.css`), named exports only, no `index.tsx` barrels,
+`'use client'` only where hooks/events/browser APIs are used, prop interface
+inline above the component, and **zero hardcoded colours, fonts, radii or
+spacing** — tokens only.
+
+Two token rules have already caused real bugs; both are easy to get backwards:
+
+- **Use `--on-crimson` on a crimson fill, never `--on-accent`.** `--on-accent`
+  (`#0a100d`) exists for text on the *gold* `--accent` fill. On `--crimson`
+  (`#a22c29`) it measures 2.68:1 and fails even WCAG AA-large; `--on-crimson`
+  measures 4.86:1 dark / 7.17:1 light. Every primary button in the design is a
+  crimson fill, so getting this wrong ships a contrast failure app-wide.
+- **`--type-*-fg` is for text; `--type-*` is for fills.** The design's card-type
+  colours (`--type-creature`, `--type-spell`, `--type-land`) are fine as
+  backgrounds but fail as text — and fail *differently* per theme (creature
+  2.68:1 and land 2.47:1 in dark; spell 2.97:1 in light). Use the `-fg` variants
+  for any text or icon, the base tokens for fills only.
 
 ---
 
@@ -121,25 +250,57 @@ The backend (FastAPI + Postgres + Redis) needs to be running separately — see 
 
 ```bash
 npm run test:unit       # Vitest — tests/unit/**/*.test.{ts,tsx}
-npm run test:e2e        # Playwright — tests/**/*.spec.ts (auto-starts npm run dev)
+npm run test:e2e        # Playwright — tests/**/*.spec.ts (auto-starts npm run dev on 3000)
 npm test                # both, in sequence
+npm run typecheck       # tsc --noEmit
+npm run lint            # eslint .
 ```
 
-- **Unit tests** (`tests/unit/`) cover `enums.ts` color logic, `ManaSymbol`, `NavBar`, `OptionsPanel`, and `AuthModal`/`AuthGate`.
-- **E2E tests** (`tests/*.spec.ts`) cover the landing page (hero CTA, sections present, axe accessibility scan) and the nav bar (link visibility, active state, login/logout).
+Unit specs cover the API client, the task-stream reducer, the MTG helpers and the
+primitives. **There are no Playwright specs yet** — RALPH wave 5b owns them, and
+`playwright test` exits non-zero when it finds none, so `npm test` and
+`make test-web-app` are unit-only until those land.
 
-⚠️ **The unit suite currently has real failures, not flakes** — several tests were written against an older component API and no longer match the code (e.g. `AuthModal.test.tsx` imports `AuthModal`/`AuthGate` as default exports, but both are named exports only; it also asserts on copy/props that no longer exist). Don't treat a green `npm test` run as validation until these are reconciled with the current components.
+Vitest is configured in `vitest.config.mts` — the `.mts` extension, not `.ts`, so
+Vite loads it as ESM instead of warning about "ESM syntax in a file loaded as
+CommonJS".
+
+> **Always `rm -rf .next` before running the typecheck gate.** `tsconfig.json`
+> includes `.next/types/**/*.ts`, so stale generated types from a deleted route
+> produce `TS2307` errors on files nobody wrote.
+
+> `npm run build` does not exercise the App Router while `app/page.tsx` is absent
+> — Next falls back to the pages-router 404 and never compiles `layout.tsx`. The
+> build gate only becomes meaningful once wave 3 lands the screens.
 
 ---
 
-## Build & Deploy
+## Repo Targets & CI
 
-There's no Dockerfile for this app and no `web-app` service in the root `docker-compose.yml` — only `postgres`, `redis`, `ollama`, `api`, and `worker` are containerized. `make dev` (repo root) starts those via Docker Compose and then runs `npm run dev` in the foreground for the frontend. `make build` runs `npm run build`.
+From the repo root:
+
+| Target | Does |
+|---|---|
+| `make dev` | `docker-compose up -d`, then the dev server on 3000 |
+| `make build` | `npm run build` |
+| `make lint-web-app` | `npm run lint` (also part of the aggregate `make lint`) |
+| `make test-web-app` | `npm run test:unit` |
+
+`.github/workflows/web-app.yml` runs install → lint → typecheck → unit tests →
+build on Node 22, scoped to `apps/web-app/**` and the workflow file itself.
 
 ---
 
-## Known Limitations
+## Docs
 
-- **`/library` isn't wired to the backend yet** — it renders a hardcoded example deck list plus client-side `.txt` import; there's no fetch to a "list my decks" endpoint, and multi-select/bulk-remove is client-state only (not persisted).
-- **Dead code**: `PromptCarousel` and `useAutoScroll` are not imported anywhere — the landing page implements its own marquee scroll instead.
-- **Stale unit tests** — see [Testing](#testing).
+- [`docs/tokens.md`](./docs/tokens.md) — every token, its raw Figma hex, the node
+  it came from, and what is assumed rather than harvested.
+- [`docs/api-contract.md`](./docs/api-contract.md) — backend endpoints and
+  payloads. **Known inaccuracies:** the SSE payload is a bare `{status, message}`,
+  not `TaskStatusResponse`; the pipeline has six stages, not the five the prose
+  claims. `app/types/api.ts` mirrors the backend, not this document.
+- [`docs/figma-node-map.md`](./docs/figma-node-map.md) — screen/section → Figma
+  node IDs. Read design context at the **section** level; whole page frames
+  truncate.
+- [`RALPH.md`](./RALPH.md) — the build loop: wave backlog, verified findings from
+  each wave, and the open questions still awaiting a decision.

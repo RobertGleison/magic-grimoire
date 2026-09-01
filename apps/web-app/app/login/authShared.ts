@@ -18,7 +18,7 @@ export const PASSWORD_MIN_LENGTH = 8;
 /** Shown instead of a working form when the Supabase env vars are missing. */
 export const SUPABASE_CONFIG_ERROR =
   'Authentication is not configured. NEXT_PUBLIC_SUPABASE_URL and ' +
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY must both be set in apps/web-app-v2/.env.local, ' +
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY must both be set in apps/web-app/.env.local, ' +
   'then the dev server restarted — Next.js inlines NEXT_PUBLIC_* at build time.';
 
 /**

@@ -1,4 +1,4 @@
-# Design tokens — web-app-v2
+# Design tokens — web-app
 
 Source of truth: `app/globals.css`.
 Design source: Figma file `pgLzux7WT7F98ZEwDpw8lh`.

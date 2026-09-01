@@ -2,11 +2,15 @@
   "name": "magic-grimoire-frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run && playwright test",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
@@ -22,6 +26,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.2",
+    "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

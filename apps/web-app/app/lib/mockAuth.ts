@@ -105,7 +105,7 @@ function warnOnce(): void {
   console.warn(
     `[mockAuth] AUTHENTICATION IS MOCKED. Any email + password signs in and no ` +
       `real session exists. This is on because ${MOCK_AUTH_ENV_VAR}=true — set it ` +
-      `to false (or remove it) in apps/web-app-v2/.env.local to restore real ` +
+      `to false (or remove it) in apps/web-app/.env.local to restore real ` +
       `Supabase auth. NEVER DEPLOY WITH THIS ENABLED.`,
   );
 }

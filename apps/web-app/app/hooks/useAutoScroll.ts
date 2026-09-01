@@ -1,23 +1,33 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-export function useAutoScroll(speed = 0.4) {
-  const ref = useRef<HTMLDivElement>(null);
+/**
+ * Continuously scrolls an overflowing element sideways, pausing while the
+ * pointer or a finger rests on it. Used by the marquee strips.
+ *
+ * @param speed Pixels advanced per animation frame.
+ * @returns Ref to attach to the scroll container.
+ */
+export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(speed = 0.4) {
+  const ref = useRef<T>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    let frame: number;
+    // Honour the OS-level motion preference rather than animating regardless.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    let frame = 0;
     let paused = false;
 
     const tick = () => {
       if (!paused) {
         el.scrollLeft += speed;
-        if (el.scrollLeft + el.clientWidth >= el.scrollWidth) {
-          el.scrollLeft = 0;
-        }
+        // Wrap once the tail is on screen; callers duplicate their content so
+        // the reset is invisible.
+        if (el.scrollLeft + el.clientWidth >= el.scrollWidth) el.scrollLeft = 0;
       }
       frame = requestAnimationFrame(tick);
     };

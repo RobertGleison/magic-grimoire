@@ -1,5 +1,12 @@
 # RALPH — web-app-v2 build loop
 
+> **Historical record.** This log was written while this app lived at
+> `apps/web-app-v2/` and ran on port 3001 beside the legacy `apps/web-app/` on
+> 3000. The legacy app has since been deleted and this one renamed into its
+> place, so every `web-app-v2` path, `-v2` make target and port-3001 reference
+> below describes the layout *at the time of writing*, not the current repo.
+> Current setup lives in `README.md`.
+
 Rebuild of the Magic Grimoire frontend from the Figma design
 `https://www.figma.com/design/pgLzux7WT7F98ZEwDpw8lh/Magic-Grimoire`.
 `apps/web-app/` is the legacy version and is **never modified** by this loop.
