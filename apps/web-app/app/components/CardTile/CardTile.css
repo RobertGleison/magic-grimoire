@@ -1,0 +1,169 @@
+/* ==========================================================================
+   CardTile
+   --------------------------------------------------------------------------
+   Design: node `16:38` (`mtg-card-grid-item`), hovered `16:27`.
+     frame   80 x 112, bg #1a1008 (--accent-soft), border rgba(107,88,55,0.4)
+             (= rgba(var(--accent-dim-glow), 0.4)), r6, clipped
+     head    bg #111, pad 4/5/3, name DM Serif 7px #d6d5c9 + mana badge
+     art     62px tall, object-fit cover
+     type    bg #111, pad 2/5, DM Sans 6px #b9baa3
+     foot    bg #0a100d, pad 2/5, ×N DM Sans 5px rgba(166,138,86,0.6),
+             stats DM Serif 7px #d6d5c9
+     hover   2px --accent border + 0 0 8px 2px rgba(accent,0.4) (--glow-accent)
+
+   `#111` (the head / type-line strips) has no token. --void-1 is the nearest
+   dark value but collides with --accent-soft in the light theme (both #f2f4f1),
+   which would flatten the tile, so the strips use --void-0 — 1% off the design's
+   dark value and still distinct from the tile ground in both themes.
+   ========================================================================== */
+
+.card-tile {
+  --tile-w: var(--space-80);
+  --tile-h: 112px;
+  --tile-art-h: 62px;
+
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--tile-w);
+  height: var(--tile-h);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(var(--accent-dim-glow), 0.4);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  text-align: left;
+  transition: var(--transition);
+}
+
+/* ---- Interactive state --------------------------------------------------- */
+
+.card-tile-interactive {
+  cursor: pointer;
+}
+
+/* An inset ring rather than a wider border, so hovering never reflows the grid. */
+.card-tile-interactive:hover,
+.card-tile-selected {
+  border-color: var(--line-accent);
+  box-shadow:
+    0 0 0 1px var(--line-accent),
+    var(--glow-accent);
+  transform: translateY(-2px);
+}
+
+.card-tile-interactive:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-color: var(--line-accent);
+}
+
+/* ---- Head ---------------------------------------------------------------- */
+
+.card-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  padding: var(--space-4) var(--space-6) 3px;
+  background: var(--void-0);
+}
+
+.card-tile-name {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--text-micro);
+  line-height: normal;
+  color: var(--cream);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Lands have no mana cost, so the badge slot carries their type instead
+   (design node `16:158`). */
+.card-tile-land-badge {
+  flex-shrink: 0;
+  padding: 1px var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--accent-deep);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--text-nano);
+  line-height: normal;
+  color: var(--accent-mid);
+  white-space: nowrap;
+}
+
+/* ---- Art ----------------------------------------------------------------- */
+
+.card-tile-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 100%;
+  height: var(--tile-art-h);
+  overflow: hidden;
+  background: var(--void-3);
+}
+
+.card-tile-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Missing or broken `image_uri`: hold the box with an ornament so the frame
+   keeps its geometry instead of collapsing. */
+.card-tile-art-fallback {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  line-height: 1;
+  color: var(--accent-mid);
+}
+
+/* ---- Type line ----------------------------------------------------------- */
+
+.card-tile-type {
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: var(--space-2) var(--space-6);
+  background: var(--void-0);
+  font-family: var(--font-ui);
+  font-size: var(--text-nano);
+  line-height: normal;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Foot ---------------------------------------------------------------- */
+
+.card-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-2) var(--space-6);
+  background: var(--void-0);
+}
+
+.card-tile-qty {
+  font-family: var(--font-ui);
+  font-size: var(--text-pico);
+  line-height: normal;
+  color: rgba(var(--accent-glow), 0.6);
+  white-space: nowrap;
+}
+
+.card-tile-stats {
+  font-family: var(--font-display);
+  font-size: var(--text-micro);
+  line-height: normal;
+  color: var(--cream);
+  white-space: nowrap;
+}

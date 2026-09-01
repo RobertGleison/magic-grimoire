@@ -1,0 +1,191 @@
+/* ==========================================================================
+   Footer — Figma nodes 3:331 (dark) / 20:368 (light)
+   Tokens only. Values with no design source are local custom properties
+   marked INVENTED; one-off widths taken from the design are local custom
+   properties that cite their node.
+   ========================================================================== */
+
+.footer {
+  border-top: 1px solid var(--line);
+  background: var(--void-0);
+
+}
+
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-64);
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-80) var(--page-pad) var(--space-48);
+}
+
+/* ---- Column grid --------------------------------------------------------- */
+
+.footer-columns {
+  /* Widths verbatim from nodes 3:333 (brand) and 3:338 (link columns). */
+  --footer-brand-w: 405px;
+  --footer-col-w: 187px;
+  display: grid;
+  grid-template-columns: minmax(0, var(--footer-brand-w)) repeat(3, minmax(0, var(--footer-col-w)));
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-40);
+}
+
+/* ---- Brand block --------------------------------------------------------- */
+
+.footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.footer-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.footer-brand-icon {
+  width: var(--space-24);
+  height: var(--space-24);
+  color: var(--crimson);
+  transition: var(--transition);
+}
+
+.footer-brand-link:hover .footer-brand-icon {
+  filter: drop-shadow(var(--glow-crimson-sm));
+}
+
+.footer-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+.footer-tagline {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-relaxed);
+  color: var(--muted);
+}
+
+/* ---- Link columns -------------------------------------------------------- */
+
+.footer-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.footer-column-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  color: var(--cream);
+}
+
+.footer-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.footer-link {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.footer-link:hover {
+  color: var(--accent);
+}
+
+/* ---- Legal strip --------------------------------------------------------- */
+
+.footer-legal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.footer-rule {
+  height: 1px;
+  border: none;
+  background: var(--line);
+}
+
+.footer-legal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-24);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-relaxed);
+  color: var(--legal-fg);
+}
+
+.footer-fan-content {
+  /* 952px in node 3:360. */
+  max-width: 952px;
+}
+
+.footer-copyright {
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Responsive — INVENTED. The Figma file has a 1440px frame only.
+   1024px : the 405 + 187x3 row no longer fits, so it becomes a 2x2 grid and
+            the gutters drop from --page-pad (80px) to --space-40.
+   640px  : single column, --space-20 gutters, legal strip stacks.
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  .footer-inner {
+    gap: var(--space-48);
+    padding: var(--space-64) var(--space-40) var(--space-40);
+  }
+
+  .footer-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+}
+
+@media (max-width: 639px) {
+  .footer-inner {
+    gap: var(--space-40);
+    padding: var(--space-48) var(--space-20) var(--space-32);
+  }
+
+  .footer-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-32);
+  }
+
+  .footer-wordmark {
+    font-size: var(--text-3xl);
+  }
+
+  .footer-legal-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-12);
+  }
+
+  .footer-copyright {
+    white-space: normal;
+  }
+}

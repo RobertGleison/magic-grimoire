@@ -1,0 +1,216 @@
+/* ==========================================================================
+   ManaCurve
+   --------------------------------------------------------------------------
+   Design: node `3:117` → panel `3:127`, bar row `3:134`.
+     panel   bg #131a16 / border #a68a56 / r12 / p32 / gap 24
+     bars    row height 220, gap 24, columns flex 1, column gap 12
+     count   DM Sans Bold 12  #d6d5c9  centered
+     bar     top corners r4, tones #a22c29 (1-3), #a68a56 (4), #6b5837 (0, 5+)
+     label   DM Sans SemiBold 11  #b9baa3  centered
+
+   `bare` reproduces the compact deck-builder variant (node `10:223`): no
+   chrome, shorter bars, fully rounded, numeric-only axis labels.
+   ========================================================================== */
+
+.mana-curve {
+  --curve-height: 220px;
+  --curve-bar-radius: var(--radius-sm) var(--radius-sm) 0 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  min-width: 0;
+}
+
+.mana-curve-panel {
+  padding: var(--space-32);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-lg);
+  background: var(--void-2);
+  box-shadow: var(--shadow-2);
+}
+
+.mana-curve-bare {
+  --curve-height: 110px;
+  --curve-bar-radius: var(--radius-sm);
+
+  gap: var(--space-12);
+}
+
+/* ---- Header -------------------------------------------------------------- */
+
+.mana-curve-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.mana-curve-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.mana-curve-title {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.mana-curve-subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: normal;
+  color: var(--muted);
+}
+
+.mana-curve-badge {
+  flex-shrink: 0;
+  padding: var(--space-4) var(--space-10);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--void-3);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  line-height: normal;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ---- Bars ---------------------------------------------------------------- */
+
+.mana-curve-bars {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-24);
+  height: var(--curve-height);
+}
+
+.mana-curve-bare .mana-curve-bars {
+  gap: var(--space-12);
+}
+
+.mana-curve-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.mana-curve-bare .mana-curve-col {
+  gap: var(--space-6);
+}
+
+.mana-curve-count {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--text-md);
+  line-height: normal;
+  text-align: center;
+  color: var(--cream);
+}
+
+.mana-curve-bare .mana-curve-count {
+  font-size: var(--text-xs);
+}
+
+/* The track absorbs the remaining column height; the bar is anchored to its
+   floor and absolutely positioned so its percentage height always resolves
+   against a definite box, whatever the flex layout does above it. */
+.mana-curve-track {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mana-curve-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: max(var(--space-2), var(--bar-fill, 0%));
+  border-radius: var(--curve-bar-radius);
+  transform-origin: bottom center;
+  animation: barGrow var(--dur-slow) var(--ease) backwards;
+  animation-delay: calc(var(--bar-index, 0) * 60ms);
+}
+
+.mana-curve-bar-core {
+  background: var(--crimson);
+  box-shadow: var(--glow-crimson-sm);
+}
+
+.mana-curve-bar-shoulder {
+  background: var(--accent);
+}
+
+.mana-curve-bar-tail {
+  background: var(--accent-dim);
+}
+
+.mana-curve-bar-zero {
+  background: var(--line);
+  box-shadow: none;
+}
+
+.mana-curve-label {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  line-height: normal;
+  text-align: center;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mana-curve-bare .mana-curve-label {
+  font-size: var(--text-xs);
+}
+
+/* ---- Empty state --------------------------------------------------------- */
+
+.mana-curve-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--curve-height);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--faint);
+  text-align: center;
+}
+
+/* ---- Motion -------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .mana-curve-bar {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ---- Narrow viewports ---------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .mana-curve-panel {
+    padding: var(--space-20);
+  }
+
+  .mana-curve-bars,
+  .mana-curve-col {
+    gap: var(--space-8);
+  }
+
+  .mana-curve-count,
+  .mana-curve-label {
+    font-size: var(--text-xs);
+  }
+}

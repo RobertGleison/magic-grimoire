@@ -1,109 +1,165 @@
-'use client';
+import type { CSSProperties } from 'react';
 
-interface ArcaneSigilProps {
-  size?: number;
-  intensity?: number;
+import { MANA_COLORS } from '../ManaSymbol/ManaSymbol';
+import './ArcaneSigil.css';
+
+/* ==========================================================================
+   ArcaneSigil
+   --------------------------------------------------------------------------
+   Ported from `apps/web-app/app/components/ArcaneSigil/ArcaneSigil.tsx`, which
+   has no design counterpart in the Figma file. Four concentric rings turning at
+   different speeds and directions.
+
+   Two changes from the legacy version:
+     1. The innermost ring's five mana pips were `<image href="/assets/mana-*.png">`.
+        v2 ships no `/public/assets`, so they are drawn as token-coloured circles
+        with the colour's letter — no asset dependency, no broken images.
+     2. The rotations were inline `style={{ animation: ... }}`. They are CSS
+        classes here, per the project's convention that keyframes live in
+        globals.css and animations are applied by class.
+   ========================================================================== */
+
+const VIEW = 400;
+const C = VIEW / 2;
+
+/** Point on a circle of radius `r`, `i/n` of the way round, starting at 12 o'clock. */
+function polar(i: number, n: number, r: number, offset = -Math.PI / 2) {
+  const a = (i / n) * Math.PI * 2 + offset;
+  return { x: C + Math.cos(a) * r, y: C + Math.sin(a) * r };
 }
 
-export function ArcaneSigil({ size = 280, intensity = 1 }: ArcaneSigilProps) {
-  const s = size;
+function polygon(n: number, r: number, offset?: number): string {
+  return Array.from({ length: n }, (_, i) => {
+    const { x, y } = polar(i, n, r, offset);
+    return `${x},${y}`;
+  }).join(' ');
+}
+
+/** A five-pointed star drawn as one path by visiting every other vertex. */
+function pentagram(r: number): string {
+  return [0, 2, 4, 1, 3]
+    .map((i) => {
+      const { x, y } = polar(i, 5, r);
+      return `${x},${y}`;
+    })
+    .join(' ');
+}
+
+const RUNES = ['◈', '※', '⟡', '✦', '◈', '※', '⟡', '✦'];
+/** WUBRG — the colourless pip is dropped so five points land on the pentagram. */
+const PIP_COLORS = MANA_COLORS.filter((c) => c !== 'C');
+
+interface ArcaneSigilProps {
+  /** Rendered width and height in px. */
+  size?: number;
+  /** Multiplier on the outer glow. `0` removes it. */
+  intensity?: number;
+  /** Set when the sigil carries meaning rather than decorating. */
+  label?: string;
+  className?: string;
+}
+
+export function ArcaneSigil({ size = 280, intensity = 1, label = '', className = '' }: ArcaneSigilProps) {
   return (
     <svg
-      width={s}
-      height={s}
-      viewBox="0 0 400 400"
-      style={{ filter: `drop-shadow(0 0 ${20 * intensity}px rgba(var(--accent-glow), 0.4))` }}
-      aria-hidden="true"
+      className={`arcane-sigil ${className}`.trim()}
+      width={size}
+      height={size}
+      viewBox={`0 0 ${VIEW} ${VIEW}`}
+      style={{ '--sigil-glow-blur': `${20 * intensity}px` } as CSSProperties}
+      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >
       <defs>
-        <radialGradient id="sigilGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="rgba(var(--accent-glow), 0.25)" />
-          <stop offset="70%" stopColor="rgba(var(--accent-glow), 0.05)" />
-          <stop offset="100%" stopColor="rgba(var(--accent-glow), 0)" />
+        <radialGradient id="arcane-sigil-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
+          <stop offset="70%" stopColor="var(--accent)" stopOpacity="0.05" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="sigilStroke" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="arcane-sigil-stroke" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="var(--accent)" />
           <stop offset="100%" stopColor="var(--accent-dim)" />
         </linearGradient>
       </defs>
 
-      <circle cx="200" cy="200" r="180" fill="url(#sigilGrad)" />
+      <circle cx={C} cy={C} r={180} fill="url(#arcane-sigil-halo)" />
 
-      {/* Outer ring — 90s CW */}
-      <g style={{ transformOrigin: '200px 200px', animation: 'spinCW 90s linear infinite' }}>
-        <circle cx="200" cy="200" r="180" fill="none" stroke="url(#sigilStroke)" strokeWidth="1" opacity="0.7" />
-        <circle cx="200" cy="200" r="178" fill="none" stroke="url(#sigilStroke)" strokeWidth="0.5" opacity="0.4" />
-        {[...Array(12)].map((_, i) => {
-          const a = (i / 12) * Math.PI * 2;
+      {/* Ring 1 — 90s clockwise: double rim, 12 ticks, 8 runes */}
+      <g className="arcane-sigil-ring arcane-sigil-ring-1">
+        <circle
+          cx={C}
+          cy={C}
+          r={180}
+          fill="none"
+          stroke="url(#arcane-sigil-stroke)"
+          strokeWidth="1"
+          opacity="0.7"
+        />
+        <circle
+          cx={C}
+          cy={C}
+          r={178}
+          fill="none"
+          stroke="url(#arcane-sigil-stroke)"
+          strokeWidth="0.5"
+          opacity="0.4"
+        />
+        {Array.from({ length: 12 }, (_, i) => {
+          const inner = polar(i, 12, 170, 0);
+          const outer = polar(i, 12, 180, 0);
           return (
             <line
               key={i}
-              x1={200 + Math.cos(a) * 170}
-              y1={200 + Math.sin(a) * 170}
-              x2={200 + Math.cos(a) * 180}
-              y2={200 + Math.sin(a) * 180}
+              x1={inner.x}
+              y1={inner.y}
+              x2={outer.x}
+              y2={outer.y}
               stroke="var(--accent)"
               strokeWidth="1"
               opacity="0.6"
             />
           );
         })}
-        {['◈', '※', '⟡', '✦', '◈', '※', '⟡', '✦'].map((r, i) => {
-          const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+        {RUNES.map((rune, i) => {
+          const { x, y } = polar(i, RUNES.length, 160);
           return (
             <text
-              key={i}
-              x={200 + Math.cos(a) * 160}
-              y={200 + Math.sin(a) * 160}
-              fill="var(--accent)"
-              fontSize="12"
+              key={`${rune}-${i}`}
+              className="arcane-sigil-rune"
+              x={x}
+              y={y}
               textAnchor="middle"
               dominantBaseline="middle"
-              opacity="0.8"
-              style={{ fontFamily: 'var(--font-display)' }}
             >
-              {r}
+              {rune}
             </text>
           );
         })}
       </g>
 
-      {/* Second ring — 60s CCW */}
-      <g style={{ transformOrigin: '200px 200px', animation: 'spinCCW 60s linear infinite' }}>
-        <circle cx="200" cy="200" r="140" fill="none" stroke="var(--accent-mid)" strokeWidth="0.8" opacity="0.5" strokeDasharray="2 4" />
-        {[...Array(6)].map((_, i) => {
-          const a = (i / 6) * Math.PI * 2;
-          return (
-            <circle
-              key={i}
-              cx={200 + Math.cos(a) * 140}
-              cy={200 + Math.sin(a) * 140}
-              r="3"
-              fill="var(--accent)"
-              opacity="0.8"
-            />
-          );
+      {/* Ring 2 — 60s counter-clockwise: dashed rim with 6 nodes */}
+      <g className="arcane-sigil-ring arcane-sigil-ring-2">
+        <circle
+          cx={C}
+          cy={C}
+          r={140}
+          fill="none"
+          stroke="var(--accent-mid)"
+          strokeWidth="0.8"
+          strokeDasharray="2 4"
+          opacity="0.5"
+        />
+        {Array.from({ length: 6 }, (_, i) => {
+          const { x, y } = polar(i, 6, 140, 0);
+          return <circle key={i} cx={x} cy={y} r={3} fill="var(--accent)" opacity="0.8" />;
         })}
       </g>
 
-      {/* Third ring — 45s CW, hexagram */}
-      <g style={{ transformOrigin: '200px 200px', animation: 'spinCW 45s linear infinite' }}>
-        <circle cx="200" cy="200" r="110" fill="none" stroke="var(--accent)" strokeWidth="0.6" opacity="0.5" />
+      {/* Ring 3 — 45s clockwise: hexagram */}
+      <g className="arcane-sigil-ring arcane-sigil-ring-3">
+        <circle cx={C} cy={C} r={110} fill="none" stroke="var(--accent)" strokeWidth="0.6" opacity="0.5" />
+        <polygon points={polygon(6, 105)} fill="none" stroke="var(--accent)" strokeWidth="0.8" opacity="0.6" />
         <polygon
-          points={[...Array(6)].map((_, i) => {
-            const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
-            return `${200 + Math.cos(a) * 105},${200 + Math.sin(a) * 105}`;
-          }).join(' ')}
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="0.8"
-          opacity="0.6"
-        />
-        <polygon
-          points={[...Array(6)].map((_, i) => {
-            const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-            return `${200 + Math.cos(a) * 105},${200 + Math.sin(a) * 105}`;
-          }).join(' ')}
+          points={polygon(6, 105, Math.PI / 6)}
           fill="none"
           stroke="var(--accent)"
           strokeWidth="0.8"
@@ -111,45 +167,34 @@ export function ArcaneSigil({ size = 280, intensity = 1 }: ArcaneSigilProps) {
         />
       </g>
 
-      {/* Innermost — 110s CCW, pentagram */}
-      <g style={{ transformOrigin: '200px 200px', animation: 'spinCCW 110s linear infinite' }}>
-        <circle cx="200" cy="200" r="70" fill="none" stroke="var(--accent-mid)" strokeWidth="1" opacity="0.7" />
-        <polygon
-          points={[...Array(5)].map((_, i) => {
-            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-            return `${200 + Math.cos(a) * 65},${200 + Math.sin(a) * 65}`;
-          }).join(' ')}
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="1"
-          opacity="0.85"
-        />
-        <polygon
-          points={[0, 2, 4, 1, 3].map((i) => {
-            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-            return `${200 + Math.cos(a) * 65},${200 + Math.sin(a) * 65}`;
-          }).join(' ')}
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="0.8"
-          opacity="0.55"
-        />
-        {(['white', 'blue', 'black', 'red', 'green'] as const).map((color, i) => {
-          const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-          const cx = 200 + Math.cos(a) * 65;
-          const cy = 200 + Math.sin(a) * 65;
-          const sz = 28;
+      {/* Ring 4 — 110s counter-clockwise: pentagram with the five mana pips */}
+      <g className="arcane-sigil-ring arcane-sigil-ring-4">
+        <circle cx={C} cy={C} r={70} fill="none" stroke="var(--accent-mid)" strokeWidth="1" opacity="0.7" />
+        <polygon points={polygon(5, 65)} fill="none" stroke="var(--accent)" strokeWidth="1" opacity="0.85" />
+        <polygon points={pentagram(65)} fill="none" stroke="var(--accent)" strokeWidth="0.8" opacity="0.55" />
+        {PIP_COLORS.map((color, i) => {
+          const { x, y } = polar(i, PIP_COLORS.length, 65);
           return (
-            <image
-              key={color}
-              href={`/assets/mana-${color}.png`}
-              x={cx - sz / 2}
-              y={cy - sz / 2}
-              width={sz}
-              height={sz}
-              opacity="1"
-              style={{ animation: 'spinCW 110s linear infinite', transformBox: 'fill-box', transformOrigin: 'center' }}
-            />
+            /* Counter-rotated so each pip stays upright while the ring turns. */
+            <g key={color} className="arcane-sigil-pip">
+              <circle
+                cx={x}
+                cy={y}
+                r={12}
+                fill={`var(--mana-${color.toLowerCase()})`}
+                stroke="var(--accent)"
+                strokeWidth="1"
+              />
+              <text
+                className={`arcane-sigil-pip-glyph arcane-sigil-pip-glyph-${color.toLowerCase()}`}
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="central"
+              >
+                {color}
+              </text>
+            </g>
           );
         })}
       </g>

@@ -1,333 +1,1074 @@
-/* ── Root layout ── */
-.layout {
+/* ==========================================================================
+   /deck-builder — page-scoped styles
+   Figma: page `10:4`, workspace `10:22` (dark, canonical geometry).
+   Light counterpart `20:647` / `20:665` contributes COLOUR ONLY; every colour
+   below resolves through a token, so both themes come out of one rule set.
+
+   Raw hex -> token used throughout this file:
+     #131a16 --void-2      #1d2520 --void-3      #101613 --void-1
+     #6b5837 --line-strong #a68a56 --accent / --line-accent
+     rgba(166,138,86,.2)   --line
+     #a22c29 --crimson     #6b1d1a --crimson-soft  #111 --surface-strip
+     #d6d5c9 --cream       #b9baa3 --muted
+   Text on any crimson fill is --on-crimson, never --on-accent.
+   ========================================================================== */
+
+.workspace {
+  /* 1440 frame: 40 / 280 / 16 / 380 / 16 / 665 / 43. Left and right gutters
+     are levelled to --page-pad-app (40px); the design's 43 is a rounding. */
   display: grid;
-  height: calc(100vh - 76px);
+  grid-template-columns: 280px 380px minmax(0, 1fr);
+  gap: var(--space-16);
+  align-items: start;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-32) var(--page-pad-app);
 }
 
-/* Single radius token for every shared control on this page */
-.layout :global(.btn),
-.layout :global(.opt-btn) {
-  border-radius: var(--radius);
+/* Panel viewport height: 924 workspace - 2 x 32 padding = 852 in the design. */
+.configPanel,
+.chatPanel {
+  position: sticky;
+  top: var(--space-32);
+  max-height: calc(100vh - var(--header-h) - var(--space-64));
 }
 
-/* ── Left: Options column ── */
-.optionsCol {
-  position: relative;
-  border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--void-1) 0%, var(--void-0) 100%);
-  overflow-y: auto;
+/* ---------------------------------------------------------- shared shells */
+
+.configPanel,
+.chatPanel,
+.cardGridPanel,
+.analyticsPanel,
+.emptyPanel,
+.errorPanel,
+.progressPanel {
+  background: var(--void-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.configPanel {
   display: flex;
   flex-direction: column;
+  gap: var(--space-24);
+  padding: var(--space-20);
+  overflow-y: auto;
 }
 
-.optionsColCollapsed {
-  overflow: hidden;
-}
-
-/* Collapse / expand toggle — always at the same spot */
-.collapseBtn {
-  position: absolute;
-  top: 20px;
-  right: 10px;
-  background: transparent;
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  border-radius: var(--radius);
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1;
-  width: 24px;
-  height: 24px;
+.panelTitle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 5;
-  transition: all 0.2s ease;
+  gap: var(--space-8);
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 400;
+  color: var(--cream);
 }
 
-.collapseBtn:hover {
-  border-color: rgba(var(--accent-glow), 0.5);
+/* ==========================================================================
+   Config panel — node 10:82
+   ========================================================================== */
+
+.configGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.configLabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
   color: var(--accent);
 }
 
-/* ── Middle: Chat column ── */
-.chatCol {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+.configHint {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--faint);
 }
 
-/* ── Chat header ── */
-.header {
-  height: 64px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--line);
+/* ---- Mana pickers (10:86) — 40x40, 6px gutter --------------------------- */
+
+/* All six colours stay on one row. Six 40px pips at the design's 6px gap need
+   270, and the config column only offers 280 - 2 x 20 padding = 240 (less on a
+   platform whose scrollbar takes space), so a fixed size would wrap the lone
+   colourless pip onto a second line — reading as an afterthought rather than
+   the sixth member of the set.
+
+   Six equal fractions instead: the pips divide whatever the column gives them
+   and can never wrap, capped at the design's 40 so the row does not balloon
+   once the panel goes full-width on a narrow viewport. */
+.manaPickers {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.manaPicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--space-40);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--void-3);
+  transition: var(--transition);
+}
+
+.manaPicker:hover:not(:disabled) {
+  border-color: var(--line-accent);
+}
+
+.manaPicker:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The design's selected picker is a crimson ground with a gold hairline
+   (10:93); the pip inside keeps the colour identity the design has no
+   palette for. */
+.manaPickerOn {
+  background: var(--crimson);
+  border-color: var(--line-accent);
+  color: var(--on-crimson);
+  box-shadow: var(--glow-crimson-sm);
+}
+
+/* ---- Segmented format control (10:99) ----------------------------------- */
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--void-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+}
+
+.segment {
+  flex: 1 1 auto;
+  min-width: 64px;
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.segment:hover:not(:disabled) {
+  color: var(--cream);
+}
+
+.segment:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.segmentOn {
+  background: var(--crimson-soft);
+  border-color: var(--crimson);
+  font-weight: 700;
+  color: var(--cream);
+}
+
+/* ---- Card-count stepper (10:108) ---------------------------------------- */
+
+.stepper {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(180deg, var(--void-1), transparent);
-  z-index: 5;
-  gap: 12px;
-  flex-shrink: 0;
+  padding: var(--space-12);
+  background: var(--void-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
 }
 
-.headerLeft {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.headerSeal {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
-.headerMeta {
-  min-width: 0;
-}
-
-.headerTagline {
-  font-size: 0.52rem;
-  opacity: 0.5;
-}
-
-.headerTitle {
-  font-size: 0.92rem;
-  font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bindBtn {
+.stepperValue {
   font-family: var(--font-ui);
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 7px 12px;
-  border: 1px solid rgba(var(--accent-glow), 0.4);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--cream);
+}
+
+.stepperButtons {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.stepperButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  line-height: 1;
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.stepperButton:hover:not(:disabled) {
+  background: var(--void-1);
+  color: var(--cream);
+}
+
+.stepperButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---- Budget (10:113) ----------------------------------------------------
+   INVENTED CONTROL SURFACE: the design draws a static 4px track (10:118) with
+   no thumb. A native range input carries the keyboard and a11y behaviour the
+   drawing implies, so the track values are the design's and the thumb is new. */
+
+.budgetHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.budgetValue {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--cream);
+}
+
+.budgetSlider {
+  width: 100%;
+  height: var(--space-16);
+  accent-color: var(--accent);
   background: transparent;
-  color: var(--accent);
   cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.25s ease;
 }
 
-.bindBtn:hover {
-  background: rgba(var(--accent-glow), 0.08);
-  border-color: rgba(var(--accent-glow), 0.65);
+.budgetSlider:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-/* ── Deck wrapper (resize + fullscreen) ── */
-.deckWrapper {
-  position: relative;
-  overflow: hidden;
+.budgetScale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+
+/* ==========================================================================
+   Chat panel — node 10:23
+   ========================================================================== */
+
+.chatPanel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  gap: var(--space-20);
+  padding: var(--space-20);
+  overflow: hidden;
 }
 
-.deckFullscreen {
-  position: fixed;
-  top: 76px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  animation: panelIn 0.25s ease;
-}
-
-/* ── Deck toolbar (save + fullscreen toggle) ── */
-.deckToolbar {
-  position: absolute;
-  top: 0;
-  height: 64px;
-  right: 14px;
-  z-index: 20;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.deckToolbarBtn {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  background: rgba(8, 6, 10, 0.85);
-  border: 1px solid rgba(var(--accent-glow), 0.3);
-  border-radius: var(--radius);
+.chatSparkle {
+  width: var(--space-16);
+  height: var(--space-16);
   color: var(--accent);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
 }
 
-.deckToolbarBtn:hover {
-  background: rgba(var(--accent-glow), 0.1);
-  border-color: rgba(var(--accent-glow), 0.55);
-}
-
-.resizeHandle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 5px;
-  cursor: col-resize;
-  z-index: 10;
-  transition: background 0.15s ease;
-}
-
-.resizeHandle:hover,
-.resizeHandle:active {
-  background: rgba(var(--accent-glow), 0.18);
-}
-
-/* ── Messages area ── */
 .messages {
-  flex: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-10);
+  min-height: 120px;
   overflow-y: auto;
-  padding: 24px 20px 160px;
-  position: relative;
+  overscroll-behavior: contain;
 }
 
-.sigilBg {
-  position: absolute;
-  right: -180px;
-  bottom: -180px;
-  opacity: 0.05;
-  pointer-events: none;
-  z-index: 0;
-}
+/* ---- Bubbles (10:29 user / 10:36 oracle) -------------------------------- */
 
-.messagesInner {
-  max-width: 600px;
-  margin: 0 auto;
-  position: relative;
-  z-index: 1;
-}
-
-/* ── Loading bubble ── */
-.loadingMsg {
+.bubble {
   display: flex;
-  margin-bottom: 22px;
-  animation: messageIn 0.45s ease;
-}
-
-.loadingInner {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.loadingSeal {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  animation: sealPulse 2s ease-in-out infinite;
-}
-
-.loadingLabel {
-  font-size: 0.52rem;
-  opacity: 0.5;
-  margin-bottom: 4px;
-}
-
-.loadingBox {
-  background: linear-gradient(135deg, rgba(28, 22, 40, 0.6), rgba(14, 11, 20, 0.8));
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(var(--accent-glow), 0.25);
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12);
   border-radius: var(--radius);
-  padding: 12px 18px;
+  animation: messageIn var(--dur) var(--ease) both;
+}
+
+.bubbleUser {
+  background: var(--void-3);
+  border: 1px solid var(--line);
+}
+
+.bubbleOracle {
+  background: var(--void-2);
+  border-left: 3px solid var(--crimson);
+}
+
+.bubbleError {
+  background: var(--crimson-soft);
+  border-left-color: var(--crimson);
+}
+
+.bubbleHead {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-width: 260px;
+  justify-content: space-between;
+  gap: var(--space-8);
 }
 
-.dots {
-  display: flex;
-  gap: 4px;
-}
-
-.dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  display: inline-block;
-  animation: dotPulse 1.4s ease-in-out infinite;
-}
-
-.loadingText {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.95rem;
+.bubbleAuthor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
   color: var(--cream);
-  opacity: 0.9;
 }
 
-.progress {
-  display: flex;
-  gap: 3px;
-  margin-top: 8px;
-}
-
-.progressSeg {
-  flex: 1;
-  height: 1px;
-  transition: background 0.4s ease;
-}
-
-/* ── Save nudge ── */
-.saveNudge {
-  position: absolute;
-  bottom: 170px;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  display: flex;
-  justify-content: center;
-  padding: 0 20px;
-  animation: messageIn 0.4s ease;
-}
-
-.saveNudgeBox {
-  max-width: 520px;
-  width: 100%;
-  background: linear-gradient(135deg, rgba(28, 22, 40, 0.97), rgba(14, 11, 20, 0.99));
-  border: 1px solid rgba(var(--accent-glow), 0.45);
+.bubbleDot {
+  width: var(--space-16);
+  height: var(--space-16);
   border-radius: var(--radius);
-  box-shadow: 0 0 40px rgba(var(--accent-glow), 0.12);
-  padding: 14px 18px;
+  background: var(--crimson);
+}
+
+.bubbleUser .bubbleDot {
+  background: var(--accent);
+}
+
+.bubbleTime {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.bubbleBody {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--cream);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Controls (10:71) ---------------------------------------------------- */
+
+.chatControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  flex-shrink: 0;
+}
+
+.chatInputBox {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  background: var(--void-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.chatInputBox:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--glow-accent);
+}
+
+.chatInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--cream);
+}
+
+.chatInput:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.chatSendIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: var(--space-14);
+  height: var(--space-14);
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.chatSendIcon:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.chatSendIcon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chatActions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.buttonSparkle {
+  width: var(--space-12);
+  height: var(--space-12);
+  color: currentColor;
+}
+
+.chatFootnote {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--faint);
+}
+
+/* ==========================================================================
+   Results column
+   ========================================================================== */
+
+.resultsColumn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.deckStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+/* ---- Deck header (10:135) — the one gold-bordered panel ------------------ */
+
+.deckHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-20);
+  background: var(--void-2);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-lg);
+}
+
+.deckHeadRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
   flex-wrap: wrap;
 }
 
-.saveNudgeText {
-  flex: 1;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.95rem;
-  color: var(--cream);
-  opacity: 0.9;
-}
-
-.saveNudgeActions {
+.deckTitleBlock {
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
-/* ── Input area ── */
+.deckTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-6xl);
+  font-weight: 400;
+  color: var(--cream);
+}
+
+.deckSubtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.deckActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+/* Nodes 10:76 and 16:182 are a --void-3 ground with a gold hairline, which is
+   between `subtle` and `outline` in the Button primitive. Doubling the class
+   keeps this override above `.btn-subtle` regardless of stylesheet order. */
+.goldButton.goldButton {
+  background: var(--void-3);
+  border-color: var(--line-accent);
+  color: var(--cream);
+}
+
+.goldButton.goldButton:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--accent-deep);
+  box-shadow: var(--glow-accent);
+}
+
+/* ---- View toggle (16:188) ----------------------------------------------- */
+
+.viewToggle {
+  display: inline-flex;
+  overflow: hidden;
+  height: var(--space-32);
+  background: var(--void-3);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-sm);
+}
+
+.viewButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-32);
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.viewButton svg {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.viewButton:hover {
+  color: var(--cream);
+}
+
+.viewButtonOn {
+  background: var(--crimson-soft);
+  color: var(--on-crimson);
+}
+
+.actionNote {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  min-height: 1em;
+}
+
+/* ---- Card grid (16:4) ---------------------------------------------------- */
+
+.cardGridPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+}
+
+.deckSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+}
+
+.sectionRule {
+  flex-shrink: 0;
+  width: 3px;
+  height: var(--space-12);
+  border-radius: var(--radius-2xs);
+}
+
+/* Category fills, straight off node 16:7. Fills, so the base --type-* tokens
+   are correct here; the -fg variants exist for text and are not used. */
+.ruleCreature {
+  background: var(--type-creature);
+}
+
+.ruleSpell {
+  background: var(--type-spell);
+}
+
+.ruleLand {
+  background: var(--type-land);
+}
+
+.sectionLabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.sectionHairline {
+  flex: 1 1 auto;
+  height: 1px;
+  border-radius: var(--radius-xs);
+  background: var(--line);
+}
+
+.cardRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cardListRow {
+  display: grid;
+  grid-template-columns: var(--space-32) minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-sm);
+  background: var(--void-3);
+}
+
+.cardListQty {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cardListName {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--cream);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardListType {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Analytics (10:218) -------------------------------------------------- */
+
+.analyticsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  padding: var(--space-20);
+}
+
+.analyticsTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  color: var(--cream);
+}
+
+.analyticsCharts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-24);
+}
+
+.analyticsChart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  min-width: 0;
+}
+
+.analyticsEmpty {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--muted);
+}
+
+.ringRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+}
+
+.ring {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  /* -90deg so the first slice starts at 12 o'clock, as the design's ring does. */
+  transform: rotate(-90deg);
+}
+
+.ringArc {
+  transition: stroke-dasharray var(--dur-slow) var(--ease);
+}
+
+.ringLegend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ringLegendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--cream);
+}
+
+.ringSwatch {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-xs);
+}
+
+/* ---- Stat tiles (10:266) ------------------------------------------------- */
+
+.statTiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-12);
+  margin: 0;
+}
+
+.statTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-10);
+  background: var(--void-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.statLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.statValue {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  color: var(--cream);
+}
+
+/* ---- Forecast strip (10:279) — repurposed to the deck's real prompt ------ */
+
+.forecast {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  background: var(--void-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.forecastLabel {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.forecastValue {
+  flex: 1 1 240px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--cream);
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   Generation progress — the six TaskProgress values of app/decks/pipeline.py
+   INVENTED: the Figma file has no loading state for this screen.
+   ========================================================================== */
+
+.progressPanel,
+.emptyPanel,
+.errorPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-20);
+}
+
+.progressHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.progressTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-10);
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  color: var(--cream);
+}
+
+.progressTrack {
+  width: 100%;
+  height: var(--space-4);
+  border-radius: var(--radius-2xs);
+  background: var(--line-strong);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-2xs);
+  background: var(--crimson);
+  box-shadow: var(--glow-crimson-sm);
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.stageList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.stage {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--void-3);
+}
+
+.stageMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--space-20);
+  height: var(--space-20);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.stageText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.stageTitle {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.stageDetail {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.stage_todo {
+  opacity: 0.55;
+}
+
+.stage_active {
+  border-color: var(--crimson);
+  background: var(--crimson-soft);
+}
+
+.stage_active .stageMark {
+  background: var(--crimson);
+  border-color: var(--line-accent);
+  color: var(--on-crimson);
+  animation: emberPulse 1.6s var(--ease) infinite;
+}
+
+.stage_done .stageMark {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.progressLive {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Empty + error states — INVENTED (no Figma source)
+   ========================================================================== */
+
+.emptyPanel {
+  align-items: flex-start;
+  min-height: 240px;
+  justify-content: center;
+}
+
+.emptyTitle,
+.errorTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 400;
+  color: var(--cream);
+}
+
+.emptyBody,
+.errorBody {
+  max-width: 60ch;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--muted);
+}
+
+.errorPanel {
+  border-color: var(--crimson);
+}
+
+.errorActions {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   Responsive — 1200 / 1024 / 640 are INVENTED. The Figma file is 1440 only,
+   so the collapse below it has no design source (Wave 5 parity: do not flag).
+   ========================================================================== */
+
+@media (max-width: 1200px) {
+  /* Two rows: config + chat share the top, results take the full width. */
+  .workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .resultsColumn {
+    grid-column: 1 / -1;
+  }
+
+  .configPanel,
+  .chatPanel {
+    position: static;
+    height: 560px;
+    max-height: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-24) var(--space-24);
+  }
+
+  .configPanel,
+  .chatPanel {
+    height: auto;
+    max-height: none;
+  }
+
+  .messages {
+    max-height: 420px;
+  }
+
+  .analyticsCharts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .statTiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace {
+    gap: var(--space-12);
+    padding: var(--space-16) var(--space-16);
+  }
+
+  .configPanel,
+  .chatPanel,
+  .cardGridPanel,
+  .analyticsPanel,
+  .emptyPanel,
+  .errorPanel,
+  .progressPanel,
+  .deckHeader {
+    padding: var(--space-16);
+  }
+
+  .deckTitle {
+    font-size: var(--text-4xl);
+  }
+
+  .chatActions {
+    flex-direction: column;
+  }
+
+  .statTiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cardListRow {
+    grid-template-columns: var(--space-24) minmax(0, 1fr) auto;
+  }
+
+  .cardListType {
+    display: none;
+  }
+
+  .forecast {
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+}

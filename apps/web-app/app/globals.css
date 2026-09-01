@@ -1,67 +1,125 @@
-/* Magic Grimoire — v4 styles */
+/* ==========================================================================
+   Magic Grimoire — web-app design tokens
+   Derived from Figma file pgLzux7WT7F98ZEwDpw8lh (no Figma variables exist;
+   every value below was harvested as raw hex/px from the design and mapped
+   onto the token vocabulary inherited from apps/web-app/app/globals.css).
 
-@keyframes spinCW { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes spinCCW { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
-@keyframes pulse {
-  0%, 100% { opacity: 0.9; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 8px var(--accent)); }
-}
-@keyframes sealPulse {
-  0%, 100% { box-shadow: 0 0 24px rgba(var(--accent-glow), 0.15), inset 0 0 16px rgba(var(--accent-glow), 0.12); }
-  50% { box-shadow: 0 0 36px rgba(var(--accent-glow), 0.4), inset 0 0 20px rgba(var(--accent-glow), 0.25); }
-}
-@keyframes dotPulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 10px var(--accent); }
-}
-@keyframes messageIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes panelIn {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes hoverIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes fadeBreath {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.9; }
-}
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@keyframes marquee-reverse {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
-}
-@keyframes toastIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+   Raw-hex → token mapping table: docs/tokens.md
+
+   --------------------------------------------------------------------------
+   FONTS — Wave 2a (app/layout.tsx) MUST load these with `next/font/google`
+   --------------------------------------------------------------------------
+   The design uses exactly two families. Load them like this and nothing here
+   needs to change (the var() fallbacks below keep the page readable if the
+   wiring is missing):
+
+     import { DM_Sans, DM_Serif_Text } from 'next/font/google';
+
+     const dmSans = DM_Sans({
+       subsets: ['latin'],
+       axes: ['opsz'],                        // NOT weight: the two are mutually
+                                         // exclusive in next/font/google, and
+                                         // without opsz the font-variation-settings
+                                         // 'opsz' 14 set on body below is a no-op.
+                                         // The variable wght axis already covers
+                                         // 400/500/600/700. See app/layout.tsx.
+       variable: '--font-dm-sans',
+       display: 'swap',
+     });
+
+     const dmSerifText = DM_Serif_Text({
+       subsets: ['latin'],
+       weight: ['400'],                       // only weight the family ships
+       variable: '--font-dm-serif-text',
+       display: 'swap',
+     });
+
+   …then put `${dmSans.variable} ${dmSerifText.variable}` on <html>.
+
+   Required families + weights:
+     • DM Serif Text — 400            → --font-display  (all headings, wordmark,
+                                         stat numbers, prices, mana pips)
+     • DM Sans      — 400, 600, 700   → --font-ui / --font-body
+                                         (500 is not used by the design; it is
+                                          listed above only so a Medium weight
+                                          exists if a primitive needs one)
+   Not in the design, kept for code/monospace surfaces only — load ONLY if a
+   screen actually needs it:
+     • JetBrains Mono — 400, 500      → --font-mono
+
+   Note: every DM Sans text node in the design carries
+   `font-variation-settings: "opsz" 14`. That is applied globally on `body`
+   below, so components must not repeat it.
+
+   --------------------------------------------------------------------------
+   THEMING CONTRACT
+   --------------------------------------------------------------------------
+   :root                                   = DARK  (the design's primary)
+   :root[data-theme="light"]               = LIGHT (explicit choice)
+   @media (prefers-color-scheme: light)
+     :root:not([data-theme="dark"])        = LIGHT (system preference, before
+                                             any explicit choice is stored)
+
+   Every theme-varying value is declared in ALL THREE blocks. Never add a
+   colour whose only definition lives inside the media query.
+   ========================================================================== */
+
+/* ==========================================================================
+   1. DARK THEME (default)
+   ========================================================================== */
 
 :root {
-  /* Voids */
-  --void-0: #08060a;
-  --void-1: #0e0b14;
-  --void-2: #151020;
-  --void-3: #1c1628;
+  color-scheme: dark;
 
-  /* Gold (primary accent) */
-  --gold-bright: #e8c76a;
-  --gold: #c9a84c;
-  --gold-dim: #8a6f2e;
-  --gold-deep: #5a4820;
+  /* ---- Surfaces -----------------------------------------------------------
+     void-0  page ground
+     void-1  recessed  (text inputs, search boxes)
+     void-2  panel / card surface
+     void-3  inset surface inside a panel (chips, tiles, segmented, rows)     */
+  --void-0: #0a100d;
+  --void-1: #101613;
+  --void-2: #131a16;
+  --void-3: #1d2520;
 
-  /* Text */
-  --cream: #f0e4c8;
-  --muted: #7a6b54;
-  --faint: #483d2e;
+  /* ---- Gold accent (ornament, labels, hairlines, secondary actions) ------ */
+  --accent: #a68a56;
+  --accent-mid: #8b7a40;
+  --accent-dim: #6b5837;
+  --accent-soft: #1a1008; /* gold-tinted card ground (mini card renders) */
+  --accent-deep: #2c1810; /* gold-tinted badge ground on those cards */
+  /* RGB TUPLES — required so alpha stays composable: rgba(var(--x), 0.2) */
+  --accent-glow: 166, 138, 86;
+  --accent-dim-glow: 107, 88, 55;
 
-  /* Mana */
+  /* ---- Crimson (primary action, live badges, category "creatures") ------- */
+  --crimson: #a22c29;
+  --crimson-soft: #6b1d1a; /* tinted crimson surface behind crimson text */
+  --crimson-glow: 144, 41, 35; /* the tuple the design's red glows use */
+
+  /* ---- Text -------------------------------------------------------------- */
+  --cream: #d6d5c9; /* primary text + headings */
+  --muted: #b9baa3; /* secondary / body text */
+  --faint: #7b8380; /* tertiary: timestamps, legal, placeholders */
+  --on-accent: #0a100d; /* text on an --accent (GOLD) fill only — never on --crimson, use --on-crimson */
+  /* Text on a --crimson fill. NOT --on-accent: #0a100d on #a22c29 is
+     2.68:1, failing even WCAG AA-large. This is the design's own value,
+     4.86:1 AA. Primary buttons MUST use --on-crimson. */
+  --on-crimson: #d6d5c9;
+  --legal-fg: #b9baa3; /* footer legal strip (node 3:359) */
+
+  /* ---- Lines ------------------------------------------------------------- */
+  --line: rgba(var(--accent-glow), 0.2); /* default hairline / border */
+  --line-strong: #6b5837; /* card + section borders */
+  --line-accent: #a68a56; /* emphasised (featured) border */
+
+  /* ---- Elevation --------------------------------------------------------- */
+  --shadow-1: 0 6px 6px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 12px 12px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 12px 24px rgba(0, 0, 0, 0.67);
+  --shadow-4: 0 8px 24px rgba(0, 0, 0, 0.8);
+  --scrim: rgba(0, 0, 0, 0.75); /* modal / overlay backdrop */
+
+  /* ---- MTG mana (the design defines no mana palette — legacy values kept)  */
   --mana-w: #f0ead8;
   --mana-u: #1460a8;
   --mana-b: #150c05;
@@ -69,212 +127,621 @@
   --mana-g: #0f6030;
   --mana-c: #a89888;
 
-  /* Accent theme (tweakable via data-accent) */
-  --accent: var(--gold-bright);
-  --accent-mid: var(--gold);
-  --accent-dim: var(--gold-dim);
-  --accent-deep: var(--gold-deep);
-  --accent-glow: 232, 199, 106;
+  /* ---- Deck category accents (card-grid rules, mana-curve bars) ---------- */
+  --type-creature: #a22c29;
+  --type-spell: #a68a56;
+  --type-land: #4a6741;
+  /* Category colours above are FILL values straight from the design. As TEXT on
+     a dark surface, creature (2.68:1) and land (2.47:1) both fail WCAG AA.
+     Use the -fg variants for text, the base tokens for fills. */
+  --type-creature-fg: #d97b76; /* 5.27:1 worst-case (on --void-3) */
+  /* Crimson as TEXT. Same values as --type-creature-fg but named for the role;
+     the design's #a22c29 is ~2.2:1 on --void-2 in dark, an outright AA failure. */
+  --crimson-fg: #d97b76;
+  --surface-subtle: #131a16; /* subtle/social button ground - design uses the CARD ground in dark */
+  --shadow-auth: 0 16px 16px rgba(0, 0, 0, 0.67); /* auth card 16:367 - matches no other rung */
+  --border-thick: 1.5px; /* deck card 1.5px accent frame (9:53) */
+  --shadow-card: 0 8px 8px rgba(0, 0, 0, 0.4); /* 9:53 */
+  --type-spell-fg: #a68a56;    /* base already passes at 4.78:1 */
+  --type-land-fg: #6f9a5f;     /* 4.83:1 worst-case */
+  --surface-strip: #111111;    /* design's tile strip ground */
 
-  /* Structure */
-  --radius: 8px;
-  --line: rgba(var(--accent-glow), 0.12);
+  /* ======================================================================
+     Theme-invariant tokens below this line — declared once, never overridden
+     ====================================================================== */
 
-  /* Fonts */
-  --font-display: 'Cinzel Decorative', 'Cinzel', serif;
-  --font-ui: 'Cinzel', serif;
-  --font-body: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* ---- Glows (crimson + gold are the same in both themes) --------------- */
+  --glow-crimson-sm: 0 0 8px rgba(var(--crimson-glow), 0.27);
+  --glow-crimson-lg: 0 0 48px rgba(var(--crimson-glow), 0.13);
+  --glow-accent: 0 0 8px 2px rgba(var(--accent-glow), 0.4);
+
+  /* ---- Fonts ------------------------------------------------------------- */
+  --font-display: var(--font-dm-serif-text, 'DM Serif Text'), Georgia, 'Times New Roman', serif;
+  --font-ui: var(--font-dm-sans, 'DM Sans'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: var(--font-dm-sans, 'DM Sans'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono'), ui-monospace, SFMono-Regular, monospace;
+
+  /* ---- Type scale (px values taken verbatim from the design) ------------- */
+  /* micro sizes exist only inside the deck-builder's miniature card renders */
+  --text-pico: 5px;
+  --text-nano: 6px;
+  --text-micro: 7px;
+  --text-3xs: 8px;
+  --text-2xs: 9px;
+  --text-xs: 10px; /* badges, timestamps, curve labels */
+  --text-sm: 11px; /* uppercase labels, chips, pill text */
+  --text-md: 12px; /* eyebrows, button text, small caps */
+  --text-base: 13px; /* body small, card copy, chat text */
+  --text-lg: 14px; /* body, nav links, primary button */
+  --text-xl: 15px; /* footer column headings */
+  --text-2xl: 16px; /* lead paragraphs, panel titles */
+  --text-3xl: 18px; /* hero lead, panel headings */
+  --text-4xl: 20px; /* card headings, wordmark (footer) */
+  --text-5xl: 22px; /* wordmark (header) */
+  --text-6xl: 24px; /* deck title */
+  --text-7xl: 28px; /* pricing tier name */
+  --text-8xl: 38px;
+  --text-9xl: 40px; /* stat numbers */
+  --text-10xl: 44px; /* section headings, prices */
+  --text-11xl: 48px;
+  --text-hero: 56px; /* hero headline */
+
+  /* ---- Line heights ----------------------------------------------------- */
+  --leading-tight: 1.05; /* hero headline */
+  --leading-snug: 1.15; /* section headings */
+  --leading-normal: 1.3; /* dense mini-card copy */
+  --leading-body: 1.4; /* chat bubbles */
+  --leading-relaxed: 1.5; /* card + footer copy */
+  --leading-loose: 1.6; /* lead paragraphs */
+
+  /* ---- Letter spacing ---------------------------------------------------
+     ASSUMPTION: Figma reports no letterSpacing anywhere, but every uppercase
+     micro-label in the design is visually tracked out. These two values are
+     an addition, not a harvested measurement.                               */
+  --tracking-normal: 0;
+  --tracking-label: 0.04em;
+  --tracking-wide: 0.08em;
+
+  /* ---- Spacing scale (named by px so it can never be misread) ----------- */
+  --space-2: 2px;
+  --space-3: 3px;  /* card-tile head bottom padding */
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-5: 5px;  /* card-tile strips (16:39, 16:44, 16:46) */
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-14: 14px; /* full-width card CTA vertical padding (3:215, 3:242, 16:390) */
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px; /* header book icon (node 3:408) */
+  --space-32: 32px;
+  --space-36: 36px; /* avatar (node 9:22) */
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-60: 60px; /* FAQ section top padding (16:323) */
+  --space-80: 80px;
+  --space-100: 100px;
+  --space-120: 120px;
+  --space-180: 180px;
+
+  /* ---- Radii ------------------------------------------------------------- */
+  --radius-xs: 1px;
+  --radius-2xs: 2px;
+  --radius-sm: 4px; /* buttons, tags */
+  --radius-md: 6px; /* inputs, segmented, mini cards, tiles */
+  --radius: 8px; /* default: chat bubbles, zoom previews */
+  --radius-lg: 17px; /* panels, feature cards, MTG card frames */
+  --radius-14: 14px; /* deck summary card frame (9:53) */
+  --radius-xl: 16px; /* pricing cards */
+  --radius-pill: 20px; /* pills, mana pickers */
+  --radius-full: 999px;
+
+  /* ---- Layout ------------------------------------------------------------ */
+  --page-max: 1440px;
+  --page-pad: var(--space-80); /* landing / marketing gutters */
+  --page-pad-app: var(--space-40); /* deck-builder / dashboard gutters */
+  --header-h: 100px;
+
+  /* ---- Motion ------------------------------------------------------------ */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 0.15s;
+  --dur: 0.25s;
+  --dur-slow: 0.4s;
+  --dur-stagger: 60ms; /* per-item delay, e.g. ManaCurve bar growth */
+  --transition: all var(--dur) ease;
 }
 
-* { box-sizing: border-box; }
-html, body {
+/* ==========================================================================
+   2. LIGHT THEME — explicit choice
+   ========================================================================== */
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* Surfaces */
+  --void-0: rgb(253, 252, 250);
+  --void-1: #f2f4f1;
+  --void-2: #ffffff;
+  --void-3: #f2f4f1;
+
+  /* Gold accent */
+  --accent: #7a6a38; /* NOT the design's #a68a56: that is 2.97-3.29:1 on light surfaces, below AA-large. 4.81:1. Dark keeps #a68a56. */
+  --accent-mid: #8b7a40;
+  --accent-dim: #e1e4e1;
+  --accent-soft: #f2f4f1;
+  --accent-deep: #e1e4e1;
+  --accent-glow: 166, 138, 86;
+  --accent-dim-glow: 225, 228, 225;
+
+  /* Crimson */
+  --crimson: #a22c29;
+  --crimson-soft: #fbebeb;
+  --crimson-glow: 144, 41, 35;
+
+  /* Text */
+  --cream: #151816;
+  --muted: #525955;
+  --faint: #7b8380;
+  --on-accent: #ffffff;
+  --on-crimson: #ffffff; /* 7.17:1 AAA on --crimson */
+  --legal-fg: #7b8380; /* node 20:397 */
+
+  /* Lines */
+  --line: #e1e4e1;
+  --line-strong: #e1e4e1;
+  --line-accent: #a68a56;
+
+  /* Elevation */
+  --shadow-1: 0 6px 6px rgba(10, 16, 13, 0.04);
+  --shadow-2: 0 12px 12px rgba(10, 16, 13, 0.06);
+  --shadow-3: 0 12px 24px rgba(10, 16, 13, 0.06);
+  --shadow-4: 0 8px 24px rgba(10, 16, 13, 0.08);
+  --scrim: rgba(255, 255, 255, 0.9);
+
+  /* MTG mana — unchanged (mana identity is not theme dependent) */
+  --mana-w: #f0ead8;
+  --mana-u: #1460a8;
+  --mana-b: #150c05;
+  --mana-r: #c81808;
+  --mana-g: #0f6030;
+  --mana-c: #a89888;
+
+  /* Deck category accents */
+  --type-creature: #a22c29;
+  --type-spell: #a68a56;
+  --type-land: #4a6741;
+  --surface-strip: #eceeec;
+  --type-creature-fg: #a22c29; /* 6.48:1 on light */
+  --crimson-fg: #a22c29; /* AA-safe crimson TEXT on light (6.48:1) */
+  --surface-subtle: #f2f4f1; /* design uses the INSET ground here in light */
+  --shadow-auth: 0 16px 16px rgba(10, 16, 13, 0.06);
+  --border-thick: 1.5px;
+  --shadow-card: 0 8px 8px rgba(10, 16, 13, 0.06);
+  --type-spell-fg: #7a6a38;   /* base gold is 2.97:1 on light — too low for text */
+  --type-land-fg: #4a6741;    /* 5.74:1 on light */
+}
+
+/* ==========================================================================
+   3. LIGHT THEME — system preference, before any explicit choice
+   (identical payload to block 2; kept verbatim so the two never drift)
+   ========================================================================== */
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+
+    /* Surfaces */
+    --void-0: #faf9f6;
+    --void-1: #f2f4f1;
+    --void-2: #ffffff;
+    --void-3: #f2f4f1;
+
+    /* Gold accent */
+    --accent: #7a6a38; /* NOT the design's #a68a56: that is 2.97-3.29:1 on light surfaces, below AA-large. 4.81:1. Dark keeps #a68a56. */
+    --accent-mid: #8b7a40;
+    --accent-dim: #e1e4e1;
+    --accent-soft: #f2f4f1;
+    --accent-deep: #e1e4e1;
+    --accent-glow: 166, 138, 86;
+    --accent-dim-glow: 225, 228, 225;
+
+    /* Crimson */
+    --crimson: #a22c29;
+    --crimson-soft: #fbebeb;
+    --crimson-glow: 144, 41, 35;
+
+    /* Text */
+    --cream: #151816;
+    --muted: #525955;
+    --faint: #7b8380;
+    --on-accent: #ffffff;
+    --on-crimson: #ffffff;
+    --legal-fg: #7b8380;
+
+    /* Lines */
+    --line: #e1e4e1;
+    --line-strong: #e1e4e1;
+    --line-accent: #a68a56;
+
+    /* Elevation */
+    --shadow-1: 0 6px 6px rgba(10, 16, 13, 0.04);
+    --shadow-2: 0 12px 12px rgba(10, 16, 13, 0.06);
+    --shadow-3: 0 12px 24px rgba(10, 16, 13, 0.06);
+    --shadow-4: 0 8px 24px rgba(10, 16, 13, 0.08);
+    --scrim: rgba(255, 255, 255, 0.9);
+
+    /* MTG mana — unchanged */
+    --mana-w: #f0ead8;
+    --mana-u: #1460a8;
+    --mana-b: #150c05;
+    --mana-r: #c81808;
+    --mana-g: #0f6030;
+    --mana-c: #a89888;
+
+    /* Deck category accents */
+    --type-creature: #a22c29;
+    --type-spell: #a68a56;
+    --type-land: #4a6741;
+    --surface-strip: #eceeec;
+    --type-creature-fg: #a22c29;
+    --crimson-fg: #a22c29;
+    --surface-subtle: #f2f4f1;
+    --shadow-auth: 0 16px 16px rgba(10, 16, 13, 0.06);
+    --border-thick: 1.5px;
+    --shadow-card: 0 8px 8px rgba(10, 16, 13, 0.06);
+    --type-spell-fg: #7a6a38;
+    --type-land-fg: #4a6741;
+  }
+}
+
+/* ==========================================================================
+   4. BASE ELEMENT RESETS
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
-  background: var(--void-0);
-  color: var(--cream);
-  font-family: var(--font-body);
-  font-size: 18px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
+  max-width: 100%;
   overflow-x: hidden;
 }
 
-/* Parchment noise + vignette overlay */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(var(--accent-glow), 0.06), transparent 60%),
-    radial-gradient(ellipse at 50% 100%, rgba(139, 26, 47, 0.04), transparent 55%);
-}
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.58 0 0 0 0 0.48 0 0 0 0 0.28 0 0 0 0.25 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>");
-  opacity: 0.12;
-  mix-blend-mode: overlay;
+body {
+  background: var(--void-0);
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  line-height: var(--leading-relaxed);
+  font-variation-settings: 'opsz' 14;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Headings */
-.h-display {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 400;
+  line-height: var(--leading-snug);
   color: var(--cream);
 }
-.h-ui {
-  font-family: var(--font-ui);
-  letter-spacing: 0.2em;
-  color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 500;
+
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0;
+}
+
+/* Focus ring — one definition, every interactive element inherits it */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: rgba(var(--crimson-glow), 0.35);
+  color: var(--cream);
+}
+
+::placeholder {
+  color: var(--faint);
+  opacity: 1;
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--void-1); }
-::-webkit-scrollbar-thumb { background: var(--accent-deep); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
-
-/* Shared */
-.glow-gold {
-  box-shadow:
-    0 0 0 1px rgba(var(--accent-glow), 0.2),
-    0 0 20px rgba(var(--accent-glow), 0.12),
-    inset 0 0 20px rgba(var(--accent-glow), 0.04);
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-.hairline { border-top: 1px solid rgba(var(--accent-glow), 0.15); }
-
-.ornament {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: var(--accent-mid);
+::-webkit-scrollbar-track {
+  background: var(--void-1);
 }
-.ornament::before, .ornament::after {
-  content: '';
+::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Screen-reader-only helper */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
   height: 1px;
-  flex: 1;
-  background: linear-gradient(to right, transparent, rgba(var(--accent-glow), 0.4), transparent);
-}
-
-
-/* Buttons */
-.btn {
-  font-family: var(--font-ui);
-  letter-spacing: 0.18em;
-  font-size: 0.78rem;
-  padding: 14px 28px;
-  border: 1px solid rgba(var(--accent-glow), 0.35);
-  background: linear-gradient(180deg, rgba(var(--accent-glow), 0.08), rgba(var(--accent-glow), 0.02));
-  color: var(--accent);
-  cursor: pointer;
-  transition: all 0.25s ease;
-  position: relative;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-}
-.btn:hover {
-  border-color: rgba(var(--accent-glow), 0.7);
-  color: var(--accent);
-  box-shadow: 0 0 24px rgba(var(--accent-glow), 0.25), inset 0 0 24px rgba(var(--accent-glow), 0.08);
-  transform: translateY(-1px);
-}
-.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-.btn-primary {
-  background: linear-gradient(180deg, rgba(var(--accent-glow), 0.2), rgba(var(--accent-glow), 0.05));
-  border-color: rgba(var(--accent-glow), 0.55);
-  color: var(--cream);
-}
-.btn-primary:hover {
-  background: linear-gradient(180deg, rgba(var(--accent-glow), 0.3), rgba(var(--accent-glow), 0.1));
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* Main layout with spine (nav styles live in components/NavBar/NavBar.css) */
-.shell {
-  margin-top: 76px;
-  position: relative;
-  z-index: 3;
-}
-/* Mana pip */
-.mana {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: 10px;
-  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.15), 0 0 0 1px rgba(0,0,0,0.5);
-  vertical-align: middle;
-}
-.mana.w { background: var(--mana-w); color: #5a4a20; }
-.mana.u { background: var(--mana-u); color: #d8e8ff; }
-.mana.b { background: var(--mana-b); color: #c8c0b0; }
-.mana.r { background: var(--mana-r); color: #fff0e8; }
-.mana.g { background: var(--mana-g); color: #d8f0d8; }
-.mana.c { background: var(--mana-c); color: #2a1f10; }
-.mana.num { background: var(--mana-c); color: #2a1f10; }
+/* ==========================================================================
+   5. KEYFRAMES
+   Ported from apps/web-app/app/globals.css, plus the ones this design implies.
+   Animations live as CSS classes in component CSS; keyframes only live here.
+   ========================================================================== */
 
-/* Mana symbol (existing component) */
-.mana-symbol { display: inline-block; vertical-align: middle; }
-.mana-cost { display: inline-flex; gap: 2px; align-items: center; }
-
-/* Seal / medallion */
-.seal {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--void-3), var(--void-0));
-  border: 1px solid rgba(var(--accent-glow), 0.4);
-  box-shadow: 0 0 24px rgba(var(--accent-glow), 0.15), inset 0 0 16px rgba(var(--accent-glow), 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+@keyframes spinCW {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* Deck options chips */
-.chip {
-  font-family: var(--font-ui);
-  font-size: 0.55rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 4px 8px;
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  color: var(--muted);
+@keyframes spinCCW {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
 }
-.opt-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 8px; }
-.opt-label {
-  font-family: var(--font-ui);
-  font-size: 0.55rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-  opacity: 0.75;
-  min-width: 64px;
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px var(--accent));
+  }
 }
-.opt-btn {
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border: 1px solid rgba(var(--accent-glow), 0.15);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
+
+@keyframes sealPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(var(--accent-glow), 0.15),
+      inset 0 0 16px rgba(var(--accent-glow), 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 36px rgba(var(--accent-glow), 0.4),
+      inset 0 0 20px rgba(var(--accent-glow), 0.25);
+  }
 }
-.opt-btn.on {
-  border-color: var(--accent);
-  background: rgba(var(--accent-glow), 0.12);
-  color: var(--accent);
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+    box-shadow: 0 0 10px var(--accent);
+  }
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes hoverIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeBreath {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- New in v2, implied by the Figma design ------------------------------ */
+
+/* generic fade for reveal-on-scroll sections */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* mana-curve bars growing from the baseline (nodes 3:117 / 10:223) */
+@keyframes barGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* the crimson "MTG AI Core v2.0 Live" badge glow */
+@keyframes emberPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(var(--crimson-glow), 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(var(--crimson-glow), 0.45);
+  }
+}
+
+/* skeleton / loading sweep for card grids while a deck is generating */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* the two tilted hero card frames drifting (nodes 3:52 / 3:65) */
+@keyframes floatY {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* ==========================================================================
+   6. REDUCED MOTION
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

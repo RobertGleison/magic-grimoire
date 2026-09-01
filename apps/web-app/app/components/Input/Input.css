@@ -1,0 +1,89 @@
+/* Input — harvested from the auth card's `input-box` nodes (dark 16:376,
+   light 20:1009) and the library search field (9:45).
+     surface  #1d2520 dark / #f2f4f1 light  → --void-3
+     hairline #6b5837 dark / #e1e4e1 light  → --line-strong
+     radius   6px                           → --radius-md
+     padding  12px 16px, text 14px          → --space-12 --space-16, --text-lg
+     label    12px DM Sans Bold uppercase #a68a56 → --text-md / --accent
+     gap      8px between label and box     → --space-8                       */
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.input-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: var(--leading-normal);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--accent);
+}
+
+.input-control {
+  width: 100%;
+  background: var(--void-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--cream);
+  font-family: var(--font-body);
+  transition: var(--transition);
+}
+
+.input-control-md {
+  padding: var(--space-12) var(--space-16);
+  font-size: var(--text-lg);
+}
+
+.input-control-sm {
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--text-base);
+}
+
+.input-control:hover:not(:disabled):not(:read-only) {
+  border-color: var(--line-accent);
+}
+
+.input-control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--glow-accent);
+}
+
+.input-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.input-control:disabled {
+  background: var(--void-1);
+  color: var(--faint);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-control[aria-invalid='true'] {
+  border-color: var(--crimson);
+}
+
+.input-control[aria-invalid='true']:focus {
+  border-color: var(--crimson);
+  box-shadow: var(--glow-crimson-sm);
+}
+
+.input-hint {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--faint);
+}
+
+.input-error {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--crimson);
+}

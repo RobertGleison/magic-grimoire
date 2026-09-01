@@ -1,0 +1,52 @@
+/* Spinner — no source node exists in the Figma file; the design shows no
+   loading state anywhere. Geometry is an addition, built from the token
+   ladder and the `spinCW` keyframe already declared in globals.css. */
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.spinner-ring {
+  display: block;
+  border-style: solid;
+  border-width: 2px;
+  border-color: rgba(var(--accent-glow), 0.25);
+  border-top-color: currentColor;
+  border-radius: var(--radius-full);
+  animation: spinCW 0.8s linear infinite;
+}
+
+.spinner-xs .spinner-ring {
+  width: var(--space-12);
+  height: var(--space-12);
+}
+
+.spinner-sm .spinner-ring {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.spinner-md .spinner-ring {
+  width: var(--space-24);
+  height: var(--space-24);
+}
+
+.spinner-lg .spinner-ring {
+  width: var(--space-40);
+  height: var(--space-40);
+  border-width: 3px;
+}
+
+/* globals.css already clamps every animation under reduced motion, which
+   would leave a frozen quarter-ring. Close the ring instead so it still
+   reads as an indicator rather than a rendering glitch. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner-ring {
+    animation: none;
+    border-color: currentColor;
+    border-right-color: rgba(var(--accent-glow), 0.25);
+  }
+}

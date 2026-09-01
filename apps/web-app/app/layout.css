@@ -1,0 +1,46 @@
+/* ==========================================================================
+   App shell — styles owned by app/layout.tsx.
+   Kept out of globals.css (controller-owned) and out of the Header/Footer
+   component CSS so each file stays scoped to one thing.
+   ========================================================================== */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-main:focus {
+  outline: none;
+}
+
+/* Skip link — first focusable element in the document. */
+.skip-link {
+  position: fixed;
+  top: var(--space-8);
+  left: var(--space-8);
+  z-index: 100;
+  padding: var(--space-8) var(--space-16);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-sm);
+  background: var(--void-2);
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  color: var(--cream);
+  text-transform: uppercase;
+  transform: translateY(calc(-100% - var(--space-24)));
+  transition: transform var(--dur) var(--ease);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}

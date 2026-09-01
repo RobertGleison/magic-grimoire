@@ -1,280 +1,836 @@
-/* ── Page wrapper ── */
-.page {
-  position: relative;
-  padding-bottom: 120px;
+/* ==========================================================================
+   Landing page — Figma `arcaneforge-landing` 3:4
+     3:18 hero · 3:78 stats · 3:91 features · 3:117 mana-curve
+     3:163 how-it-works · 3:187 pricing · 3:273 testimonials · 3:318 final-cta
+
+   DARK IS THE CANONICAL GEOMETRY. Every px below is the dark frame's number;
+   the light frames (20:22 20:84 20:97 20:123 20:170 20:194 20:294 20:354) were
+   read for COLOUR ONLY and every colour they carry already resolves through a
+   token. Hero top padding is therefore 180px (3:18), not the light frame's 120.
+
+   Zero hardcoded colours, fonts, radii, spacing or type — tokens only.
+   Component WIDTHS and fixed HEIGHTS have no token vocabulary in globals.css,
+   so, following the precedent set by Header.css, they are declared once as
+   local custom properties on `.landing` with the node they came from.
+   Breakpoints 1024px / 640px are INVENTED (the file is 1440px only) and match
+   the ones Header.css and Footer.css already use.
+   ========================================================================== */
+
+.landing {
+  --hero-copy-w: 733px; /* 3:19 */
+  --hero-visual-w: 515px; /* 3:50 — 515x500, held by aspect-ratio */
+  --hero-halo: 400px; /* 3:51 */
+  --hero-card-back-w: 46.6%; /* 3:53 — 240 / 515 */
+  --hero-card-back-h: 67.2%; /* 336 / 500 */
+  --hero-card-front-w: 50.5%; /* 3:66 — 260 / 515 */
+  --hero-card-front-h: 72.8%; /* 364 / 500 */
+  --lead-w: 843px; /* 3:95 3:167 3:191 3:277 3:324 */
+  --feature-card-w: 296px; /* 3:97 */
+  --feature-card-h: 380px;
+  --feature-media-h: 160px; /* 3:98 */
+  --curve-copy-w: 515px; /* 3:118 */
+  --curve-panel-w: 733px; /* 3:127 */
+  --step-card-w: 405px; /* 3:169 */
+  --step-card-h: 240px;
+  --step-medallion: var(--space-36); /* 3:170 — 36px */
+  --tier-card-w: 405px; /* 3:193 */
+  --quote-card-w: 405px; /* 3:279 */
+  --quote-card-h: 280px;
+  --quote-avatar: var(--space-40); /* 3:288 — 40px */
+  --format-dot: var(--space-6); /* 3:36 — 6px */
+  --section-y: var(--space-100); /* every marketing section is py-100 */
 }
 
-/* ── Hero ── */
-.hero {
-  min-height: 100vh;
+/* Shared page gutter. Mirrors `.header-inner` / `.footer-inner`. */
+.inner {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding-inline: var(--page-pad);
+}
+
+/* ==========================================================================
+   Shared section furniture
+   ========================================================================== */
+
+.section {
+  padding-block: var(--section-y);
+}
+
+/* 3:92 / 3:164 / 3:188 / 3:274 — centred eyebrow + heading + lead, gap 16 */
+.section-head {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  padding: 80px 48px;
-}
-
-.heroInner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 48px;
-  width: 100%;
-  max-width: 1100px;
-  position: relative;
-  z-index: 4;
-}
-
-.heroText {
-  flex: 1 1 auto;
-  max-width: 560px;
-}
-
-.heroTitle {
-  font-size: clamp(3rem, 6vw, 5.5rem);
-  line-height: 1.05;
-  margin: 0 0 12px;
-}
-
-.heroSubtitle {
-  font-family: var(--font-body);
-  font-size: clamp(1rem, 1.8vw, 1.25rem);
-  color: var(--cream);
-  font-style: italic;
-  margin: 0 0 48px;
-  max-width: 480px;
-  opacity: 0.85;
-}
-
-.heroActions {
-  display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-16);
+  text-align: center;
 }
 
-/* ── CTA trigger (microcopy that shortens the path to action below the path to doubt) ── */
-.ctaTrigger {
-  margin: 0;
+.eyebrow {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: normal;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  /* The design paints these `--crimson`, which is 2.68:1 on `--void-0` and
+     fails WCAG AA. `--crimson-fg` carries the AA-safe crimson text value.
+     AA-safe crimson pair (see globals.css). A dedicated `--crimson-fg` is
+     requested in this task's report. */
+  color: var(--crimson-fg);
+}
+
+.section-title {
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-10xl);
+  line-height: var(--leading-snug);
+  color: var(--cream);
+}
+
+.section-lead {
+  max-width: var(--lead-w);
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-loose);
   color: var(--muted);
 }
 
-/* ── Hero trust / spec bar (verifiable facts, not fabricated social proof) ── */
-.trustBar {
-  list-style: none;
-  margin: 28px 0 0;
-  padding: 0;
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.grid {
+  display: grid;
+  gap: var(--space-32);
+  margin-top: var(--space-64); /* 3:91 section gap 64 */
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.card-body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
   color: var(--muted);
 }
 
-.trustBar li {
-  position: relative;
-  padding-left: 18px;
+/* ==========================================================================
+   Hero — 3:18
+   ========================================================================== */
+
+.hero {
+  padding-block: var(--space-180) var(--space-100);
 }
 
-.trustBar li::before {
-  content: '\2726';
-  position: absolute;
-  left: 0;
+.hero-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-32);
+}
+
+.hero-copy {
+  display: flex;
+  flex: 1 1 var(--hero-copy-w);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-32);
+  min-width: 0;
+  max-width: var(--hero-copy-w);
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  line-height: var(--leading-tight);
+  color: var(--cream);
+}
+
+.hero-lead {
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}
+
+.hero-headline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: 100%;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+/* 3:32 — formats block, 16px top pad, 12px gap */
+.hero-formats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  padding-top: var(--space-16);
+}
+
+.hero-formats-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: normal;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
   color: var(--accent);
-  opacity: 0.7;
 }
 
-.heroSigil {
-  flex: 0 0 auto;
+.hero-formats-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-24);
+}
+
+.hero-format {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-family: var(--font-ui);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: normal;
+  color: var(--muted);
+}
+
+.hero-format::before {
+  content: '';
+  flex-shrink: 0;
+  width: var(--format-dot);
+  height: var(--format-dot);
+  border-radius: var(--radius-full);
+  background: var(--crimson);
+}
+
+/* ---- Hero visual (3:50) --------------------------------------------------
+   Both frames hold the `Magic Grimoire` card render (`public/hero-card.png`,
+   5:7 like the design's frames). The back one is pushed down in brightness so
+   the front reads first. The token gradient stays underneath as the paint
+   before the image decodes. Purely decorative — the block is aria-hidden. */
+
+.hero-visual {
+  position: relative;
+  flex: 0 1 var(--hero-visual-w);
+  width: 100%;
+  max-width: var(--hero-visual-w);
+  aspect-ratio: 515 / 500;
+}
+
+.hero-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--hero-halo);
+  max-width: 100%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle, rgba(var(--crimson-glow), 0.32) 0%, rgba(var(--accent-glow), 0.08) 45%, transparent 70%);
+}
+
+.hero-card {
+  position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  border: 2.5px solid var(--line-accent);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(var(--accent-glow), 0.16) 0%, transparent 62%),
+    linear-gradient(160deg, var(--accent-soft) 0%, var(--void-2) 55%, var(--accent-deep) 100%);
+  box-shadow: var(--shadow-3);
 }
 
-/* ── Gradient text (hero title + CTA heading) ── */
-.gradientText {
-  background: linear-gradient(180deg, var(--accent), var(--accent-mid));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* 3:52 — 240x336, -8deg, left 0, top 26/500 */
+.hero-card-back {
+  top: 5.2%;
+  left: 0;
+  width: var(--hero-card-back-w);
+  height: var(--hero-card-back-h);
+  transform: rotate(-8deg);
 }
 
-/* ── Section header ── */
-.sectionHeader {
-  text-align: center;
-  margin-bottom: 64px;
+/* 3:65 — 260x364, +4deg, left 133/515, top 0 */
+.hero-card-front {
+  top: 0;
+  left: 25.8%;
+  width: var(--hero-card-front-w);
+  height: var(--hero-card-front-h);
+  transform: rotate(4deg);
 }
 
-.sectionHeading {
-  margin: 0;
+.hero-card-art {
+  object-fit: cover;
 }
 
-/* ── Shared section layout ── */
-.section {
-  padding: 80px 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+.hero-card-art-back {
+  filter: brightness(0.62) saturate(0.8);
 }
 
-/* ── Card grid (Steps + Features) ── */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1px;
-  background: rgba(var(--accent-glow), 0.15);
-  border: 1px solid rgba(var(--accent-glow), 0.15);
-}
+/* ==========================================================================
+   Stats band — 3:78
+   ========================================================================== */
 
-.card {
-  background: var(--void-1);
-  padding: 40px 28px;
-  transition: background 0.4s;
-  cursor: default;
-}
-
-.card:hover {
+.stats {
+  padding-block: var(--space-48);
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
   background: var(--void-2);
 }
 
-.featureCard {
-  height: 100%;
-  box-sizing: border-box;
+.stats-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-32);
 }
 
-.cardLabel {
-  margin-bottom: 12px;
-}
-
-.cardBody {
-  margin: 0;
-  font-size: 1.05rem;
-  color: var(--cream);
-  opacity: 0.75;
-  line-height: 1.5;
-}
-
-/* ── Steps ── */
-.stepRoman {
-  font-size: 2.5rem;
-  color: var(--accent);
-  font-style: italic;
-  margin-bottom: 20px;
-  opacity: 0.9;
-}
-
-/* ── Features ── */
-.featureIcons {
-  margin-bottom: 32px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.featureIconGlyph {
-  font-size: 1.5rem;
-  line-height: 1;
-  margin-bottom: 0;
-  color: var(--accent);
-  font-family: var(--font-display);
-}
-
-/* ── Incantations marquee ── */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@keyframes marquee-reverse {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
-}
-
-.incantations {
-  padding: 80px 0;
-  overflow: hidden;
-}
-
-.marqueeOuter {
+.stat {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  position: relative;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
 }
 
-.marqueeFadeLeft,
-.marqueeFadeRight {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 120px;
-  z-index: 2;
-  pointer-events: none;
+.stat-value {
+  font-family: var(--font-display);
+  font-size: var(--text-9xl);
+  line-height: normal;
+  /* Design paints these `--crimson`; that is 2.46:1 on `--void-2` and fails
+     even the 3:1 large-text bar. Same substitution as `.eyebrow`. */
+  color: var(--crimson-fg);
 }
 
-.marqueeFadeLeft {
-  left: 0;
-  background: linear-gradient(to right, var(--void-0), transparent);
+.stat-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.marqueeFadeRight {
-  right: 0;
-  background: linear-gradient(to left, var(--void-0), transparent);
+/* ==========================================================================
+   Features — 3:91
+   ========================================================================== */
+
+.features-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--feature-card-w), 100%), 1fr));
 }
 
-.marqueeRow {
+.feature-card {
   display: flex;
-  gap: 16px;
-  width: max-content;
-  animation: marquee 200s linear infinite;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-height: var(--feature-card-h);
 }
 
-.marqueeRowReverse {
-  animation-name: marquee-reverse;
+/* 3:98 — a 160px photographic plate in the design; token art here. */
+.feature-media {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  height: var(--feature-media-h);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(var(--accent-glow), 0.22) 0%, transparent 60%),
+    linear-gradient(150deg, var(--accent-soft) 0%, var(--void-3) 60%, var(--accent-deep) 100%);
+  font-family: var(--font-display);
+  font-size: var(--text-10xl);
+  line-height: 1;
+  color: var(--accent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .marqueeRow,
-  .marqueeRowReverse {
-    animation: none;
+.feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ==========================================================================
+   Mana curve — 3:117
+   ========================================================================== */
+
+.curve-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-64);
+}
+
+.curve-copy {
+  display: flex;
+  flex: 0 1 var(--curve-copy-w);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-24);
+  min-width: 0;
+  max-width: var(--curve-copy-w);
+}
+
+.curve-title {
+  font-family: var(--font-display);
+  font-size: var(--text-8xl);
+  line-height: var(--leading-snug);
+  color: var(--cream);
+}
+
+.curve-body {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}
+
+.curve-panel {
+  flex: 1 1 var(--curve-panel-w);
+  min-width: 0;
+}
+
+/* ==========================================================================
+   How it works — 3:163
+   ========================================================================== */
+
+.steps-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--step-card-w), 100%), 1fr));
+}
+
+.step-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  min-height: var(--step-card-h);
+}
+
+/* 3:170 — 36px crimson disc holding a Roman numeral */
+.step-medallion {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--step-medallion);
+  height: var(--step-medallion);
+  border-radius: var(--radius-full);
+  background: var(--crimson);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: normal;
+  color: var(--on-crimson);
+}
+
+.step-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.step-title {
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+/* ==========================================================================
+   Pricing — 3:187
+   ========================================================================== */
+
+.tiers-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--tier-card-w), 100%), 1fr));
+  align-items: center;
+}
+
+.tier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+/* 3:193 draws a `--muted` hairline. `Card`'s `border` prop has no muted rung,
+   so the card is rendered with `border="none"` and the hairline applied here.
+   The class is doubled to beat `.card-border-none` on specificity rather than
+   on stylesheet order, which is not guaranteed across chunks. */
+.tier-outline.tier-outline {
+  border: 1px solid var(--muted);
+}
+
+/* 3:245 — ribbon pinned to the featured card's top-right */
+.tier-ribbon {
+  position: absolute;
+  top: calc(-1 * var(--space-16));
+  right: var(--space-14);
+}
+
+.tier-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.tier-eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: normal;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.tier-eyebrow-muted {
+  color: var(--muted);
+}
+
+.tier-eyebrow-accent {
+  color: var(--accent);
+}
+
+.tier-eyebrow-crimson {
+  /* `--crimson` is 2.68:1 on `--void-2`; see `.eyebrow`. */
+  color: var(--crimson-fg);
+}
+
+.tier-name {
+  font-family: var(--font-display);
+  font-size: var(--text-7xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.tier-blurb {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: normal;
+  color: var(--muted);
+}
+
+.tier-price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.tier-amount {
+  font-family: var(--font-display);
+  font-size: var(--text-10xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.tier-cadence {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: normal;
+  color: var(--muted);
+}
+
+/* 3:201 — 1px rgba(166,138,86,0.2), which is exactly `--line` */
+.tier-rule {
+  height: 1px;
+  border: none;
+  background: var(--line);
+}
+
+.tier-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.tier-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.tier-feature-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   Testimonials — 3:273
+   ========================================================================== */
+
+.quotes-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--quote-card-w), 100%), 1fr));
+}
+
+.quote-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-height: var(--quote-card-h);
+}
+
+/* 3:279 is padded 24; `Card`'s padding scale has no 24 rung, so the card is
+   rendered with `padding="none"` and padded here. Doubled for the same reason
+   as `.tier-outline` — specificity, not stylesheet order. */
+.quote-card.quote-card {
+  padding: var(--space-24);
+}
+
+.quote-stars {
+  display: flex;
+  gap: var(--space-4);
+  color: var(--accent);
+}
+
+.quote-text {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-style: italic;
+  line-height: var(--leading-relaxed);
+  color: var(--cream);
+}
+
+.quote-author {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-top: auto;
+  padding-top: var(--space-8);
+}
+
+/* 3:288 — a portrait in the design; a token monogram here. */
+.quote-avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--quote-avatar);
+  height: var(--quote-avatar);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-full);
+  background: var(--void-3);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  line-height: 1;
+  color: var(--accent);
+}
+
+.quote-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.quote-name {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.quote-role {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: normal;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Final CTA — 3:318
+   --------------------------------------------------------------------------
+   3:319 is a 20px-radius panel; `Card`'s radius prop tops out at `xl` (16px),
+   so this one panel is hand-rolled. The design fills it with a photograph
+   under a `--scrim` overlay; with no asset pipeline the panel takes the
+   `--void-2` surface every other card uses, keeping its gold hairline and the
+   design's `0 0 48px rgba(144,41,35,0.13)` crimson bloom (`--glow-crimson-lg`).
+   ========================================================================== */
+
+.cta {
+  padding-block: var(--space-120);
+}
+
+.cta-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-32);
+  padding: var(--space-64);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-pill);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--crimson-glow), 0.16) 0%, transparent 62%),
+    var(--void-2);
+  box-shadow: var(--glow-crimson-lg);
+}
+
+.cta-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  width: 100%;
+  text-align: center;
+}
+
+.cta-title {
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-11xl);
+  line-height: normal;
+  color: var(--cream);
+}
+
+.cta-lead {
+  max-width: var(--lead-w);
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-relaxed);
+  color: var(--muted);
+}
+
+.cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+}
+
+/* ==========================================================================
+   Responsive — breakpoints INVENTED, matched to Header.css / Footer.css
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  .landing {
+    --section-y: var(--space-64);
+  }
+
+  .inner {
+    padding-inline: var(--space-40);
+  }
+
+  .hero {
+    padding-block: var(--space-120) var(--space-64);
+  }
+
+  .hero-inner,
+  .curve-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-copy,
+  .curve-copy {
+    flex-basis: auto;
+    max-width: none;
+  }
+
+  .hero-visual {
+    align-self: center;
+  }
+
+  .hero-title {
+    font-size: var(--text-10xl);
+  }
+
+  .section-title,
+  .curve-title {
+    font-size: var(--text-8xl);
+  }
+
+  .cta {
+    padding-block: var(--space-80);
+  }
+
+  .cta-panel {
+    padding: var(--space-40);
+  }
+
+  .cta-title {
+    font-size: var(--text-10xl);
+  }
+
+  .grid {
+    margin-top: var(--space-40);
+  }
+
+  .stats-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature-card,
+  .step-card,
+  .quote-card {
+    min-height: 0;
   }
 }
 
-.marqueeCard {
-  padding: 14px 22px;
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  background: var(--void-1);
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  font-style: italic;
-  color: var(--cream);
-  white-space: normal;
-  width: 400px;
-  flex-shrink: 0;
-  opacity: 0.85;
-}
+@media (max-width: 639px) {
+  .landing {
+    --section-y: var(--space-48);
+  }
 
-.marqueeQuote {
-  color: var(--accent);
-}
+  .inner {
+    padding-inline: var(--space-20);
+  }
 
-/* ── Final CTA ── */
-.cta {
-  padding: 120px;
-  text-align: center;
-  position: relative;
-}
+  .hero {
+    padding-block: var(--space-80) var(--space-48);
+  }
 
-.ctaInner {
-  position: relative;
-  z-index: 2;
-}
+  .hero-title {
+    font-size: var(--text-8xl);
+  }
 
-.ctaHeading {
-  font-size: clamp(1.25rem, 3vw, 2rem);
-  margin: 0 0 16px;
-  font-style: italic;
+  .hero-lead {
+    font-size: var(--text-2xl);
+  }
+
+  .section-title,
+  .curve-title,
+  .cta-title {
+    font-size: var(--text-7xl);
+  }
+
+  .section-lead,
+  .cta-lead {
+    font-size: var(--text-lg);
+  }
+
+  .stat-value {
+    font-size: var(--text-7xl);
+  }
+
+  .stats-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stats {
+    padding-block: var(--space-32);
+  }
+
+  .cta-panel {
+    padding: var(--space-24);
+  }
+
+  .hero-actions,
+  .cta-actions {
+    width: 100%;
+  }
+
+  .hero-formats-list {
+    gap: var(--space-12) var(--space-16);
+  }
 }

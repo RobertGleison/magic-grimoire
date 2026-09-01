@@ -1,0 +1,109 @@
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---- Track --------------------------------------------------------------- */
+
+.theme-toggle-track {
+  position: relative;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--void-3);
+  transition: var(--transition);
+}
+
+.theme-toggle:hover .theme-toggle-track {
+  border-color: var(--line-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.theme-toggle-md .theme-toggle-track {
+  width: 52px;
+  height: 26px;
+}
+
+.theme-toggle-sm .theme-toggle-track {
+  width: 40px;
+  height: 20px;
+}
+
+/* ---- Thumb --------------------------------------------------------------- */
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-full);
+  background: var(--void-0);
+  color: var(--accent);
+  transform: translateY(-50%);
+  transition: var(--transition);
+}
+
+.theme-toggle-md .theme-toggle-thumb {
+  left: var(--space-2);
+  width: 22px;
+  height: 22px;
+}
+
+.theme-toggle-sm .theme-toggle-thumb {
+  left: var(--space-2);
+  width: 14px;
+  height: 14px;
+}
+
+.theme-toggle-md[aria-pressed='true'] .theme-toggle-thumb {
+  left: calc(100% - 22px - var(--space-2));
+}
+
+.theme-toggle-sm[aria-pressed='true'] .theme-toggle-thumb {
+  left: calc(100% - 14px - var(--space-2));
+}
+
+.theme-toggle:hover .theme-toggle-thumb {
+  background: var(--accent-deep);
+}
+
+/* ---- Icons --------------------------------------------------------------- */
+
+.theme-toggle-icon {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  transition: var(--transition);
+}
+
+.theme-toggle-sm .theme-toggle-icon {
+  width: 9px;
+  height: 9px;
+}
+
+/* Dark theme active -> show the moon, hide the sun. */
+.theme-toggle[aria-pressed='false'] .theme-toggle-icon-sun,
+.theme-toggle[aria-pressed='true'] .theme-toggle-icon-moon {
+  opacity: 0;
+  transform: scale(0.5) rotate(-45deg);
+}
+
+.theme-toggle[aria-pressed='false'] .theme-toggle-icon-moon,
+.theme-toggle[aria-pressed='true'] .theme-toggle-icon-sun {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}

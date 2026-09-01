@@ -5,6 +5,7 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - "apps/web-app/**"
+      - ".github/workflows/web-app.yml"
 
 jobs:
   ci:
@@ -13,10 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned to 22 deliberately. vitest 4 pulls in rolldown, which needs
+      # `styleText` from node:util and hard-fails below Node 20.12 with
+      # "SyntaxError: ... 'node:util' does not provide an export named 'styleText'".
+      # A bare `20` happens to work today only because it floats above 20.12;
+      # pin an explicit major so the floor can never regress.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "npm"
           cache-dependency-path: apps/web-app/package-lock.json
 
@@ -27,35 +33,19 @@ jobs:
       - name: Lint
         run: make lint-web-app
 
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: apps/web-app
+
+      - name: Unit tests
+        run: npm run test:unit
+        working-directory: apps/web-app
+
       - name: Build
         run: npm run build
         working-directory: apps/web-app
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ hashFiles('apps/web-app/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/web-app
-
-      - name: Install Playwright system deps
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-        working-directory: apps/web-app
-
-      - name: Test
-        run: npm test
-        working-directory: apps/web-app
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: apps/web-app/playwright-report/
-          retention-days: 7
+      # No Playwright e2e step yet — apps/web-app/tests has no *.spec.ts
+      # files, and `playwright test` exits non-zero when it finds none.
+      # RALPH wave 5b adds the specs; add the browser cache + e2e steps then,
+      # adding the browser cache + e2e steps at that point.

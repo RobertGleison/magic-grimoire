@@ -1,4 +1,4 @@
-.PHONY: dev down build test test-web-app lint lint-api-server lint-web-app lint-fix
+.PHONY: dev down build test test-web-app typecheck lint lint-api-server lint-web-app lint-fix
 
 ## Start backend services in background, then frontend in foreground
 dev:
@@ -16,11 +16,17 @@ build:
 ## Run all tests
 test:
 	cd apps/api-server && uv run pytest || [ $$? -eq 5 ]
-	cd apps/web-app && npm test --if-present
+	cd apps/web-app && npm run test:unit
 
 ## Run only web-app tests
+## Unit only for now: `npm test` also runs Playwright, and web-app has no
+## e2e specs yet (RALPH wave 5b owns them). Switch to `npm test` once they land.
 test-web-app:
-	cd apps/web-app && npm test
+	cd apps/web-app && npm run test:unit
+
+## Typecheck the web app
+typecheck:
+	cd apps/web-app && npm run typecheck
 
 ## Lint api-server
 lint-api-server:

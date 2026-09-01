@@ -1,0 +1,174 @@
+/* Button — all sizes and variants harvested from the Figma file.
+   Shape is constant across the design: 4px radius, 1px hairline, DM Sans,
+   uppercase + Bold at the two large sizes, sentence case + SemiBold at the
+   two small ones (compare hero 3:27 with deck-card 9:76). */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--cream);
+  font-family: var(--font-ui);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-label {
+  display: inline-block;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Anchors cannot be `disabled`, so the inert state is expressed with ARIA. */
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.btn-loading {
+  cursor: progress;
+}
+
+.btn-spinner {
+  color: currentColor;
+}
+
+/* ---- Sizes ---------------------------------------------------------------
+   xs  6/12  12px SemiBold   deck-card "Edit" 9:76, deck actions 16:182
+   sm  8/16  13px SemiBold   my-decks format chip 9:34
+   md 12/20  13px Bold caps  deck-builder "Send Chat" 10:76, card CTAs
+   lg 16/32  14px Bold caps  hero 3:27, final CTA 3:326, my-decks 9:28      */
+
+.btn-xs {
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.btn-sm {
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.btn-md {
+  padding: var(--space-12) var(--space-20);
+  font-size: var(--text-base);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.btn-lg {
+  padding: var(--space-16) var(--space-32);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+/* ---- Variants ------------------------------------------------------------
+   PRIMARY IS CRIMSON. Gold (`--accent`) is ornamental; it only ever fills a
+   button in the pricing grid's middle tier, which is `variant="accent"`.     */
+
+/* hero 3:27 — bg #a22c29, 1px #a68a56, drop-shadow 0 0 8px rgba(144,41,35,.27) */
+.btn-primary {
+  background: var(--crimson);
+  border-color: var(--line-accent);
+  /* Cream, not --on-accent: that would be #0a100d on #a22c29 = 2.68:1. */
+  color: var(--on-crimson);
+  box-shadow: var(--glow-crimson-sm);
+}
+
+.btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: var(--glow-crimson-sm), var(--glow-crimson-lg);
+}
+
+/* pricing "Claim Rare Pack" 3:242 — bg #a68a56, text #0a100d */
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-accent:hover:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: var(--glow-accent);
+}
+
+/* my-decks "Manage Integrations" 9:234 — 1px #a68a56, text #a68a56 */
+.btn-outline {
+  border-color: var(--line-accent);
+  color: var(--accent);
+}
+
+.btn-outline:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--accent-deep);
+  box-shadow: var(--glow-accent);
+}
+
+/* hero 3:30 / pricing 3:215 / deck card 9:76 — 1px #b9baa3, transparent */
+.btn-secondary {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.btn-secondary:hover:not(:disabled):not([aria-disabled='true']) {
+  border-color: var(--line-accent);
+  color: var(--cream);
+}
+
+/* auth social buttons 16:397 — bg #131a16, 1px rgba(166,138,86,.2) */
+.btn-subtle {
+  /* NOT --void-2: in light that is #ffffff, identical to Card's panel ground,
+     so the button vanished into the card. --surface-subtle is theme-correct. */
+  background: var(--surface-subtle);
+  border-color: var(--line);
+  color: var(--cream);
+}
+
+.btn-subtle:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--void-3);
+  border-color: var(--line-accent);
+}
+
+/* my-decks inactive format filters 9:36 — no fill, no hairline */
+.btn-ghost {
+  color: var(--muted);
+}
+
+.btn-ghost:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--void-3);
+  color: var(--cream);
+}
+
+/* deck card "Dissolve" 9:80 — bare crimson label, destructive */
+.btn-danger {
+  color: var(--crimson);
+}
+
+.btn-danger:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--crimson-soft);
+  color: var(--cream);
+}

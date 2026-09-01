@@ -1,511 +1,356 @@
-/* ── Layout ── */
+/* ==========================================================================
+   /library — "My Grimoire" page styles.
+   Design: dark `9:4` / content `9:23` (canonical geometry, 1744px page);
+   light `20:401` / `20:420` contributes colour only, and every colour here
+   resolves through a token, so there is no light-theme block.
+
+   Harvested values → tokens:
+     gutters        80px            → --page-pad
+     content top    60px            → --space-64 (no 60 rung exists)
+     content bottom 80px            → --space-80
+     block gaps     40px            → --space-40
+     grid gap       24px            → --space-24
+     h1             40px DM Serif   → --text-9xl / --font-display / --cream
+     subtitle       16px DM Sans    → --text-2xl / --muted
+     filter bar     #131a16, 1px #6b5837, r8, p16
+                                    → --void-2 / --line-strong / --radius
+     chip gap       12px            → --space-12
+     tools gap      16px            → --space-16
+     search box     220px wide, 14px icon
+   ========================================================================== */
+
 .page {
+  width: 100%;
+  padding: var(--space-64) var(--page-pad) var(--space-80);
+}
+
+.inner {
+  /* Page-local geometry — the CardTile/ManaCurve pattern for one-off design
+     measurements that no global rung matches. */
+  --search-w: 220px;   /* node 9:45 */
+  --sort-w: 190px;     /* 9:48 is 150px; widened for the longer real labels */
+  --deck-col-min: 320px;
+
   display: flex;
-  height: calc(100vh - 76px);
-  overflow: hidden;
-}
-
-/* Single radius token for shared button styles on this page */
-.page :global(.btn) {
-  border-radius: var(--radius);
-}
-
-.mainArea {
-  flex: 1;
-  overflow-y: auto;
-  padding: 48px 32px 80px;
-  min-width: 0;
-}
-
-.mainInner {
-  max-width: 1200px;
+  flex-direction: column;
+  gap: var(--space-40);
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
 }
 
-/* ── Page header ── */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 36px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
+/* ---- Header row (9:24) --------------------------------------------------- */
 
-.headerTagline {
-  font-size: 0.65rem;
-  opacity: 0.6;
-  margin-bottom: 8px;
-}
-
-.headerTitle {
-  font-size: clamp(2rem, 4vw, 2.8rem);
-  margin: 0;
-  font-style: italic;
-}
-
-.headerSubtitle {
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  font-style: italic;
-  color: var(--cream);
-  opacity: 0.7;
-  margin: 8px 0 0;
-}
-
-.headerActions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-/* ── View toggle ── */
-.viewToggle {
-  display: flex;
-  gap: 4px;
-  margin-right: 6px;
-}
-
-.toggleBtn {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  border-radius: var(--radius);
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggleBtnActive {
-  background: rgba(var(--accent-glow), 0.15);
-  border-color: rgba(var(--accent-glow), 0.5);
-  color: var(--accent);
-}
-
-/* ── Deck grid ── */
-.deckGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px;
-}
-
-/* ── Deck tile ── */
-.tile {
-  position: relative;
-  cursor: pointer;
-  background: linear-gradient(180deg, var(--void-2), var(--void-1));
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: all 0.3s;
-}
-
-.tile:hover {
-  transform: translateY(-3px);
-  border-color: rgba(var(--accent-glow), 0.5);
-  box-shadow: 0 12px 40px rgba(var(--accent-glow), 0.15);
-}
-
-.tileImageWrapper {
-  height: 120px;
-  position: relative;
-  border-bottom: 1px solid rgba(var(--accent-glow), 0.25);
-  overflow: hidden;
-}
-
-.tileImage {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 20%;
-}
-
-.tileImageOverlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55));
-}
-
-.tileColors {
-  position: absolute;
-  top: 10px;
-  left: 12px;
-  display: flex;
-  gap: 4px;
-}
-
-.tileFormat {
-  position: absolute;
-  bottom: 8px;
-  right: 12px;
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--cream);
-  opacity: 0.9;
-  background: rgba(0, 0, 0, 0.55);
-  padding: 3px 8px;
-  border-radius: var(--radius);
-}
-
-.tileBody {
-  padding: 16px 18px;
-}
-
-.tileName {
-  font-size: 1.2rem;
-  margin: 0 0 4px;
-  font-style: italic;
-  color: var(--cream);
-}
-
-.tileArchetype {
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--cream);
-  opacity: 0.7;
-  font-style: italic;
-  margin-bottom: 14px;
-}
-
-.tileFooter {
-  padding-top: 12px;
-  border-top: 1px dotted rgba(var(--accent-glow), 0.15);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tileSavedOn {
-  font-size: 0.55rem;
-  opacity: 0.5;
-}
-
-.tileArrow {
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-family: var(--font-display);
-}
-
-/* ── Tile checkbox ── */
-.tileCheckbox {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 18px;
-  height: 18px;
-  border: 1px solid rgba(var(--accent-glow), 0.5);
-  border-radius: var(--radius);
-  background: rgba(8, 6, 10, 0.75);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
-  z-index: 5;
-  cursor: pointer;
-  backdrop-filter: blur(4px);
-}
-
-.tile:hover .tileCheckbox,
-.tileCheckboxChecked {
-  opacity: 1 !important;
-}
-
-.tileCheckboxChecked {
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-}
-
-.tileChecked {
-  border-color: rgba(var(--accent-glow), 0.65) !important;
-  box-shadow: 0 0 24px rgba(var(--accent-glow), 0.18);
-}
-
-.checkMark {
-  font-size: 0.65rem;
-  color: var(--void-0);
-  line-height: 1;
-}
-
-/* ── Selection bar ── */
-.selectionBar {
+.headerRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  margin-bottom: 20px;
-  background: linear-gradient(90deg, rgba(28, 22, 40, 0.95), rgba(14, 11, 20, 0.98));
-  border: 1px solid rgba(var(--accent-glow), 0.35);
-  border-radius: var(--radius);
-  animation: messageIn 0.2s ease;
+  gap: var(--space-24);
 }
 
-.selectionCount {
-  font-size: 0.6rem;
-  color: var(--accent);
-  opacity: 0.9;
-}
-
-.selectionActions {
+.headerText {
   display: flex;
-  gap: 8px;
-}
-
-.removeBtn {
-  color: rgba(220, 100, 100, 0.9) !important;
-  border-color: rgba(220, 100, 100, 0.35) !important;
-}
-
-.removeBtn:hover {
-  background: rgba(220, 100, 100, 0.08) !important;
-  border-color: rgba(220, 100, 100, 0.6) !important;
-}
-
-/* ── Deck row (list view) ── */
-.row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
-  background: linear-gradient(90deg, var(--void-2), var(--void-1));
-  border: 1px solid rgba(var(--accent-glow), 0.15);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 4px;
-}
-
-.row:hover {
-  border-color: rgba(var(--accent-glow), 0.4);
-  background: linear-gradient(90deg, var(--void-3), var(--void-2));
-}
-
-.rowCheckbox {
-  width: 18px;
-  height: 18px;
-  border: 1px solid rgba(var(--accent-glow), 0.3);
-  border-radius: var(--radius);
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
-}
-
-.row:hover .rowCheckbox,
-.rowCheckboxChecked {
-  opacity: 1 !important;
-}
-
-.rowCheckboxChecked {
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-}
-
-.rowChecked {
-  border-color: rgba(var(--accent-glow), 0.5) !important;
-  background: linear-gradient(90deg, rgba(var(--accent-glow), 0.06), var(--void-2)) !important;
-}
-
-.rowColors {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.rowInfo {
-  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
   min-width: 0;
 }
 
-.rowName {
-  font-size: 1.05rem;
-  font-style: italic;
-  color: var(--cream);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rowArchetype {
-  font-family: var(--font-body);
-  font-size: 0.88rem;
-  color: var(--cream);
-  opacity: 0.6;
-  font-style: italic;
-}
-
-.rowFormat {
-  font-size: 0.58rem;
-  color: var(--cream);
-  opacity: 0.45;
-  flex-shrink: 0;
-}
-
-.rowSavedOn {
-  font-size: 0.55rem;
-  color: var(--cream);
-  opacity: 0.4;
-  flex-shrink: 0;
-  min-width: 100px;
-  text-align: right;
-}
-
-.rowArrow {
-  color: var(--accent);
-  font-size: 0.85rem;
+.title {
   font-family: var(--font-display);
+  font-size: var(--text-9xl);
+  font-weight: 400;
+  line-height: normal;
+  color: var(--cream);
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: normal;
+  color: var(--muted);
+}
+
+.sparkleIcon {
+  width: var(--space-16);
+  height: var(--space-16);
+  color: currentColor;
+}
+
+/* ---- Filter bar (9:32) --------------------------------------------------- */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--void-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+/* The chips are `Button variant="ghost"` (9:36, the inactive state). The
+   selected chip (9:34) is a state the primitive has no variant for, so it is
+   expressed here off `aria-pressed` — tokens only, and Button stays untouched
+   for the other screens building against it in parallel. */
+.chips button {
+  text-transform: capitalize;
+}
+
+.chips button[aria-pressed='true'] {
+  background: var(--void-3);
+  border-color: var(--line-accent);
+  color: var(--cream);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
   flex-shrink: 0;
 }
 
-/* ── Fullscreen deck overlay ── */
-.deckOverlay {
-  position: fixed;
-  top: 76px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  animation: panelIn 0.25s ease;
+/* ---- Search (9:45) ------------------------------------------------------- */
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-/* ── Import modal ── */
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 6, 10, 0.85);
-  backdrop-filter: blur(6px);
-  z-index: 200;
+.searchIcon {
+  position: absolute;
+  left: var(--space-16);
+  z-index: 1;
+  width: var(--space-14);
+  height: var(--space-14);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.searchField {
+  width: var(--search-w);
+}
+
+/* Two classes so this beats `.input-control-sm`'s own padding regardless of
+   stylesheet injection order. */
+.search .searchInput {
+  padding-left: var(--space-40);
+}
+
+/* ---- Sort (9:48) --------------------------------------------------------- */
+
+.sortField {
+  width: var(--sort-w);
+}
+
+/* ---- Result / filter caption (addition — no source node) ------------------ */
+
+.resultLine {
+  margin-top: calc(var(--space-24) * -1);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  color: var(--faint);
+}
+
+/* ---- Deck grid (9:51) ----------------------------------------------------
+   The design lays three fixed 384px cards in a 1280px row, leaving an 80px
+   trailing gutter. Fluid columns are used instead so the grid survives every
+   viewport down to 375px; the 24px gap and 3-up desktop intent are kept. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--deck-col-min), 1fr));
+  gap: var(--space-24);
+  transition: opacity var(--dur) var(--ease);
+}
+
+.grid[data-loading] {
+  opacity: 0.5;
+}
+
+.gridItem {
+  display: flex;
+  min-width: 0;
+}
+
+.gridItem > * {
+  width: 100%;
+}
+
+/* ---- Panels: signed out / empty / error (no source nodes) ----------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-64) var(--space-32);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--void-2);
+  text-align: center;
+}
+
+.panelTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-7xl);
+  font-weight: 400;
+  color: var(--cream);
+}
+
+.panelBody {
+  max-width: 52ch;
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-12);
+}
+
+/* ---- Loading + error strips ---------------------------------------------- */
+
+.centered {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-80) 0;
 }
 
-.modalBox {
-  position: relative;
-  width: 100%;
-  max-width: 500px;
-  background: linear-gradient(180deg, var(--void-2), var(--void-0));
-  border: 1px solid rgba(var(--accent-glow), 0.4);
-  border-radius: var(--radius);
-  padding: 32px 28px;
-  box-shadow: 0 0 60px rgba(var(--accent-glow), 0.15);
-  animation: messageIn 0.1s ease;
-}
-
-.modalClose {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 1.3rem;
-  line-height: 1;
-  transition: color 0.25s ease;
-}
-
-.modalClose:hover {
-  color: var(--accent);
-}
-
-.modalTagline {
-  font-size: 0.6rem;
-  opacity: 0.6;
-  margin-bottom: 6px;
-}
-
-.modalTitle {
-  font-size: 1.5rem;
-  margin: 0 0 24px;
-  font-style: italic;
-}
-
-.modalField {
-  margin-bottom: 14px;
-}
-
-.modalLabel {
-  font-size: 0.58rem;
-  opacity: 0.65;
-  display: block;
-  margin-bottom: 6px;
-}
-
-.modalLabelHint {
-  opacity: 0.5;
-}
-
-.modalInput {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--void-0);
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  border-radius: var(--radius);
-  color: var(--cream);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.25s ease;
-}
-
-.modalTextarea {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--void-0);
-  border: 1px solid rgba(var(--accent-glow), 0.2);
-  border-radius: var(--radius);
-  color: var(--cream);
-  font-family: var(--font-ui);
-  font-size: 0.82rem;
-  outline: none;
-  resize: vertical;
-  box-sizing: border-box;
-  transition: border-color 0.25s ease;
-}
-
-.modalInput:focus,
-.modalTextarea:focus {
-  border-color: rgba(var(--accent-glow), 0.5);
-}
-
-.modalUploadRow {
+.inlineError {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.modalOr {
-  font-size: 0.58rem;
-  opacity: 0.5;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--crimson);
+  border-radius: var(--radius-md);
+  background: var(--crimson-soft);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--cream);
 }
 
 .modalError {
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--crimson);
+  border-radius: var(--radius-md);
+  background: var(--crimson-soft);
   font-family: var(--font-body);
-  font-size: 0.88rem;
-  color: rgba(220, 100, 100, 0.9);
-  margin: 0 0 14px;
-  font-style: italic;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--cream);
 }
 
-.modalSubmit {
-  width: 100%;
-  font-size: 0.72rem;
+/* ---- Pagination (addition — the design shows six decks and no paginator,
+   but `GET /decks` is paginated at 1..100 per page) ------------------------- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+  padding-top: var(--space-8);
+}
+
+.pageCount {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---- Narrow viewports ---------------------------------------------------
+   1024 / 640 / 420 are additions — the Figma file is 1440px only. */
+
+@media (max-width: 1023px) {
+  .page {
+    padding: var(--space-48) var(--page-pad-app) var(--space-64);
+  }
+
+  .headerRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tools {
+    justify-content: space-between;
+  }
+
+  .searchField {
+    width: 100%;
+  }
+
+  .search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .page {
+    padding: var(--space-32) var(--space-20) var(--space-48);
+  }
+
+  .inner {
+    gap: var(--space-32);
+  }
+
+  .title {
+    font-size: var(--text-10xl);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: var(--space-40) var(--space-20);
+  }
+
+  .panelTitle {
+    font-size: var(--text-6xl);
+  }
+
+  .tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sortField {
+    width: 100%;
+  }
+}
+
+@media (max-width: 419px) {
+  .title {
+    font-size: var(--text-8xl);
+  }
+
+  .pagination {
+    gap: var(--space-8);
+  }
 }

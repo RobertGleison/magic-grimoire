@@ -72,29 +72,35 @@ Each step publishes a progress event to Redis Pub/Sub (`task:{id}`) which is str
 
 ## Frontend (`apps/web-app/`)
 
-**Framework:** Next.js 15 App Router, TypeScript, Tailwind CSS 4.
+**Framework:** Next.js 15 App Router, TypeScript, CSS Modules + CSS custom
+properties. **No Tailwind** — design tokens live in `app/globals.css` and are
+documented in `apps/web-app/docs/tokens.md`.
 
 ```
 apps/web-app/app/
-├── layout.tsx              # Root layout with SpineNav + UserProvider
-├── page.tsx                # Landing page (Hero, Ritual, Features, Marquee, CTA)
-├── grimoire/               # Deck generation page (split-screen chat + deck panel)
-├── library/                # Saved decks (auth-gated)
+├── layout.tsx              # Root layout: Header + ThemeProvider + UserProvider
+├── page.tsx                # Landing page
+├── deck-builder/           # Deck generation screen
+├── library/                # Saved decks (auth-gated, has its own layout)
+├── login/  signup/         # Auth screens
+├── pricing/                # Pricing tiers
 ├── context/
-│   └── UserContext.tsx     # localStorage-backed user state
-├── components/
-│   ├── SpineNav.tsx         # Fixed left sidebar navigation
-│   ├── ArcaneSigil.tsx      # Animated rotating rings SVG
-│   ├── ManaSymbol.tsx       # MTG mana cost display
-│   ├── DeckPanel.tsx        # Right panel: deck list/grid view
-│   ├── AuthModal.tsx        # Login/signup modal
-│   └── ArcaneSigilLogo.tsx            # SealLogo, Ornament, Frame
+│   ├── UserContext.tsx     # Auth/user state
+│   └── ThemeContext.tsx    # Light/dark theme
+├── lib/
+│   ├── apiClient.ts        # Typed fetch wrapper for the FastAPI backend
+│   ├── supabase.ts         # Supabase client
+│   └── mockAuth.ts         # NEXT_PUBLIC_MOCK_AUTH dev bypass — never deploy enabled
+├── components/             # One dir per component, each with its .module.css
+│   ├── Button/ Card/ Input/ Select/ Modal/ Badge/ Spinner/   # primitives
+│   ├── Header/ Footer/ ThemeToggle/ MockAuthBanner/          # shell
+│   └── ArcaneSigil/ ManaIcon/ ManaSymbol/ ManaCurve/ CardTile/ DeckSummaryCard/
 └── hooks/
-    ├── useReveal.ts         # Intersection observer reveal animation
+    ├── useTaskStream.ts     # SSE subscription + progress reducer
     └── useAutoScroll.ts     # Auto-scroll on new content
 ```
 
-**Auth:** Supabase Auth (Google + GitHub OAuth). JWT passed as `Authorization: Bearer` header to the backend.
+**Auth:** Supabase Auth (Google + GitHub OAuth). JWT passed as `Authorization: Bearer` header to the backend. Setting `NEXT_PUBLIC_MOCK_AUTH=true` in `.env.local` bypasses it for local UI work.
 
 **Real-time:** Connects to `GET /tasks/:id/stream` (SSE) to receive deck generation progress events. No polling.
 
