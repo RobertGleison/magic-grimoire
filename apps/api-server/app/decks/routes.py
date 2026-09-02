@@ -99,15 +99,20 @@ async def list_decks(
 ) -> DeckListResponseDTO:
     offset = (page - 1) * limit
 
+    # Only saved snapshots reach the library. A draft is the deck-builder's
+    # working copy — the forge and every refine overwrites it, so listing it
+    # would show a deck the user never chose to keep.
     count_result = await db.execute(
-        select(func.count()).select_from(Deck).where(Deck.user_id == user_id)
+        select(func.count())
+        .select_from(Deck)
+        .where(Deck.user_id == user_id, Deck.saved_at.is_not(None))
     )
     total = count_result.scalar_one()
 
     result = await db.execute(
         select(Deck)
-        .where(Deck.user_id == user_id)
-        .order_by(Deck.created_at.desc())
+        .where(Deck.user_id == user_id, Deck.saved_at.is_not(None))
+        .order_by(Deck.saved_at.desc())
         .offset(offset)
         .limit(limit)
     )

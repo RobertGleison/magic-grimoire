@@ -78,9 +78,11 @@ async def test_list_requires_auth(client):
 
 
 async def test_list_paginates_own_decks_only(client, session_factory):
-    for _ in range(3):
-        await _insert_deck(session_factory)
-    await _insert_deck(session_factory, user_id="someone-else")
+    from datetime import UTC, datetime
+
+    for i in range(3):
+        await _insert_deck(session_factory, saved_at=datetime.now(UTC), version_no=i + 1)
+    await _insert_deck(session_factory, user_id="someone-else", saved_at=datetime.now(UTC), version_no=1)
 
     res = await client.get("/api/v1/decks?page=1&limit=2", headers=AUTH)
     assert res.status_code == 200
@@ -172,3 +174,31 @@ async def test_deck_defaults_to_an_unsaved_draft(session_factory):
     assert deck.saved_at is None
     assert deck.version_no is None
     assert deck.lineage_id is not None
+
+
+async def test_list_decks_excludes_drafts_and_orders_by_saved_at(client, session_factory):
+    from datetime import UTC, datetime
+
+    await _insert_deck(session_factory, title="a draft")
+    older = await _insert_deck(
+        session_factory,
+        title="older save",
+        saved_at=datetime(2026, 1, 1, tzinfo=UTC),
+        version_no=1,
+    )
+    newer = await _insert_deck(
+        session_factory,
+        title="newer save",
+        saved_at=datetime(2026, 2, 1, tzinfo=UTC),
+        version_no=2,
+        lineage_id=older.lineage_id,
+    )
+
+    res = await client.get("/api/v1/decks", headers=AUTH)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total"] == 2
+    assert [d["title"] for d in body["decks"]] == ["newer save", "older save"]
+    assert [d["version_no"] for d in body["decks"]] == [2, 1]
+    assert str(newer.id) == body["decks"][0]["id"]

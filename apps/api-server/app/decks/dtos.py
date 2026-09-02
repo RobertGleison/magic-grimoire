@@ -37,6 +37,8 @@ class DeckResponseDTO(BaseModel):
     colors: list[str] | None
     cards: list[CardInDeckDTO] | None
     card_count: int
+    # None on a working draft; 1-based within its lineage on a saved snapshot.
+    version_no: int | None = None
     status: DeckStatus
     error_message: str | None
     created_at: datetime
