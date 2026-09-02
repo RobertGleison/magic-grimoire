@@ -33,8 +33,8 @@ Model choice: `haiku` for mechanical tasks where the plan gives complete code,
 | # | Task | Status | Commits |
 |---|---|---|---|
 | 1 | Deck model — version columns | ✅ spec ✅ quality ✅ | `5b9f024`, `ecdccf7` |
-| 2 | Migration 002 | ✅ spec ✅ — **quality review still owed** | `8030c46` |
-| 3 | `version_no` on DTO; library returns only snapshots | ⬜ | |
+| 2 | Migration 002 | ✅ spec ✅ quality ✅ | `8030c46` |
+| 3 | `version_no` on DTO; library returns only snapshots | ⚠️ implemented — **both reviews owed** | `5c484b2` |
 | 4 | `POST /decks/{id}/save` | ⬜ | |
 | 5 | `saveDeck` in API client | ⬜ | |
 | 6 | Save button in deck header | ⬜ | |
@@ -53,14 +53,43 @@ Model choice: `haiku` for mechanical tasks where the plan gives complete code,
 | 19 | Wire the refine request into the page | ⬜ | |
 | 20 | Full verification | ⬜ | |
 
-**Next action:** dispatch the Task 2 code-quality review (BASE `ecdccf7`, HEAD
-`8030c46`), then start Task 3.
+**Next action — do this first, before starting Task 4:**
+
+1. **Task 3 spec compliance review** (BASE `3cb71a1`, HEAD `5c484b2`). The
+   implementer reported DONE: DTO gained `version_no: int | None = None`, both
+   `list_decks` queries now filter `Deck.saved_at.is_not(None)`, ordering changed
+   from `created_at DESC` to `saved_at DESC`, and the new test
+   `test_list_decks_excludes_drafts_and_orders_by_saved_at` was appended. Claims
+   15 tests in the integration file, 108 in the full backend suite, ruff clean.
+   **The thing to scrutinise:** it modified one pre-existing test,
+   `test_list_paginates_own_decks_only`, giving each of its four inserted decks a
+   `saved_at` and a `version_no` so they remain visible under the new filter. Its
+   stated reasoning is that the test's intent is pagination scoping, unrelated to
+   draft/snapshot semantics. Verify by reading the diff that no assertion was
+   weakened — `total == 3`, `pages == 2`, `len(decks) == 2` should all still be
+   asserted. This is the likeliest place for a quietly loosened test.
+2. **Task 3 code quality review**, only after spec passes.
+3. Then Task 4.
 
 ---
+
+## Push state
+
+`origin/alternative_ui` is at **`26c3752`** — the user asked to push only what
+predates Task 1, so the remote has the design spec and the plan and nothing else.
+Everything from `5b9f024` onward is local and unpushed. Do not push further
+without asking.
+
+`git status` will always show this progress file as modified — it is updated as
+tasks land, so the committed copy lags the working copy. That is expected; commit
+it when convenient. Task-implementer subagents correctly leave it out of their
+commits.
 
 ## Commits so far
 
 ```
+5c484b2 feat(api-server): list only saved deck snapshots in the library
+3cb71a1 docs(plans): track execution progress and environment gotchas
 8030c46 feat(api-server): migrate decks to versioned drafts and snapshots
 ecdccf7 docs(api-server): describe lineage_id as the opaque group key it is
 b23e6cc chore(api-server): sort imports in pipeline.py so ruff check passes
