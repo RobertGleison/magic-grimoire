@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
 
 import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
@@ -33,7 +33,7 @@ export interface ChatEntry {
 
 const AUTHOR_LABELS: Record<ChatEntryKind, string> = {
   user: 'You',
-  assistant: 'Grimoire AI',
+  assistant: 'Magic Grimoire',
   error: 'Forge Error',
 };
 
@@ -41,17 +41,21 @@ function formatClock(at: number): string {
   return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-/** Sparkle mark from the chat title (`10:25`) and the Generate button (`10:80`). */
-function Sparkle({ className = '' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M8 1l1.6 4.4L14 7l-4.4 1.6L8 13l-1.6-4.4L2 7l4.4-1.6z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
+/* Disabled with the chat title glyph and the Generate button icon — restore
+   all three at once (the .chatSparkle / .buttonSparkle rules are still there).
+
+   /** Sparkle mark from the chat title (`10:25`) and the Generate button (`10:80`).
+   function Sparkle({ className = '' }: { className?: string }) {
+     return (
+       <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+         <path
+           d="M8 1l1.6 4.4L14 7l-4.4 1.6L8 13l-1.6-4.4L2 7l4.4-1.6z"
+           fill="currentColor"
+         />
+       </svg>
+     );
+   }
+*/
 
 interface ChatPanelProps {
   entries: ChatEntry[];
@@ -63,8 +67,6 @@ interface ChatPanelProps {
   chatBusy: boolean;
   /** A generation is in flight (request or live stream). */
   generating: boolean;
-  /** Blocks Generate with a reason, e.g. nothing described yet. */
-  generateHint?: string;
 }
 
 export function ChatPanel({
@@ -75,9 +77,9 @@ export function ChatPanel({
   onGenerate,
   chatBusy,
   generating,
-  generateHint = '',
 }: ChatPanelProps) {
   const listRef = useRef<HTMLOListElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // `useAutoScroll` is the marquee helper (horizontal, infinite); a transcript
   // needs a one-shot pin to the bottom, so it stays local.
@@ -87,9 +89,51 @@ export function ChatPanel({
     list.scrollTop = list.scrollHeight;
   }, [entries, chatBusy]);
 
+  /* Grow the field to fit what has been typed. The height is measured, not
+     counted: a wrapped line is a line, so `\n`s in the draft are the wrong
+     unit. `max-height` in the stylesheet is the four-line ceiling — past it
+     the assignment is clamped and the field scrolls instead. Height is reset
+     to `auto` first so `scrollHeight` can shrink back after a deletion. */
+  const fitInput = useCallback(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${input.scrollHeight}px`;
+  }, []);
+
+  useEffect(fitInput, [draft, fitInput]);
+
+  /* The splitter resizes this column without touching the draft, and a
+     narrower field wraps into more lines than the last measurement assumed.
+     Only a width change can rewrap, so the height the effect above just wrote
+     is ignored — observing it too would re-measure on every keystroke. */
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input || typeof ResizeObserver === 'undefined') return;
+
+    let lastWidth = input.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const width = input.clientWidth;
+      if (width === lastWidth) return;
+      lastWidth = width;
+      fitInput();
+    });
+    observer.observe(input);
+    return () => observer.disconnect();
+  }, [fitInput]);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSend();
+  };
+
+  /* A textarea does not submit its form on Enter the way the input it replaced
+     did, so the send key is wired by hand: Enter sends, Shift+Enter (and the
+     IME's composing Enter) breaks the line. */
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    if (draft.trim().length > 0 && !chatBusy) onSend();
   };
 
   const canSend = draft.trim().length > 0 && !chatBusy;
@@ -97,8 +141,7 @@ export function ChatPanel({
   return (
     <section className={styles.chatPanel} aria-label="Deck conversation">
       <h2 className={styles.panelTitle}>
-        <Sparkle className={styles.chatSparkle} />
-        Forge Alchemist
+        Magic Grimoire
       </h2>
 
       <ol className={styles.messages} ref={listRef}>
@@ -141,15 +184,17 @@ export function ChatPanel({
 
       <form className={styles.chatControls} onSubmit={handleSubmit}>
         <div className={styles.chatInputBox}>
-          <input
+          <textarea
+            ref={inputRef}
             className={styles.chatInput}
-            type="text"
+            rows={1}
             value={draft}
             maxLength={PROMPT_MAX}
             placeholder="Describe your ideal deck..."
             aria-label="Describe your ideal deck"
             disabled={chatBusy}
             onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={handleKeyDown}
           />
           <button
             type="submit"
@@ -169,33 +214,22 @@ export function ChatPanel({
           </button>
         </div>
 
+        {/* Only Generate lives here. The transcript is sent with Enter or the
+            arrow inside the field above, so a second "Send Chat" button was a
+            duplicate that also forced two full-width buttons into a column the
+            splitter can drag down to 300px, overflowing the panel. */}
         <div className={styles.chatActions}>
-          <Button
-            type="submit"
-            variant="subtle"
-            size="md"
-            fullWidth
-            className={styles.goldButton}
-            loading={chatBusy}
-            disabled={!canSend}
-          >
-            Send Chat
-          </Button>
           <Button
             type="button"
             variant="primary"
             size="md"
-            fullWidth
             loading={generating}
-            disabled={generating || generateHint.length > 0}
-            title={generateHint || undefined}
+            disabled={generating}
             onClick={onGenerate}
-            iconRight={<Sparkle className={styles.buttonSparkle} />}
           >
             Generate Deck
           </Button>
         </div>
-        {generateHint && <p className={styles.chatFootnote}>{generateHint}</p>}
       </form>
     </section>
   );

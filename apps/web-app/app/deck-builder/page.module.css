@@ -21,7 +21,12 @@
      --config-w collapses the config panel to a rail, --chat-w is dragged by
      the splitter. Going through variables rather than an inline
      `grid-template-columns` is what lets the media queries below still win —
-     an inline template would outrank them and strand the narrow layouts. */
+     an inline template would outrank them and strand the narrow layouts.
+
+     No track floors here on purpose: the page clamps --chat-w so the chat
+     never drops under 300 nor leaves the deck column under 400. A CSS
+     `minmax()` floor would fight that clamp and overflow the grid instead of
+     stopping the drag, so the constraint lives in one place. */
   display: grid;
   grid-template-columns: var(--config-w, 280px) var(--chat-w, 380px) auto minmax(0, 1fr);
   gap: var(--space-16);
@@ -77,6 +82,17 @@
   max-height: calc(100vh - var(--header-h) - var(--space-64));
 }
 
+/* The chat takes that whole height rather than shrinking to its transcript:
+   `height`, not `max-height`, so an empty conversation is the same column as a
+   long one and the input sits at the foot of the panel instead of floating
+   under the welcome bubble. This is the tallest the panel can be before the
+   page itself would scroll, so nothing is pushed out of view.
+   The 1200 / 1024 rules below re-set this height once the panels stop being
+   columns — being later in the file, they win. */
+.chatPanel {
+  height: calc(100vh - var(--header-h) - var(--space-64));
+}
+
 /* ---------------------------------------------------------- shared shells */
 
 .configPanel,
@@ -99,9 +115,14 @@
   overflow-y: auto;
 }
 
+/* Both panel headings hold the same 24px row — the height of the config
+   panel's collapse button. Without it the config title is the shorter of the
+   two boxes (18px x 1.15 = 20.7px) and `.panelHead` centres it against that
+   button, dropping it ~1.5px below the chat title sitting on the same line. */
 .panelTitle {
   display: flex;
   align-items: center;
+  min-height: var(--space-24);
   gap: var(--space-8);
   font-family: var(--font-display);
   font-size: var(--text-3xl);
@@ -340,9 +361,9 @@
 }
 
 .numberInput:focus-visible {
+  /* Border colour only, matching the chat input: no accent halo. */
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 8px rgba(var(--accent-glow), 0.35);
 }
 
 .numberInput:disabled {
@@ -430,7 +451,12 @@
   animation: messageIn var(--dur) var(--ease) both;
 }
 
+/* Indented off the left rail so the two speakers are told apart by position
+   before the label is read: your turns sit to the right, the Alchemist's stay
+   flush left behind its crimson spine. A percentage rather than a fixed inset,
+   so the indent still reads at the chat panel's 300px floor. */
 .bubbleUser {
+  margin-left: 18%;
   background: var(--void-3);
   border: 1px solid var(--line);
 }
@@ -504,7 +530,9 @@
 
 .chatInputBox {
   display: flex;
-  align-items: center;
+  /* Bottom, not centre: the field grows upward to four lines, and a send arrow
+     floating in the middle of a tall box reads as unattached to the caret. */
+  align-items: flex-end;
   gap: var(--space-8);
   padding: var(--space-12);
   background: var(--void-1);
@@ -514,19 +542,37 @@
 }
 
 .chatInputBox:focus-within {
+  /* Focus reads off the border alone — the --glow-accent halo the other fields
+     carry was too loud on a box this wide. */
   border-color: var(--accent);
-  box-shadow: var(--glow-accent);
 }
 
+/* A textarea, not an input: the draft wraps and the box grows with it. The
+   height itself is set by `ChatPanel` from `scrollHeight`; everything here is
+   the ceiling that assignment is clamped to.
+
+   `--chat-line-h` is unitless so `max-height` can multiply it by the four-line
+   limit in `em` — tie both to one number and the ceiling cannot drift out of
+   step with the line box it is counting. Padding lives on `.chatInputBox`, so
+   this element's height is lines and nothing else. */
 .chatInput {
+  --chat-line-h: 1.5;
+  --chat-line-max: 4;
+
   flex: 1 1 auto;
   min-width: 0;
   background: transparent;
   border: none;
   outline: none;
+  resize: none;
+  padding: 0;
   font-family: var(--font-body);
   font-size: var(--text-base);
+  line-height: var(--chat-line-h);
   color: var(--cream);
+  max-height: calc(var(--chat-line-h) * var(--chat-line-max) * 1em);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .chatInput:disabled {
@@ -552,8 +598,12 @@
   cursor: not-allowed;
 }
 
+/* One button, sitting on the input box's right edge under the send arrow. It
+   sizes to its label rather than stretching, so the row never overflows the
+   300px chat floor. */
 .chatActions {
   display: flex;
+  justify-content: flex-end;
   gap: var(--space-8);
 }
 
@@ -1270,10 +1320,6 @@
 
   .deckTitle {
     font-size: var(--text-4xl);
-  }
-
-  .chatActions {
-    flex-direction: column;
   }
 
   .statTiles {

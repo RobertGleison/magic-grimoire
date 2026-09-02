@@ -7,10 +7,13 @@ import { DECK_FORMATS, MTG_COLORS, type DeckFormat, type MTGColor } from '../typ
 import {
   BUDGET_MAX,
   BUDGET_MIN,
+  COMMANDER_DECK_SIZE,
   DECK_SIZE_MAX,
   DECK_SIZE_MIN,
   DECK_SIZE_STEP,
   MANA_COLOR_NAMES,
+  isFixedSizeFormat,
+  setDeckFormat,
   setDeckSizeBound,
   toggleDeckColor,
   type DeckConfig,
@@ -54,7 +57,9 @@ import styles from './page.module.css';
      ..`DECK_SIZE_MAX` (60..200, inside the server's `60..250`) and push each
      other rather than inverting; equal ends pin an exact size. `deck_size`
      is a single `int` in the request, so the floor is what gets sent and
-     `buildGeneratePrompt` carries the ceiling.
+     `buildGeneratePrompt` carries the ceiling. Commander is the exception:
+     the format is 100 cards by rule, so picking it pins both ends to 100 and
+     disables the fields — a range there could only produce an illegal deck.
    ========================================================================== */
 
 /** Points left when the panel is open (collapse) and right when it is a rail. */
@@ -155,6 +160,10 @@ export function ConfigPanel({
   const countId = `count-${autoId}`;
   const bodyId = `config-body-${autoId}`;
 
+  /* Commander is a 100-card format by rule, so the count fields go read-only
+     rather than offering a choice the deck cannot legally have. */
+  const sizeLocked = isFixedSizeFormat(config.format);
+
   const setColor = (color: MTGColor) =>
     onChange({ ...config, colors: toggleDeckColor(config.colors, color) });
 
@@ -238,7 +247,7 @@ export function ConfigPanel({
       {/* ---- Format (10:97) -------------------------------------------- */}
       <div className={styles.configGroup}>
         <span className={styles.configLabel} id={`format-${autoId}`}>
-          Spell Format
+          Deck Format
         </span>
         <div className={styles.segmented} role="group" aria-labelledby={`format-${autoId}`}>
           {DECK_FORMATS.map((format) => (
@@ -248,7 +257,7 @@ export function ConfigPanel({
               className={`${styles.segment} ${config.format === format ? styles.segmentOn : ''}`}
               aria-pressed={config.format === format}
               disabled={disabled}
-              onClick={() => onChange({ ...config, format })}
+              onClick={() => onChange(setDeckFormat(config, format))}
             >
               {FORMAT_LABELS[format]}
             </button>
@@ -266,7 +275,7 @@ export function ConfigPanel({
             id={`${countId}-min`}
             label="Min"
             value={config.deckSizeMin}
-            disabled={disabled}
+            disabled={disabled || sizeLocked}
             onCommit={(value) => onChange(setDeckSizeBound(config, 'min', value))}
           />
           <span className={styles.countRangeDash} aria-hidden="true">
@@ -276,14 +285,16 @@ export function ConfigPanel({
             id={`${countId}-max`}
             label="Max"
             value={config.deckSizeMax}
-            disabled={disabled}
+            disabled={disabled || sizeLocked}
             onCommit={(value) => onChange(setDeckSizeBound(config, 'max', value))}
           />
         </div>
         <p className={styles.configHint}>
-          {config.deckSizeMin === config.deckSizeMax
-            ? `Exactly ${config.deckSizeMin} cards.`
-            : `Between ${config.deckSizeMin} and ${config.deckSizeMax} cards.`}
+          {sizeLocked
+            ? `Commander is exactly ${COMMANDER_DECK_SIZE} cards — locked by the format.`
+            : config.deckSizeMin === config.deckSizeMax
+              ? `Exactly ${config.deckSizeMin} cards.`
+              : `Between ${config.deckSizeMin} and ${config.deckSizeMax} cards.`}
         </p>
       </div>
 

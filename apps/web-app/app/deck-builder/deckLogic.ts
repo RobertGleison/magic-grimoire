@@ -240,6 +240,24 @@ export function deckFileName(deck: DeckResponse): string {
 export const DECK_SIZE_MIN = 60;
 export const DECK_SIZE_MAX = 200;
 export const DECK_SIZE_STEP = 5;
+
+/**
+ * Commander is a singleton 100-card format — the deck is exactly 100 cards,
+ * commander included. That is a rule of the format, not a preference, so the
+ * range collapses to a pinned 100 and the fields go read-only rather than
+ * letting the builder ask the generator for an illegal deck.
+ */
+export const COMMANDER_DECK_SIZE = 100;
+
+/** Formats whose card count is fixed by the rules and cannot be chosen. */
+export function isFixedSizeFormat(format: DeckFormat): boolean {
+  return format === 'commander';
+}
+
+/** The size the rules pin `format` to, or `null` when the count is free. */
+export function fixedDeckSize(format: DeckFormat): number | null {
+  return format === 'commander' ? COMMANDER_DECK_SIZE : null;
+}
 /** `prompt` is `1..2000` chars in `app/decks/dtos.py`. */
 export const PROMPT_MAX = 2000;
 
@@ -298,6 +316,28 @@ export function clampDeckSize(size: number): number {
 }
 
 /**
+ * Switches format, applying whatever card count the format's rules require.
+ *
+ * Commander pins the range to exactly 100. Coming back out of a fixed-size
+ * format restores the defaults rather than the count you had before it: the
+ * pinned 100 overwrote that, and a remembered-range field on `DeckConfig`
+ * would exist only to survive this one round trip.
+ */
+export function setDeckFormat(config: DeckConfig, format: DeckFormat): DeckConfig {
+  const fixed = fixedDeckSize(format);
+  if (fixed !== null) {
+    return { ...config, format, deckSizeMin: fixed, deckSizeMax: fixed };
+  }
+  if (!isFixedSizeFormat(config.format)) return { ...config, format };
+  return {
+    ...config,
+    format,
+    deckSizeMin: DEFAULT_DECK_CONFIG.deckSizeMin,
+    deckSizeMax: DEFAULT_DECK_CONFIG.deckSizeMax,
+  };
+}
+
+/**
  * Moves one end of the deck-size range and pushes the other out of the way,
  * so the two thumbs can be dragged past each other without the range ever
  * inverting. Equal ends are allowed — that is how you ask for an exact size.
@@ -307,6 +347,11 @@ export function setDeckSizeBound(
   end: 'min' | 'max',
   value: number,
 ): DeckConfig {
+  // A fixed-size format owns the count. The fields are disabled in the panel,
+  // so this only catches a programmatic caller — but the rule lives here, not
+  // in the markup, so it holds either way.
+  if (isFixedSizeFormat(config.format)) return config;
+
   const size = clampDeckSize(value);
   return end === 'min'
     ? { ...config, deckSizeMin: size, deckSizeMax: Math.max(size, config.deckSizeMax) }
@@ -339,7 +384,15 @@ export function buildGeneratePrompt(
   if (parts.length === 0) return '';
 
   const qualifiers: string[] = [];
-  if (config.deckSizeMax > config.deckSizeMin) {
+  if (isFixedSizeFormat(config.format)) {
+    // `deck_size` already carries 100, but the composer prompt is where the
+    // singleton rule has to land — a 100-card Commander deck with four copies
+    // of a card is still an illegal deck.
+    qualifiers.push(
+      `This is a Commander deck: exactly ${COMMANDER_DECK_SIZE} cards including the ` +
+        'commander, singleton — one copy of every card except basic lands.',
+    );
+  } else if (config.deckSizeMax > config.deckSizeMin) {
     qualifiers.push(
       `Anywhere from ${config.deckSizeMin} to ${config.deckSizeMax} cards is fine — ` +
         'use the room if the curve needs it.',
