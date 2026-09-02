@@ -64,5 +64,5 @@ def test_compose_deck_uses_requested_deck_size():
     sent = client.messages.create.call_args.kwargs["messages"][0]["content"]
     system = client.messages.create.call_args.kwargs["system"]
     assert "100-card" in sent
-    assert "equal 100" in sent
+    assert "sum to exactly 100" in sent
     assert "100-card" in system

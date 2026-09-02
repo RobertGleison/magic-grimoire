@@ -45,7 +45,12 @@ class LLMService(ABC):
 
     def compose_deck(self, intent: dict, cards: list[dict], format: str, deck_size: int) -> dict:
         """Compose a deck of the requested size from candidate cards and intent."""
-        cards_text = "\n".join(f"- {c.get('name', 'Unknown')}" for c in cards)
+        # Cost and type line come back from the Scryfall search already; the composer needs
+        # them to hit a mana curve and a land ratio, which a bare name list cannot support.
+        cards_text = "\n".join(
+            f"- {c.get('name', 'Unknown')} | {c.get('mana_cost') or '-'} | {c.get('type_line') or '-'}"
+            for c in cards
+        )
         return self._complete_json(
             COMPOSE_DECK_SYSTEM.format(deck_size=deck_size),
             COMPOSE_DECK_TEMPLATE.format(
