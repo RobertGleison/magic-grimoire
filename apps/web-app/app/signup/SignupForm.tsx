@@ -140,8 +140,7 @@ export function SignupForm() {
     <AuthScaffold>
       <AuthHeading
         titleId={titleId}
-        title="Create Your Grimoire"
-        subtitle="Forge an account to summon unlimited deck-building potential."
+        title="Create Your Account"
       />
 
       {configured ? (
@@ -149,11 +148,11 @@ export function SignupForm() {
           <form className={styles.form} onSubmit={handleSubmit} aria-labelledby={titleId} noValidate>
             <div className={styles.fields}>
               <Input
-                label="Planeswalker Handle"
+                label="Username"
                 type="text"
                 name="handle"
                 autoComplete="nickname"
-                placeholder="Liliana_Vess_99"
+                placeholder="Liliana_Vess"
                 value={handle}
                 error={fieldErrors.handle}
                 disabled={locked}
@@ -161,7 +160,7 @@ export function SignupForm() {
                 onChange={(event) => setHandle(event.target.value)}
               />
               <Input
-                label="Aether Mail (Email)"
+                label="Email"
                 type="email"
                 name="email"
                 autoComplete="email"
@@ -173,7 +172,7 @@ export function SignupForm() {
                 onChange={(event) => setEmail(event.target.value)}
               />
               <Input
-                label="Spell-Password"
+                label="Password"
                 type="password"
                 name="password"
                 autoComplete="new-password"
@@ -186,7 +185,7 @@ export function SignupForm() {
                 onChange={(event) => setPassword(event.target.value)}
               />
               <Input
-                label="Confirm Spell-Password"
+                label="Confirm Password"
                 type="password"
                 name="confirmPassword"
                 autoComplete="new-password"
@@ -215,7 +214,7 @@ export function SignupForm() {
             </Button>
           </form>
 
-          <AuthDivider label="Or Forge With" />
+          <AuthDivider label="Or Create With" />
 
           <SocialAuthRow
             actionVerb="continue with"

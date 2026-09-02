@@ -5,7 +5,7 @@ import { SignupForm } from './SignupForm';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
-  title: 'Create Your Grimoire',
+  title: 'Create Your Account',
   description: 'Create a Magic Grimoire account to build and keep unlimited AI-generated decks.',
 };
 

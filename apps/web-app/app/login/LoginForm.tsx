@@ -144,7 +144,7 @@ export function LoginForm() {
     <AuthScaffold>
       <AuthHeading
         titleId={titleId}
-        title="Enter the Grimoire"
+        title="Access Your Account"
         subtitle="Welcome back, wizard. Enter your key to access your archives."
       />
 
@@ -153,11 +153,11 @@ export function LoginForm() {
           <form className={styles.form} onSubmit={handleSubmit} aria-labelledby={titleId} noValidate>
             <div className={styles.fields}>
               <Input
-                label="Aether Mail (Email)"
+                label="Email"
                 type="email"
                 name="email"
                 autoComplete="email"
-                placeholder="liliana@mana.vault"
+                placeholder="liliana@gmail.com"
                 value={email}
                 error={fieldErrors.email}
                 disabled={locked}
@@ -167,7 +167,7 @@ export function LoginForm() {
 
               <div className={styles.passwordGroup}>
                 <Input
-                  label="Spell-Password"
+                  label="Password"
                   type="password"
                   name="password"
                   autoComplete="current-password"
@@ -186,7 +186,7 @@ export function LoginForm() {
                     disabled={locked}
                     onClick={handleForgotPassword}
                   >
-                    Forgot Spell-Password?
+                    Forgot Password?
                   </button>
                 </div>
               </div>

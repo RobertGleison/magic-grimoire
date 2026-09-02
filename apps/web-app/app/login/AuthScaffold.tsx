@@ -95,7 +95,8 @@ export function AuthScaffold({ children }: AuthScaffoldProps) {
 
 interface AuthHeadingProps {
   title: string;
-  subtitle: string;
+  /** Optional: the sign-up heading is title-only. */
+  subtitle?: string;
   /** Bound to the `<form>` via `aria-labelledby`. */
   titleId: string;
 }
@@ -107,7 +108,7 @@ export function AuthHeading({ title, subtitle, titleId }: AuthHeadingProps) {
       <h1 className={styles.title} id={titleId}>
         {title}
       </h1>
-      <p className={styles.subtitle}>{subtitle}</p>
+      {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
     </header>
   );
 }
