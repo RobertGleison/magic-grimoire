@@ -163,7 +163,16 @@ async def _readable_deck_or_error(db: AsyncSession, deck_id: uuid.UUID, user_id:
 
 
 def _snapshot_of(source: Deck, user_id: str, version_no: int) -> Deck:
-    """An immutable copy of `source`, owned by `user_id`, at `version_no`."""
+    """An immutable copy of `source`, owned by `user_id`, at `version_no`.
+
+    This field list is deliberately exhaustive, not a convenient subset: a
+    column added to `Deck` later must be added here too, or it is silently
+    dropped from every snapshot. Three columns are intentionally left out,
+    not forgotten: `error_message` and `failed_at` are always None on a
+    COMPLETED deck (the only status this function is ever called with), and
+    `created_at` is not carried over because the snapshot is a new row and
+    should get its own.
+    """
     return Deck(
         id=uuid.uuid4(),
         title=source.title,
