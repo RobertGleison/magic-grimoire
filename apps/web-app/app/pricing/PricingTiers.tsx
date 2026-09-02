@@ -2,7 +2,8 @@ import { Badge } from '../components/Badge/Badge';
 import { Button } from '../components/Button/Button';
 import { Card } from '../components/Card/Card';
 import { PRICING_CTA_HREF, PRICING_TIERS, type PricingTier, type TierAccent } from './pricingContent';
-import { SparkleIcon } from './PricingIcons';
+// Disabled with the feature bullets' glyph — restore both at once.
+// import { SparkleIcon } from './PricingIcons';
 import styles from './page.module.css';
 
 /** Sets `--tier-accent`, which paints the eyebrow and the feature bullets. */
@@ -65,8 +66,8 @@ function TierCard({ tier }: { tier: PricingTier }) {
       <ul className={styles.features}>
         {tier.features.map((feature) => (
           <li key={feature} className={styles.feature}>
-            <SparkleIcon className={styles.featureIcon} />
-            <span>{feature}</span>
+            {/* <SparkleIcon className={styles.featureIcon} /> */}
+            <span>- {feature}</span>
           </li>
         ))}
       </ul>

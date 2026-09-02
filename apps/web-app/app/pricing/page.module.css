@@ -71,9 +71,16 @@
   /* Card width verbatim from nodes 16:229 / 16:257 / 16:291. */
   --tier-w: 400px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, var(--tier-w)));
+  /* auto-fit rather than a fixed repeat(3): empty tracks collapse, so however
+     many tiers PRICING_TIERS ships (one, two or the design's three) the filled
+     tracks stay centred instead of packing against the left edge. It also drops
+     to two columns then one on its own, which is why the breakpoints below no
+     longer override the template. */
+  grid-template-columns: repeat(auto-fit, minmax(0, var(--tier-w)));
   justify-content: center;
-  align-items: start;
+  /* Tiers carry uneven feature lists; stretching makes every card in a row the
+     same height, and .tierCta's auto top margin keeps the CTAs on one line. */
+  align-items: stretch;
   gap: var(--space-32);
 }
 
@@ -203,8 +210,10 @@
 /* ---- CTAs 16:255 / 16:289 / 16:321 --------------------------------------- */
 
 /* Button `md` pads 12px vertically; every full-width card CTA in the design
-   pads 14px — the reason --space-14 exists. */
+   pads 14px — the reason --space-14 exists. The auto top margin pins the CTA
+   to the bottom of a stretched card, absorbing the uneven feature lists. */
 .tierCta.tierCta {
+  margin-block-start: auto;
   padding-block: var(--space-14);
 }
 
@@ -328,9 +337,10 @@
 /* ==========================================================================
    Responsive — breakpoints match the Wave 2a shell (Header.css / Footer.css).
    INVENTED: the Figma file is 1440px only.
-     1024px : the 3x400 row no longer fits, so the grid drops to two columns
-              and the gutters fall from --page-pad (80px) to --space-40
-     640px  : single column, --space-20 gutters, display type steps down
+     1024px : gutters fall from --page-pad (80px) to --space-40
+     640px  : gutters fall to --space-20 and display type steps down
+   The tier grid re-columns itself via auto-fit, so neither breakpoint touches
+   grid-template-columns.
    ========================================================================== */
 
 @media (max-width: 1023px) {
@@ -344,10 +354,6 @@
 
   .gridSection {
     padding: var(--space-24) var(--space-40) var(--space-64);
-  }
-
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, var(--tier-w)));
   }
 
   .faq {
@@ -371,10 +377,6 @@
 
   .gridSection {
     padding: var(--space-20) var(--space-20) var(--space-48);
-  }
-
-  .grid {
-    grid-template-columns: minmax(0, var(--tier-w));
   }
 
   .price {
