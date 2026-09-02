@@ -241,6 +241,19 @@ export function getDeck(deckId: string, options: RequestOptions = {}): Promise<D
   });
 }
 
+/**
+ * `POST /api/v1/decks/{deck_id}/save` — writes the deck as an immutable version
+ * in the caller's library and returns that snapshot. Requires auth: this is also
+ * the call that adopts a deck forged while signed out.
+ */
+export function saveDeck(deckId: string, options: RequestOptions = {}): Promise<DeckResponse> {
+  return request<DeckResponse>({
+    ...options,
+    method: 'POST',
+    path: `/decks/${encodeURIComponent(deckId)}/save`,
+  });
+}
+
 /** `DELETE /api/v1/decks/{deck_id}` — 204. Requires auth and ownership. */
 export async function deleteDeck(deckId: string, options: RequestOptions = {}): Promise<void> {
   await request<void>({

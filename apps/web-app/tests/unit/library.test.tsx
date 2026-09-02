@@ -61,6 +61,7 @@ function makeDeck(overrides: Partial<DeckResponse> = {}): DeckResponse {
     colors: ['B', 'R'],
     cards: null,
     card_count: 60,
+    version_no: null,
     status: 'completed',
     error_message: null,
     created_at: '2026-08-23T10:00:00.000Z',

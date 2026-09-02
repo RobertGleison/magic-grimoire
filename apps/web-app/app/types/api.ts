@@ -85,6 +85,8 @@ export interface DeckResponse {
   colors: string[] | null;
   cards: CardInDeck[] | null;
   card_count: number;
+  /** `null` on a working draft; 1-based within its lineage on a saved snapshot. */
+  version_no: number | null;
   status: DeckStatus;
   error_message: string | null;
   /** ISO-8601 timestamps. */
