@@ -4,15 +4,20 @@ import { useMemo, useState } from 'react';
 
 import { Badge } from '../components/Badge/Badge';
 import { Button } from '../components/Button/Button';
-import { CardTile } from '../components/CardTile/CardTile';
+import {
+  CardHoverPreview,
+  useCardHoverPreview,
+  type CardHoverBindings,
+} from '../components/CardHoverPreview/CardHoverPreview';
 import { ManaCost } from '../components/ManaSymbol/ManaSymbol';
 import { ManaCurve } from '../components/ManaCurve/ManaCurve';
-import type { DeckResponse, DeckStatus } from '../types/api';
+import type { CardInDeck, DeckResponse, DeckStatus } from '../types/api';
 import {
   MANA_COLOR_NAMES,
   deckColorDistribution,
   deckSummaryStats,
   groupDeckCards,
+  quantityOf,
   type DeckCategory,
 } from './deckLogic';
 import styles from './page.module.css';
@@ -29,6 +34,12 @@ import styles from './page.module.css';
 
    "Export PDF" (`16:186`) is also gone: rendering a PDF needs a dependency,
    and Wave 3 may not add one. Its slot is "Copy List".
+
+   The grid no longer uses `CardTile` (the 80x112 mini-frame that reprints the
+   name, type line and cost around a crop of the art). Inside a deck all three
+   are already on the card face, so the tile spent its width restating it; the
+   grid shows the Scryfall render itself instead, one tile per physical copy,
+   and the aggregated x N reading stays in the list view where it belongs.
    ========================================================================== */
 
 export type DeckView = 'grid' | 'list';
@@ -75,6 +86,49 @@ function ListIcon() {
         strokeLinecap="round"
       />
     </svg>
+  );
+}
+
+/* --------------------------------------------------------------- card tile */
+
+/* MTG card proportions: 63 x 88 mm. */
+const CARD_ASPECT = '63 / 88';
+
+interface DeckCardProps {
+  card: CardInDeck;
+  /** From `useCardHoverPreview` — mounts the zoom on this tile. */
+  hoverProps: CardHoverBindings;
+}
+
+/** One physical copy, as its full Scryfall render. */
+function DeckCard({ card, hoverProps }: DeckCardProps) {
+  const [artFailed, setArtFailed] = useState(false);
+
+  return (
+    <li className={styles.gridCard} style={{ aspectRatio: CARD_ASPECT }} {...hoverProps}>
+      {card.image_uri && !artFailed ? (
+        /* Remote Scryfall art; `next/image` would need a `remotePatterns`
+           entry in next.config.ts. Same call as CardTile makes. */
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className={styles.gridCardImg}
+          src={card.image_uri}
+          alt={card.name}
+          loading="lazy"
+          decoding="async"
+          onError={() => setArtFailed(true)}
+        />
+      ) : (
+        /* No enriched render: keep the slot at card shape and name it, rather
+           than leaving a hole in the grid. */
+        <span className={styles.gridCardFallback}>
+          <span className={styles.gridCardFallbackMark} aria-hidden="true">
+            &#x25C8;
+          </span>
+          {card.name}
+        </span>
+      )}
+    </li>
   );
 }
 
@@ -165,6 +219,7 @@ export function DeckResultsPanel({
   actionNote = '',
 }: DeckResultsPanelProps) {
   const [view, setView] = useState<DeckView>('grid');
+  const { preview, hoverProps } = useCardHoverPreview();
 
   const sections = useMemo(() => groupDeckCards(deck.cards), [deck.cards]);
   const stats = useMemo(() => deckSummaryStats(deck.cards), [deck.cards]);
@@ -251,15 +306,27 @@ export function DeckResultsPanel({
               </h3>
 
               {view === 'grid' ? (
-                <div className={styles.cardRow}>
-                  {section.cards.map((card, index) => (
-                    <CardTile key={`${card.name}-${index}`} card={card} />
-                  ))}
-                </div>
+                /* One tile per physical copy: four Lightning Bolts are four
+                   cards on the table, so they are four cards here. */
+                <ul className={styles.cardGrid}>
+                  {section.cards.flatMap((card, index) =>
+                    Array.from({ length: quantityOf(card) }, (_, copy) => (
+                      <DeckCard
+                        key={`${card.name}-${index}-${copy}`}
+                        card={card}
+                        hoverProps={hoverProps({ name: card.name, imageUri: card.image_uri })}
+                      />
+                    )),
+                  )}
+                </ul>
               ) : (
                 <ul className={styles.cardList}>
                   {section.cards.map((card, index) => (
-                    <li className={styles.cardListRow} key={`${card.name}-${index}`}>
+                    <li
+                      className={styles.cardListRow}
+                      key={`${card.name}-${index}`}
+                      {...hoverProps({ name: card.name, imageUri: card.image_uri })}
+                    >
                       <span className={styles.cardListQty}>&times;{card.quantity}</span>
                       <span className={styles.cardListName}>{card.name}</span>
                       <span className={styles.cardListType}>{card.type_line || '—'}</span>
@@ -312,6 +379,8 @@ export function DeckResultsPanel({
           <p className={styles.forecastValue}>{deck.prompt}</p>
         </div>
       </section>
+
+      <CardHoverPreview preview={preview} />
     </div>
   );
 }

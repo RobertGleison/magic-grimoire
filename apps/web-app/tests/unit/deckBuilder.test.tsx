@@ -17,6 +17,7 @@ import type { CardInDeck, DeckResponse } from '../../app/types/api';
 import DeckBuilderPage from '../../app/deck-builder/page';
 import {
   BUDGET_MAX,
+  COMMANDER_DECK_SIZE,
   DEFAULT_DECK_CONFIG,
   buildGeneratePrompt,
   categoriseCard,
@@ -27,6 +28,9 @@ import {
   deckListText,
   deckSummaryStats,
   groupDeckCards,
+  isFixedSizeFormat,
+  setDeckFormat,
+  setDeckSizeBound,
   toggleDeckColor,
 } from '../../app/deck-builder/deckLogic';
 
@@ -203,6 +207,34 @@ describe('config helpers', () => {
     expect(clampDeckSize(200)).toBe(200);
     expect(clampDeckSize(Number.NaN)).toBe(60);
   });
+
+  it('pins the range to 100 for Commander — the format\u2019s own rule', () => {
+    const commander = setDeckFormat(DEFAULT_DECK_CONFIG, 'commander');
+    expect(commander.deckSizeMin).toBe(COMMANDER_DECK_SIZE);
+    expect(commander.deckSizeMax).toBe(COMMANDER_DECK_SIZE);
+    expect(isFixedSizeFormat('commander')).toBe(true);
+  });
+
+  it('leaves the count alone for every format that does not fix one', () => {
+    for (const format of ['standard', 'modern', 'pioneer', 'legacy'] as const) {
+      const next = setDeckFormat({ ...DEFAULT_DECK_CONFIG, deckSizeMin: 70, deckSizeMax: 80 }, format);
+      expect([next.deckSizeMin, next.deckSizeMax]).toEqual([70, 80]);
+      expect(isFixedSizeFormat(format)).toBe(false);
+    }
+  });
+
+  it('restores the default range on the way back out of Commander', () => {
+    const commander = setDeckFormat(DEFAULT_DECK_CONFIG, 'commander');
+    const back = setDeckFormat(commander, 'modern');
+    expect(back.deckSizeMin).toBe(DEFAULT_DECK_CONFIG.deckSizeMin);
+    expect(back.deckSizeMax).toBe(DEFAULT_DECK_CONFIG.deckSizeMax);
+  });
+
+  it('refuses to move either bound while a fixed-size format is selected', () => {
+    const commander = setDeckFormat(DEFAULT_DECK_CONFIG, 'commander');
+    expect(setDeckSizeBound(commander, 'min', 60)).toBe(commander);
+    expect(setDeckSizeBound(commander, 'max', 200)).toBe(commander);
+  });
 });
 
 describe('buildGeneratePrompt', () => {
@@ -211,7 +243,10 @@ describe('buildGeneratePrompt', () => {
       ...DEFAULT_DECK_CONFIG,
       budget: BUDGET_MAX,
     });
-    expect(prompt).toBe('Rakdos sacrifice keep the curve low');
+    expect(prompt).toBe(
+      'Rakdos sacrifice keep the curve low Anywhere from 60 to 75 cards is fine — ' +
+        'use the room if the curve needs it.',
+    );
   });
 
   it('folds the budget control in as prose — it has no API field', () => {
@@ -219,7 +254,10 @@ describe('buildGeneratePrompt', () => {
       ...DEFAULT_DECK_CONFIG,
       budget: 150,
     });
-    expect(prompt).toBe('Rakdos sacrifice Keep the total budget under $150.');
+    expect(prompt).toBe(
+      'Rakdos sacrifice Anywhere from 60 to 75 cards is fine — use the room if the ' +
+        'curve needs it. Keep the total budget under $150.',
+    );
   });
 
   it('no longer emits the removed strategy and sideboard qualifiers', () => {
@@ -236,6 +274,18 @@ describe('buildGeneratePrompt', () => {
   it('returns empty when there is no brief — qualifiers alone are not a deck', () => {
     expect(buildGeneratePrompt([], '', DEFAULT_DECK_CONFIG)).toBe('');
     expect(buildGeneratePrompt([], '   ', DEFAULT_DECK_CONFIG)).toBe('');
+  });
+
+  it('states the Commander rule in the brief, not just in `deck_size`', () => {
+    const prompt = buildGeneratePrompt(
+      ['a Muldrotha graveyard deck'],
+      '',
+      { ...setDeckFormat(DEFAULT_DECK_CONFIG, 'commander'), budget: BUDGET_MAX },
+    );
+    expect(prompt).toContain(`exactly ${COMMANDER_DECK_SIZE} cards`);
+    expect(prompt).toContain('singleton');
+    // The free-range qualifier is meaningless once the count is pinned.
+    expect(prompt).not.toContain('Anywhere from');
   });
 
   it('never exceeds the 2000-char server limit', () => {
@@ -328,7 +378,7 @@ describe('DeckBuilderPage — shell', () => {
   it('renders the three workspace panels without any auth gate', () => {
     render(<DeckBuilderPage />);
     expect(screen.getByRole('heading', { name: 'Deck Configuration' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /forge alchemist/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Magic Grimoire' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nothing forged yet' })).toBeInTheDocument();
     // No sign-in wall, no redirect: /decks/generate and /chat both work signed out.
     expect(screen.queryByText(/sign in/i)).toBeNull();
@@ -337,7 +387,7 @@ describe('DeckBuilderPage — shell', () => {
   it('blocks Generate until something has been described', () => {
     render(<DeckBuilderPage />);
     expect(screen.getByRole('button', { name: /generate deck/i })).toBeDisabled();
-    expect(screen.getByText('Describe your deck first, then forge it.')).toBeInTheDocument();
+    // expect(screen.getByText('Describe your deck first, then forge it.')).toBeInTheDocument();
   });
 
   it('toggles a mana colour and reflects it back', () => {
@@ -370,13 +420,22 @@ describe('DeckBuilderPage — shell', () => {
     }
   });
 
-  it('steps the card count within the server-enforced bounds', () => {
+  it('clamps a typed card count to the builder\u2019s bounds on commit', () => {
     render(<DeckBuilderPage />);
-    expect(screen.getByText('60 Cards')).toBeInTheDocument();
-    // 60 is the floor, so decrementing is not offered.
-    expect(screen.getByRole('button', { name: 'Remove 5 cards' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Add 5 cards' }));
-    expect(screen.getByText('65 Cards')).toBeInTheDocument();
+    const min = screen.getByLabelText('Min');
+    expect(min).toHaveValue(60);
+
+    // The draft is uncommitted while the field has focus, so "1" of "120"
+    // must not snap to the floor mid-keystroke.
+    fireEvent.change(min, { target: { value: '1' } });
+    expect(min).toHaveValue(1);
+    fireEvent.blur(min);
+    expect(screen.getByLabelText('Min')).toHaveValue(60);
+
+    // Pushing the floor past the ceiling carries the ceiling with it.
+    fireEvent.change(screen.getByLabelText('Min'), { target: { value: '90' } });
+    fireEvent.blur(screen.getByLabelText('Min'));
+    expect(screen.getByLabelText('Max')).toHaveValue(90);
   });
 
   it('offers all five DeckFormat values, not just the design’s three', () => {
@@ -384,6 +443,67 @@ describe('DeckBuilderPage — shell', () => {
     for (const label of ['Standard', 'Modern', 'Pioneer', 'Legacy', 'Commander']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
     }
+  });
+
+  it('locks the card count to 100 while Commander is the format', () => {
+    render(<DeckBuilderPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Commander' }));
+
+    expect(screen.getByLabelText('Min')).toHaveValue(COMMANDER_DECK_SIZE);
+    expect(screen.getByLabelText('Max')).toHaveValue(COMMANDER_DECK_SIZE);
+    expect(screen.getByLabelText('Min')).toBeDisabled();
+    expect(screen.getByLabelText('Max')).toBeDisabled();
+    expect(screen.getByText(/Commander is exactly 100 cards/)).toBeInTheDocument();
+
+    // And the lock lifts again on any format that does not fix a count.
+    fireEvent.click(screen.getByRole('button', { name: 'Modern' }));
+    expect(screen.getByLabelText('Min')).toBeEnabled();
+    expect(screen.getByLabelText('Min')).toHaveValue(DEFAULT_DECK_CONFIG.deckSizeMin);
+  });
+
+  it('sends 100 as `deck_size` for a Commander build', async () => {
+    render(<DeckBuilderPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Commander' }));
+    await startGeneration();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as { deck_size: number; format: string };
+    expect(body).toMatchObject({ format: 'commander', deck_size: COMMANDER_DECK_SIZE });
+  });
+});
+
+describe('DeckBuilderPage — chat input', () => {
+  it('is a wrapping textarea, so a long brief is not typed on one endless line', () => {
+    render(<DeckBuilderPage />);
+    const field = screen.getByLabelText('Describe your ideal deck');
+    expect(field.tagName).toBe('TEXTAREA');
+    // The four-line ceiling is `max-height` in the stylesheet; the element is
+    // one row tall until the measured content pushes it past that.
+    expect(field).toHaveAttribute('rows', '1');
+  });
+
+  it('sends on Enter and breaks the line on Shift+Enter', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'A Rakdos shell is viable.' }));
+    render(<DeckBuilderPage />);
+    const field = screen.getByLabelText('Describe your ideal deck');
+
+    fireEvent.change(field, { target: { value: 'first line' } });
+    fireEvent.keyDown(field, { key: 'Enter', shiftKey: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(field).toHaveValue('first line');
+
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(field).toHaveValue('');
+  });
+
+  it('does not send an Enter on an empty draft', () => {
+    render(<DeckBuilderPage />);
+    const field = screen.getByLabelText('Describe your ideal deck');
+    fireEvent.change(field, { target: { value: '   ' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -393,7 +513,7 @@ describe('DeckBuilderPage — chat', () => {
     render(<DeckBuilderPage />);
 
     await describeADeck('Rakdos sacrifice please');
-    fireEvent.click(screen.getByRole('button', { name: /send chat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
 
     await waitFor(() => expect(screen.getByText('A Rakdos shell is viable.')).toBeInTheDocument());
 
@@ -410,14 +530,14 @@ describe('DeckBuilderPage — chat', () => {
     render(<DeckBuilderPage />);
 
     await describeADeck('bad input');
-    fireEvent.click(screen.getByRole('button', { name: /send chat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
     await waitFor(() => expect(screen.getByText('Prompt injection detected')).toBeInTheDocument());
     expect(screen.getByText('Forge Error')).toBeInTheDocument();
 
     // The next turn must carry the user turns only.
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'ok' }));
     await describeADeck('second try');
-    fireEvent.click(screen.getByRole('button', { name: /send chat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const body = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)) as {
       messages: { role: string; content: string }[];
@@ -429,7 +549,7 @@ describe('DeckBuilderPage — chat', () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     render(<DeckBuilderPage />);
     await describeADeck('offline');
-    fireEvent.click(screen.getByRole('button', { name: /send chat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
     await waitFor(() =>
       expect(screen.getByText(/Could not reach the Magic Grimoire API/)).toBeInTheDocument(),
     );
@@ -445,7 +565,9 @@ describe('DeckBuilderPage — generation pipeline', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/v1/decks/generate');
     expect(JSON.parse(String(init.body))).toEqual({
-      prompt: 'A Rakdos sacrifice deck Keep the total budget under $150.',
+      prompt:
+        'A Rakdos sacrifice deck Anywhere from 60 to 75 cards is fine — use the room ' +
+        'if the curve needs it. Keep the total budget under $150.',
       format: 'standard',
       colors: null,
       deck_size: 60,

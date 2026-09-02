@@ -81,7 +81,8 @@ export interface DeckSection {
   cards: CardInDeck[];
 }
 
-function quantityOf(card: CardInDeck): number {
+/** Copy count, defended against a malformed `quantity` on the wire. */
+export function quantityOf(card: CardInDeck): number {
   return Number.isFinite(card.quantity) ? Math.max(0, Math.trunc(card.quantity)) : 0;
 }
 
@@ -232,12 +233,31 @@ export function deckFileName(deck: DeckResponse): string {
 /**
  * Deck-size bounds. `DeckGenerateRequest` server-side allows `60..250`; the
  * builder deliberately stops at 200 — the upper stretch was never a deck
- * anyone asked for, and a shorter stepper run is the whole point. Any value in
- * this range is still a valid request body.
+ * anyone asked for, and a shorter slider run is the whole point. Any value in
+ * this range is still a valid request body. `DECK_SIZE_STEP` is the slider's
+ * granularity.
  */
 export const DECK_SIZE_MIN = 60;
 export const DECK_SIZE_MAX = 200;
 export const DECK_SIZE_STEP = 5;
+
+/**
+ * Commander is a singleton 100-card format — the deck is exactly 100 cards,
+ * commander included. That is a rule of the format, not a preference, so the
+ * range collapses to a pinned 100 and the fields go read-only rather than
+ * letting the builder ask the generator for an illegal deck.
+ */
+export const COMMANDER_DECK_SIZE = 100;
+
+/** Formats whose card count is fixed by the rules and cannot be chosen. */
+export function isFixedSizeFormat(format: DeckFormat): boolean {
+  return format === 'commander';
+}
+
+/** The size the rules pin `format` to, or `null` when the count is free. */
+export function fixedDeckSize(format: DeckFormat): number | null {
+  return format === 'commander' ? COMMANDER_DECK_SIZE : null;
+}
 /** `prompt` is `1..2000` chars in `app/decks/dtos.py`. */
 export const PROMPT_MAX = 2000;
 
@@ -253,14 +273,23 @@ export interface DeckConfig {
    */
   colors: MTGColor[];
   format: DeckFormat;
-  deckSize: number;
+  /**
+   * Deck size is a range, not a number, so the generator has room to land on a
+   * legal curve. `DeckGenerateRequest.deck_size` is a single `int` server-side
+   * (`compose_deck` prompts "Total quantity must equal {deck_size}"), so the
+   * floor is what gets sent and the ceiling rides along in the prompt — the
+   * same escape hatch `budget` uses. Collapse the two to pin an exact size.
+   */
+  deckSizeMin: number;
+  deckSizeMax: number;
   budget: number;
 }
 
 export const DEFAULT_DECK_CONFIG: DeckConfig = {
   colors: [],
   format: 'standard',
-  deckSize: 60,
+  deckSizeMin: 60,
+  deckSizeMax: 75,
   budget: 150,
 };
 
@@ -287,6 +316,49 @@ export function clampDeckSize(size: number): number {
 }
 
 /**
+ * Switches format, applying whatever card count the format's rules require.
+ *
+ * Commander pins the range to exactly 100. Coming back out of a fixed-size
+ * format restores the defaults rather than the count you had before it: the
+ * pinned 100 overwrote that, and a remembered-range field on `DeckConfig`
+ * would exist only to survive this one round trip.
+ */
+export function setDeckFormat(config: DeckConfig, format: DeckFormat): DeckConfig {
+  const fixed = fixedDeckSize(format);
+  if (fixed !== null) {
+    return { ...config, format, deckSizeMin: fixed, deckSizeMax: fixed };
+  }
+  if (!isFixedSizeFormat(config.format)) return { ...config, format };
+  return {
+    ...config,
+    format,
+    deckSizeMin: DEFAULT_DECK_CONFIG.deckSizeMin,
+    deckSizeMax: DEFAULT_DECK_CONFIG.deckSizeMax,
+  };
+}
+
+/**
+ * Moves one end of the deck-size range and pushes the other out of the way,
+ * so the two thumbs can be dragged past each other without the range ever
+ * inverting. Equal ends are allowed — that is how you ask for an exact size.
+ */
+export function setDeckSizeBound(
+  config: DeckConfig,
+  end: 'min' | 'max',
+  value: number,
+): DeckConfig {
+  // A fixed-size format owns the count. The fields are disabled in the panel,
+  // so this only catches a programmatic caller — but the rule lives here, not
+  // in the markup, so it holds either way.
+  if (isFixedSizeFormat(config.format)) return config;
+
+  const size = clampDeckSize(value);
+  return end === 'min'
+    ? { ...config, deckSizeMin: size, deckSizeMax: Math.max(size, config.deckSizeMax) }
+    : { ...config, deckSizeMax: size, deckSizeMin: Math.min(size, config.deckSizeMin) };
+}
+
+/**
  * Composes the `prompt` field from the conversation plus the config panel.
  *
  * Every user turn is included, not just the last one: the chat panel exists to
@@ -296,7 +368,9 @@ export function clampDeckSize(size: number): number {
  * Budget has NO field in `DeckGenerateRequest` — the backend does not model it.
  * Rather than render a dead control or drop a control the design has, it is
  * folded into the prompt, which is exactly the surface the pipeline's
- * `parse_intent` step reads.
+ * `parse_intent` step reads. The deck-size ceiling rides along the same way:
+ * `deck_size` carries the floor, and the prompt says how far past it the
+ * generator may go.
  *
  * Returns `''` when there is nothing to build from; the qualifiers alone are
  * not a deck description.
@@ -310,6 +384,20 @@ export function buildGeneratePrompt(
   if (parts.length === 0) return '';
 
   const qualifiers: string[] = [];
+  if (isFixedSizeFormat(config.format)) {
+    // `deck_size` already carries 100, but the composer prompt is where the
+    // singleton rule has to land — a 100-card Commander deck with four copies
+    // of a card is still an illegal deck.
+    qualifiers.push(
+      `This is a Commander deck: exactly ${COMMANDER_DECK_SIZE} cards including the ` +
+        'commander, singleton — one copy of every card except basic lands.',
+    );
+  } else if (config.deckSizeMax > config.deckSizeMin) {
+    qualifiers.push(
+      `Anywhere from ${config.deckSizeMin} to ${config.deckSizeMax} cards is fine — ` +
+        'use the room if the curve needs it.',
+    );
+  }
   if (config.budget < BUDGET_MAX) qualifiers.push(`Keep the total budget under $${config.budget}.`);
 
   return [...parts, ...qualifiers].join(' ').slice(0, PROMPT_MAX).trim();

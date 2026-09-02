@@ -1,0 +1,30 @@
+/* ==========================================================================
+   CardHoverPreview — the cursor-following card zoom.
+
+   The wrapper owns the position (written by JS as a `transform`), the image
+   owns the entrance animation. They are two nodes because `hoverIn` animates
+   `transform` too, and one node cannot carry both.
+   ========================================================================== */
+
+.card-hover-preview {
+  --preview-w: 250px;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.card-hover-preview-img {
+  display: block;
+  width: var(--preview-w);
+  height: auto;
+  /* MTG card corners; --radius is the token's documented "zoom preview" use. */
+  border-radius: var(--radius);
+  box-shadow:
+    var(--shadow-4),
+    0 0 0 1px rgba(var(--accent-glow), 0.35);
+  animation: hoverIn var(--dur-fast) var(--ease) both;
+}

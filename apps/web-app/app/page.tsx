@@ -67,7 +67,7 @@ function BookIcon({ size = 16 }: { size?: number }) {
 /* ------------------------------------------------------------------- copy */
 
 const HERO_LEAD =
-  'Input your playstyle, choose your format and colors, explain your wishes to the AI and let Magic Grimoire compute synergized curves, sideboards, and simulated mana distributions in seconds.';
+  'Input your playstyle, choose your format and colors, explain your thoughts to the AI and let Magic Grimoire generate a brand new deck.';
 
 const HERO_FORMATS = ['Commander / EDH', 'Modern', 'Standard', 'Pioneer', 'Legacy'] as const;
 
@@ -161,59 +161,59 @@ interface Tier {
 /* 3:193 3:217 3:244 */
 const TIERS: readonly Tier[] = [
   {
-    id: 'apprentice',
-    eyebrow: 'Common',
-    tone: 'muted',
-    name: 'Apprentice Pack',
-    blurb: 'For testing basic card interactions.',
-    amount: '$0',
-    cadence: '/ month',
+    id: "apprentice",
+    eyebrow: "Common",
+    tone: "muted",
+    name: "Apprentice Pack",
+    blurb: "For testing basic card interactions.",
+    amount: "Free",
+    cadence: "/ month",
     features: [
-      'Standard Deck Generation',
-      'Basic Mana Curve Balancer',
-      'Limited deck saves (5 maximum)',
-      'Public archetype searching',
+      "Standard Deck Generation",
+      "Basic Mana Curve Balancer",
+      "Limited deck saves (5 maximum)",
+      "Public archetype searching",
     ],
-    cta: 'Start Free',
-    ctaVariant: 'secondary',
+    cta: "Start Free",
+    ctaVariant: "secondary",
     featured: false,
   },
   {
-    id: 'planeswalker',
-    eyebrow: 'Rare',
-    tone: 'accent',
-    name: 'Planeswalker Core',
-    blurb: 'For the weekly Friday Night Magic competitor.',
-    amount: '$9',
-    cadence: '/ month',
+    id: "planeswalker",
+    eyebrow: "Rare",
+    tone: "accent",
+    name: "Planeswalker Core",
+    blurb: "For the weekly Friday Night Magic competitor.",
+    amount: "€9",
+    cadence: "/ month",
     features: [
-      'Unlimited Advanced Forging',
-      'Full Sideboard Synthesizer',
-      'Mana Curve Optimization V2',
-      'Integration with Moxfield & Arena',
-      'Priority AI server queueing',
+      "Unlimited Advanced Forging",
+      "Full Sideboard Synthesizer",
+      "Mana Curve Optimization V2",
+      "Integration with Moxfield & Arena",
+      "Priority AI server queueing",
     ],
-    cta: 'Claim Rare Pack',
-    ctaVariant: 'accent',
+    cta: "Claim Rare Pack",
+    ctaVariant: "accent",
     featured: false,
   },
   {
-    id: 'archmage',
-    eyebrow: 'Mythic Legendary',
-    tone: 'crimson',
-    name: 'Archmage Archives',
-    blurb: 'For mythic-tier tournament grinders and draft clubs.',
-    amount: '$24',
-    cadence: '/ month',
+    id: "archmage",
+    eyebrow: "Mythic Legendary",
+    tone: "crimson",
+    name: "Archmage Archives",
+    blurb: "For mythic-tier tournament grinders and draft clubs.",
+    amount: "€24",
+    cadence: "/ month",
     features: [
-      'Everything in Planeswalker Core',
-      '10,000 Hands Goldfish Simulator',
-      'Real-time Local Store Meta tracking',
-      'Dedicated custom model fine-tuning',
-      'Private discord wizard channel',
+      "Everything in Planeswalker Core",
+      "10,000 Hands Goldfish Simulator",
+      "Real-time Local Store Meta tracking",
+      "Dedicated custom model fine-tuning",
+      "Private discord wizard channel",
     ],
-    cta: 'Aquire Mythic Pack',
-    ctaVariant: 'primary',
+    cta: "Aquire Mythic Pack",
+    ctaVariant: "primary",
     featured: true,
   },
 ];
@@ -303,7 +303,7 @@ function HeroSection() {
 
             <div className={styles['hero-headline']}>
               <h1 id="hero-title" className={styles['hero-title']}>
-                Conjure Your Perfect
+                Create Your Perfect
                 <br />
                 MTG Deck with AI
               </h1>
@@ -311,8 +311,8 @@ function HeroSection() {
             </div>
 
             <div className={styles['hero-actions']}>
-              <Button href="/deck-builder" variant="primary" size="lg" iconRight={<BookIcon />}>
-                Conjure Your First Deck
+              <Button href="/deck-builder" variant="primary" size="lg" >
+                Create Your First Deck
               </Button>
               <Button href="/signup" variant="secondary" size="lg">
                 Explore Created Decks
@@ -320,7 +320,7 @@ function HeroSection() {
             </div>
 
             <div className={styles['hero-formats']}>
-              <p className={styles['hero-formats-label']}>Supported Spell Formats</p>
+              <p className={styles['hero-formats-label']}>Supported Deck Formats</p>
               <ul className={styles['hero-formats-list']}>
                 {HERO_FORMATS.map((format) => (
                   <li key={format} className={styles['hero-format']}>

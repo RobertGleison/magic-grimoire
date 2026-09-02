@@ -1,6 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 
 import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
@@ -38,6 +47,12 @@ import styles from './page.module.css';
 
    The legacy HTTP 429 branch ("You've used your free build") is deliberately
    NOT ported: the backend has no rate limiting anywhere, so it is dead code.
+
+   The workspace geometry is the page's own state, not the design's fixed
+   280 / 380 / rest: the config panel retracts to a rail and the chat/deck
+   boundary is a draggable splitter. Both feed `--config-w` / `--chat-w` on
+   the grid rather than an inline `grid-template-columns`, so the responsive
+   rules in page.module.css still win at narrow widths.
    ========================================================================== */
 
 const WELCOME: ChatEntry = {
@@ -50,6 +65,49 @@ const WELCOME: ChatEntry = {
 
 /** Backend cap on `ChatRequest.messages`. */
 const CHAT_HISTORY_MAX = 20;
+
+/* Workspace geometry. The design's 280 / 380 columns are the starting point;
+   the config panel retracts to a rail and the chat/deck boundary is dragged. */
+const CONFIG_WIDTH = 280;
+const CONFIG_RAIL_WIDTH = 48;
+const CHAT_WIDTH_DEFAULT = 380;
+/* Floors for the two resizable columns. Below these the panels stop being
+   usable — the chat bubbles collapse to a word per line, and the deck's card
+   grid drops to a single 118px column with the stat tiles wrapping to four
+   rows — so the splitter refuses to go past them rather than letting the drag
+   break the layout. */
+const CHAT_WIDTH_MIN = 300;
+const RESULTS_WIDTH_MIN = 400;
+/** Keyboard nudge on the splitter, per the ARIA window-splitter pattern. */
+const CHAT_WIDTH_STEP = 24;
+
+/** Grid geometry the ceiling has to account for, from page.module.css. */
+const SPLITTER_WIDTH = 6;
+const WORKSPACE_GAP = 16;
+const WORKSPACE_GAPS = 3;
+
+/**
+ * The widest the chat may get before the deck column would fall under its
+ * floor. Measured off the workspace rather than `window.innerWidth`, because
+ * the grid is capped at --page-max and padded by --page-pad-app, and the
+ * config column is 280 or 48 depending on whether it is retracted.
+ */
+function chatWidthCeiling(workspace: HTMLElement | null, configWidth: number): number {
+  const outer = workspace?.clientWidth ?? window.innerWidth;
+  const style = workspace ? window.getComputedStyle(workspace) : null;
+  const padding = style
+    ? parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+    : 0;
+  const available =
+    outer - padding - configWidth - SPLITTER_WIDTH - WORKSPACE_GAP * WORKSPACE_GAPS;
+  return Math.max(CHAT_WIDTH_MIN, available - RESULTS_WIDTH_MIN);
+}
+
+/** The deck panel is the point of the page, so the chat never crowds it out. */
+function clampChatWidth(width: number, workspace: HTMLElement | null, configWidth: number): number {
+  const ceiling = chatWidthCeiling(workspace, configWidth);
+  return Math.round(Math.min(Math.max(width, CHAT_WIDTH_MIN), ceiling));
+}
 
 function errorText(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message;
@@ -67,6 +125,9 @@ export default function DeckBuilderPage() {
   const [deckId, setDeckId] = useState<string | null>(null);
   const [deck, setDeck] = useState<DeckResponse | null>(null);
 
+  const [configCollapsed, setConfigCollapsed] = useState(false);
+  const [chatWidth, setChatWidth] = useState(CHAT_WIDTH_DEFAULT);
+
   const [submitting, setSubmitting] = useState(false);
   const [fetchingDeck, setFetchingDeck] = useState(false);
   const [pageError, setPageError] = useState('');
@@ -82,6 +143,7 @@ export default function DeckBuilderPage() {
   const deckAbort = useRef<AbortController | null>(null);
   const generateAbort = useRef<AbortController | null>(null);
   const entrySeq = useRef(0);
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(
     () => () => {
@@ -209,7 +271,6 @@ export default function DeckBuilderPage() {
   const streaming = stream.phase === 'connecting' || stream.phase === 'streaming';
   const generating = submitting || streaming;
 
-  const generateHint = generating || prompt.length > 0 ? '' : 'Describe your deck first, then forge it.';
 
   const handleGenerate = useCallback(async () => {
     if (generating || prompt.length === 0) return;
@@ -238,7 +299,8 @@ export default function DeckBuilderPage() {
           prompt,
           format: config.format,
           colors: config.colors.length > 0 ? config.colors : null,
-          deck_size: config.deckSize,
+          // `deck_size` is one `int` server-side; the ceiling rides in `prompt`.
+          deck_size: config.deckSizeMin,
         },
         { signal: controller.signal },
       );
@@ -265,6 +327,62 @@ export default function DeckBuilderPage() {
     setTaskId(null);
     setPageError('Generation stopped. The forge may still finish on the server.');
   }, []);
+
+  /* -------------------------------------------------------------- layout */
+
+  const configWidth = configCollapsed ? CONFIG_RAIL_WIDTH : CONFIG_WIDTH;
+
+  const clamp = useCallback(
+    (width: number) => clampChatWidth(width, workspaceRef.current, configWidth),
+    [configWidth],
+  );
+
+  // The ceiling moves with the viewport and with the config panel retracting,
+  // so a width that was legal a moment ago can now be starving the deck column.
+  useEffect(() => {
+    const reclamp = () => setChatWidth((width) => clamp(width));
+    reclamp();
+    window.addEventListener('resize', reclamp);
+    return () => window.removeEventListener('resize', reclamp);
+  }, [clamp]);
+
+  // Pointer capture on the handle, so the drag survives the cursor outrunning
+  // a 6px target and ends even if the pointer is released off-window.
+  const handleSplitterDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const handle = event.currentTarget;
+      const startX = event.clientX;
+      const startWidth = chatWidth;
+
+      handle.setPointerCapture(event.pointerId);
+
+      const onMove = (moveEvent: globalThis.PointerEvent) => {
+        setChatWidth(clamp(startWidth + (moveEvent.clientX - startX)));
+      };
+
+      const onEnd = () => {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onEnd);
+        handle.removeEventListener('pointercancel', onEnd);
+      };
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onEnd);
+      handle.addEventListener('pointercancel', onEnd);
+    },
+    [chatWidth, clamp],
+  );
+
+  const handleSplitterKeys = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'ArrowLeft') setChatWidth((width) => clamp(width - CHAT_WIDTH_STEP));
+      else if (event.key === 'ArrowRight') setChatWidth((width) => clamp(width + CHAT_WIDTH_STEP));
+      else if (event.key === 'Home' || event.key === 'End') setChatWidth(clamp(CHAT_WIDTH_DEFAULT));
+      else return;
+      event.preventDefault();
+    },
+    [clamp],
+  );
 
   /* ------------------------------------------------------------- actions */
 
@@ -309,8 +427,23 @@ export default function DeckBuilderPage() {
   /* -------------------------------------------------------------- render */
 
   return (
-    <div className={styles.workspace}>
-      <ConfigPanel config={config} onChange={setConfig} disabled={generating} />
+    <div
+      ref={workspaceRef}
+      className={styles.workspace}
+      style={
+        {
+          '--config-w': `${configWidth}px`,
+          '--chat-w': `${chatWidth}px`,
+        } as CSSProperties
+      }
+    >
+      <ConfigPanel
+        config={config}
+        onChange={setConfig}
+        disabled={generating}
+        collapsed={configCollapsed}
+        onToggleCollapsed={() => setConfigCollapsed((value) => !value)}
+      />
 
       <ChatPanel
         entries={entries}
@@ -320,7 +453,19 @@ export default function DeckBuilderPage() {
         onGenerate={handleGenerate}
         chatBusy={chatBusy}
         generating={generating}
-        generateHint={generateHint}
+      />
+
+      <div
+        className={styles.splitter}
+        role="separator"
+        tabIndex={0}
+        aria-orientation="vertical"
+        aria-label="Resize the conversation and deck panels"
+        aria-valuenow={chatWidth}
+        aria-valuemin={CHAT_WIDTH_MIN}
+        onPointerDown={handleSplitterDown}
+        onKeyDown={handleSplitterKeys}
+        onDoubleClick={() => setChatWidth(clamp(CHAT_WIDTH_DEFAULT))}
       />
 
       <div className={styles.resultsColumn}>
@@ -378,7 +523,7 @@ export default function DeckBuilderPage() {
             <h2 className={styles.emptyTitle}>Nothing forged yet</h2>
             <p className={styles.emptyBody}>
               Describe a deck in the conversation, tune the colours and format on the left, then
-              press Generate Deck. The compiled list, the curve and the colour split appear here.
+              press Generate Deck.
             </p>
           </div>
         )}

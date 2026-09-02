@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { PricingHero } from './PricingHero';
 import { PricingTiers } from './PricingTiers';
-import { PricingFaq } from './PricingFaq';
+// import { PricingFaq } from './PricingFaq';
 import styles from './page.module.css';
 
 /**
@@ -29,7 +29,7 @@ export default function PricingPage() {
     <div className={styles.page}>
       <PricingHero />
       <PricingTiers />
-      <PricingFaq />
+      {/* <PricingFaq /> */}
     </div>
   );
 }
