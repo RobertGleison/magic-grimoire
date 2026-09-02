@@ -101,8 +101,13 @@ class Deck(Base):
     )
 
     # Groups a draft with every snapshot ever taken from it, so version numbers
-    # read as "v3 of this deck" rather than being global. A root draft sets this
-    # to its own id; the default only guarantees the NOT NULL.
+    # read as "v3 of this deck" rather than being global. An opaque group key:
+    # nothing depends on its value, only on two rows sharing it, so a new deck
+    # taking a fresh one from the default is correct — it starts its own lineage.
+    #
+    # What is NOT optional is carrying the source's value forward when copying a
+    # deck (saving a snapshot, forking a draft off one). Miss it there and the
+    # copy silently starts a new lineage, restarting version numbers at 1.
     lineage_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         default=uuid.uuid4,
