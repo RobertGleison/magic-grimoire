@@ -162,3 +162,13 @@ async def test_generate_forwards_deck_size_to_broker(client, session_factory, br
 
     broker.assert_called_once()
     assert broker.call_args.kwargs["args"] == [body["deck_id"], "commander deck", "commander", None, 100]
+
+
+# --- deck versioning columns ---
+
+async def test_deck_defaults_to_an_unsaved_draft(session_factory):
+    deck = await _insert_deck(session_factory)
+
+    assert deck.saved_at is None
+    assert deck.version_no is None
+    assert deck.lineage_id is not None
