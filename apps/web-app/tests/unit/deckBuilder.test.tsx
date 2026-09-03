@@ -734,6 +734,33 @@ describe('DeckBuilderPage — deck states', () => {
     expect(rows[0]).toHaveTextContent('×4');
     expect(rows[0]).toHaveTextContent('Cauldron Familiar');
   });
+
+  describe('save to library', () => {
+    it('saves the deck and reports the version it wrote', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'snap-1', version_no: 2 })));
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/saved to your library as v2/i),
+      );
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('/decks/deck-1/save');
+    });
+
+    it('shows the reason when the save is refused', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'This version is already saved.' }, 400));
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/already saved/i));
+    });
+  });
 });
 
 describe('DeckBuilderPage — permalink', () => {

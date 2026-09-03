@@ -14,11 +14,11 @@ import {
 import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
 import { useTaskStream } from '../hooks/useTaskStream';
-import { ApiError, generateDeck, getDeck, isAbortError, sendChat } from '../lib/apiClient';
+import { ApiError, generateDeck, getDeck, isAbortError, saveDeck, sendChat } from '../lib/apiClient';
 import type { ChatMessage, DeckResponse } from '../types/api';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
 import { ConfigPanel } from './ConfigPanel';
-import { DeckResultsPanel } from './DeckResultsPanel';
+import { DeckResultsPanel, type SaveState } from './DeckResultsPanel';
 import { GenerationProgress } from './GenerationProgress';
 import {
   DEFAULT_DECK_CONFIG,
@@ -132,6 +132,7 @@ export default function DeckBuilderPage() {
   const [fetchingDeck, setFetchingDeck] = useState(false);
   const [pageError, setPageError] = useState('');
   const [actionNote, setActionNote] = useState('');
+  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
 
   const stream = useTaskStream(taskId);
 
@@ -142,6 +143,7 @@ export default function DeckBuilderPage() {
   const chatAbort = useRef<AbortController | null>(null);
   const deckAbort = useRef<AbortController | null>(null);
   const generateAbort = useRef<AbortController | null>(null);
+  const saveAbort = useRef<AbortController | null>(null);
   const entrySeq = useRef(0);
   const workspaceRef = useRef<HTMLDivElement>(null);
 
@@ -150,6 +152,7 @@ export default function DeckBuilderPage() {
       chatAbort.current?.abort();
       deckAbort.current?.abort();
       generateAbort.current?.abort();
+      saveAbort.current?.abort();
     },
     [],
   );
@@ -175,6 +178,7 @@ export default function DeckBuilderPage() {
       if (controller.signal.aborted) return;
       setDeck(loaded);
       setDeckId(loaded.id);
+      setSaveState({ kind: 'idle' });
     } catch (error) {
       if (isAbortError(error)) return;
       setDeck(null);
@@ -391,6 +395,24 @@ export default function DeckBuilderPage() {
     window.setTimeout(() => setActionNote(''), 4000);
   }, []);
 
+  const handleSave = useCallback(async () => {
+    if (!deck || deck.status !== 'completed') return;
+
+    saveAbort.current?.abort();
+    const controller = new AbortController();
+    saveAbort.current = controller;
+
+    setSaveState({ kind: 'saving' });
+    try {
+      const snapshot = await saveDeck(deck.id, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setSaveState({ kind: 'saved', version: snapshot.version_no });
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setSaveState({ kind: 'error', message: errorText(error, 'Could not save that deck.') });
+    }
+  }, [deck]);
+
   const handleCopyList = useCallback(async () => {
     if (!deck) return;
     try {
@@ -517,6 +539,8 @@ export default function DeckBuilderPage() {
             onCopyList={() => void handleCopyList()}
             onCopyLink={() => void handleCopyLink()}
             onExportText={handleExportText}
+            onSave={() => void handleSave()}
+            saveState={saveState}
           />
         ) : (
           <div className={styles.emptyPanel}>
