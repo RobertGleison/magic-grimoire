@@ -301,7 +301,9 @@ export function DeckResultsPanel({
 
           <p className={styles.actionNote} role="status" aria-live="polite">
             {saveState.kind === 'saved'
-              ? `Saved to your library as v${saveState.version ?? 1}.`
+              ? saveState.version !== null
+                ? `Saved to your library as v${saveState.version}.`
+                : 'Saved to your library.'
               : saveState.kind === 'error'
                 ? saveState.message
                 : actionNote}

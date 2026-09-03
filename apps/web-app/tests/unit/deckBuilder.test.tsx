@@ -760,6 +760,64 @@ describe('DeckBuilderPage — deck states', () => {
 
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/already saved/i));
     });
+
+    it('lets the most recent action own the live region, clearing a prior save confirmation', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'snap-1', version_no: 2 })));
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/saved to your library as v2/i),
+      );
+
+      // A later Copy List must retake the live region — the save confirmation
+      // is not allowed to squat on it for the rest of the deck's session.
+      fireEvent.click(screen.getByRole('button', { name: /copy list/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i),
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(/clipboard blocked|decklist copied/i);
+    });
+
+    it('does not let an in-flight save from a previous deck land on the newly loaded deck', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      // The save's fetch is held open under our control, so we can load a
+      // different deck while it is still in flight.
+      let resolveSave!: (value: Response) => void;
+      const savePromise = new Promise<Response>((resolve) => {
+        resolveSave = resolve;
+      });
+      fetchMock.mockImplementationOnce(() => savePromise);
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+      // Before that save resolves, a second generation replaces the deck on screen.
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ task_id: 'task-2', deck_id: 'deck-2', status: 'pending' }, 202),
+      );
+      fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+      await waitFor(() => expect(sources.length).toBeGreaterThan(1));
+      const source = sources[sources.length - 1];
+
+      fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'deck-2', title: 'Second Deck' })));
+      act(() => source.emit({ status: 'completed', message: 'done' }));
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Second Deck' })).toBeInTheDocument(),
+      );
+
+      // Only now let the stale save resolve — it must be a no-op.
+      await act(async () => {
+        resolveSave(jsonResponse(deckFixture({ id: 'snap-1', version_no: 9 })));
+        await savePromise;
+      });
+
+      expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i);
+    });
   });
 });
 

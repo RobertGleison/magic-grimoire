@@ -168,6 +168,7 @@ export default function DeckBuilderPage() {
 
   const loadDeck = useCallback(async (id: string) => {
     deckAbort.current?.abort();
+    saveAbort.current?.abort();
     const controller = new AbortController();
     deckAbort.current = controller;
 
@@ -294,6 +295,7 @@ export default function DeckBuilderPage() {
     announced.current = null;
 
     generateAbort.current?.abort();
+    saveAbort.current?.abort();
     const controller = new AbortController();
     generateAbort.current = controller;
 
@@ -415,6 +417,7 @@ export default function DeckBuilderPage() {
 
   const handleCopyList = useCallback(async () => {
     if (!deck) return;
+    setSaveState({ kind: 'idle' });
     try {
       await navigator.clipboard.writeText(deckListText(deck));
       note('Decklist copied.');
@@ -425,6 +428,7 @@ export default function DeckBuilderPage() {
 
   const handleCopyLink = useCallback(async () => {
     if (!deck) return;
+    setSaveState({ kind: 'idle' });
     const url = `${window.location.origin}${window.location.pathname}?deck=${encodeURIComponent(deck.id)}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -436,6 +440,7 @@ export default function DeckBuilderPage() {
 
   const handleExportText = useCallback(() => {
     if (!deck) return;
+    setSaveState({ kind: 'idle' });
     const blob = new Blob([deckListText(deck)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
