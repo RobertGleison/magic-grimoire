@@ -417,6 +417,7 @@ export default function DeckBuilderPage() {
 
   const handleCopyList = useCallback(async () => {
     if (!deck) return;
+    saveAbort.current?.abort();
     setSaveState({ kind: 'idle' });
     try {
       await navigator.clipboard.writeText(deckListText(deck));
@@ -428,6 +429,7 @@ export default function DeckBuilderPage() {
 
   const handleCopyLink = useCallback(async () => {
     if (!deck) return;
+    saveAbort.current?.abort();
     setSaveState({ kind: 'idle' });
     const url = `${window.location.origin}${window.location.pathname}?deck=${encodeURIComponent(deck.id)}`;
     try {
@@ -440,6 +442,7 @@ export default function DeckBuilderPage() {
 
   const handleExportText = useCallback(() => {
     if (!deck) return;
+    saveAbort.current?.abort();
     setSaveState({ kind: 'idle' });
     const blob = new Blob([deckListText(deck)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);

@@ -796,6 +796,10 @@ describe('DeckBuilderPage — deck states', () => {
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 
       // Before that save resolves, a second generation replaces the deck on screen.
+      // Reuses the existing `userTurns` transcript from the first generation
+      // rather than typing a new draft: `buildGeneratePrompt` composes the
+      // prompt from the whole transcript, so the already-pushed first turn is
+      // enough to make the button clickable again with no further input.
       fetchMock.mockResolvedValueOnce(
         jsonResponse({ task_id: 'task-2', deck_id: 'deck-2', status: 'pending' }, 202),
       );
@@ -817,6 +821,37 @@ describe('DeckBuilderPage — deck states', () => {
       });
 
       expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i);
+    });
+
+    it('does not let an in-flight save on the same deck land after a later copy', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      // Hold the save's fetch open under our control.
+      let resolveSave!: (value: Response) => void;
+      const savePromise = new Promise<Response>((resolve) => {
+        resolveSave = resolve;
+      });
+      fetchMock.mockImplementationOnce(() => savePromise);
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+      // Before that save resolves, the user copies the list instead.
+      fireEvent.click(screen.getByRole('button', { name: /copy list/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/clipboard blocked|decklist copied/i),
+      );
+
+      // Only now let the stale save resolve — it must be a no-op, not a
+      // takeover of the live region the copy confirmation just claimed.
+      await act(async () => {
+        resolveSave(jsonResponse(deckFixture({ id: 'snap-1', version_no: 5 })));
+        await savePromise;
+      });
+
+      expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i);
+      expect(screen.getByRole('status')).toHaveTextContent(/clipboard blocked|decklist copied/i);
     });
   });
 });
