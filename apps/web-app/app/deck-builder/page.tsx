@@ -11,10 +11,14 @@ import {
   type PointerEvent,
 } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
+import { useUser } from '../context/UserContext';
 import { useTaskStream } from '../hooks/useTaskStream';
 import { ApiError, generateDeck, getDeck, isAbortError, saveDeck, sendChat } from '../lib/apiClient';
+import { resolveNextPath } from '../login/authShared';
 import type { ChatMessage, DeckResponse } from '../types/api';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
 import { ConfigPanel } from './ConfigPanel';
@@ -136,6 +140,9 @@ export default function DeckBuilderPage() {
 
   const stream = useTaskStream(taskId);
 
+  const router = useRouter();
+  const { status: userStatus } = useUser();
+
   /* --------------------------------------------------------- lifecycles */
 
   // One controller per concern so a chat turn and a deck fetch can never abort
@@ -146,6 +153,8 @@ export default function DeckBuilderPage() {
   const saveAbort = useRef<AbortController | null>(null);
   const entrySeq = useRef(0);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  /** One save per `?save=1` arrival, however many times the effect re-runs. */
+  const autoSaved = useRef(false);
 
   useEffect(
     () => () => {
@@ -400,6 +409,15 @@ export default function DeckBuilderPage() {
   const handleSave = useCallback(async () => {
     if (!deck || deck.status !== 'completed') return;
 
+    // Saving is the one deck-builder action that needs an account. Send the
+    // visitor to sign in and back to this exact deck, with `save=1` asking the
+    // page to finish the job on arrival.
+    if (userStatus === 'signed-out') {
+      const back = resolveNextPath(`/deck-builder?deck=${encodeURIComponent(deck.id)}&save=1`);
+      router.push(`/login?next=${encodeURIComponent(back)}`);
+      return;
+    }
+
     saveAbort.current?.abort();
     const controller = new AbortController();
     saveAbort.current = controller;
@@ -413,7 +431,25 @@ export default function DeckBuilderPage() {
       if (isAbortError(error)) return;
       setSaveState({ kind: 'error', message: errorText(error, 'Could not save that deck.') });
     }
-  }, [deck]);
+  }, [deck, router, userStatus]);
+
+  /* Back from the login round-trip. Gated on a resolved, signed-in session:
+     the parameter is readable on the first paint, while `useUser` is still
+     `checking` and any save would 401. The parameter is stripped before the
+     request so a reload cannot save a second time. */
+  useEffect(() => {
+    if (autoSaved.current || userStatus !== 'signed-in') return;
+    if (!deck || deck.status !== 'completed') return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('save') !== '1') return;
+
+    autoSaved.current = true;
+    params.delete('save');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    void handleSave();
+  }, [deck, userStatus, handleSave]);
 
   const handleCopyList = useCallback(async () => {
     if (!deck) return;
