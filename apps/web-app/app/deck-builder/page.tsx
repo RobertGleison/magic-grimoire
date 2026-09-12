@@ -519,6 +519,7 @@ export default function DeckBuilderPage() {
         onGenerate={handleGenerate}
         chatBusy={chatBusy}
         generating={generating}
+        canGenerate={prompt.length > 0}
       />
 
       <div
