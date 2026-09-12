@@ -329,13 +329,13 @@ describe('LoginForm under the stub', () => {
     const { LoginForm } = await loadAuth(true);
     render(<LoginForm />);
 
-    type('Aether Mail (Email)', 'literally-anyone@example.test');
-    type('Spell-Password', 'a');
+    type('Email', 'literally-anyone@example.test');
+    type('Password', 'a');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith(AUTH_DEFAULT_DESTINATION));
     expect(mocks.auth.signInWithPassword).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Spell-Password')).toHaveValue('');
+    expect(screen.getByLabelText('Password')).toHaveValue('');
   });
 
   it('refuses an off-origin ?next=, so resolveNextPath stays the only way to a redirect', async () => {
@@ -343,8 +343,8 @@ describe('LoginForm under the stub', () => {
     const { LoginForm } = await loadAuth(true);
     render(<LoginForm />);
 
-    type('Aether Mail (Email)', 'anyone@example.test');
-    type('Spell-Password', 'a');
+    type('Email', 'anyone@example.test');
+    type('Password', 'a');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/library'));
@@ -379,7 +379,7 @@ describe('LoginForm under the stub', () => {
     const { LoginForm } = await import('../../app/login/LoginForm');
 
     render(<LoginForm />);
-    expect(screen.getByLabelText('Spell-Password')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.queryByText(/NEXT_PUBLIC_SUPABASE_URL must both be set/)).toBeNull();
   });
 });

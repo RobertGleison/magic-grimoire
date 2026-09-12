@@ -21,9 +21,9 @@ def broker(monkeypatch):
     return mock
 
 
-async def _insert_deck(session_factory, user_id=TEST_USER_ID, **overrides) -> Deck:
+async def _insert_deck(session_factory, user_id=TEST_USER_ID, status=DeckStatus.COMPLETED, **overrides) -> Deck:
     async with session_factory() as db:
-        deck = Deck(prompt="test deck", user_id=user_id, status=DeckStatus.COMPLETED, **overrides)
+        deck = Deck(prompt="test deck", user_id=user_id, status=status, **overrides)
         db.add(deck)
         await db.commit()
         await db.refresh(deck)
@@ -78,9 +78,11 @@ async def test_list_requires_auth(client):
 
 
 async def test_list_paginates_own_decks_only(client, session_factory):
-    for _ in range(3):
-        await _insert_deck(session_factory)
-    await _insert_deck(session_factory, user_id="someone-else")
+    from datetime import UTC, datetime
+
+    for i in range(3):
+        await _insert_deck(session_factory, saved_at=datetime.now(UTC), version_no=i + 1)
+    await _insert_deck(session_factory, user_id="someone-else", saved_at=datetime.now(UTC), version_no=1)
 
     res = await client.get("/api/v1/decks?page=1&limit=2", headers=AUTH)
     assert res.status_code == 200
@@ -162,3 +164,137 @@ async def test_generate_forwards_deck_size_to_broker(client, session_factory, br
 
     broker.assert_called_once()
     assert broker.call_args.kwargs["args"] == [body["deck_id"], "commander deck", "commander", None, 100]
+
+
+# --- deck versioning columns ---
+
+async def test_deck_defaults_to_an_unsaved_draft(session_factory):
+    deck = await _insert_deck(session_factory)
+
+    assert deck.saved_at is None
+    assert deck.version_no is None
+    assert deck.lineage_id is not None
+
+
+async def test_list_decks_excludes_drafts_and_orders_by_saved_at(client, session_factory):
+    from datetime import UTC, datetime
+
+    await _insert_deck(session_factory, title="a draft")
+    older = await _insert_deck(
+        session_factory,
+        title="older save",
+        saved_at=datetime(2026, 1, 1, tzinfo=UTC),
+        version_no=1,
+    )
+    newer = await _insert_deck(
+        session_factory,
+        title="newer save",
+        saved_at=datetime(2026, 2, 1, tzinfo=UTC),
+        version_no=2,
+        lineage_id=older.lineage_id,
+    )
+
+    res = await client.get("/api/v1/decks", headers=AUTH)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total"] == 2
+    assert [d["title"] for d in body["decks"]] == ["newer save", "older save"]
+    assert [d["version_no"] for d in body["decks"]] == [2, 1]
+    assert str(newer.id) == body["decks"][0]["id"]
+
+
+# --- POST /decks/{id}/save ---
+
+CARDS = [{"name": "Shock", "quantity": 4, "section": "spells"}]
+
+
+async def test_save_creates_v1_snapshot_and_leaves_the_draft(client, session_factory):
+    draft = await _insert_deck(session_factory, title="Goblin Rush", cards=CARDS, card_count=4)
+
+    res = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["version_no"] == 1
+    assert body["id"] != str(draft.id)
+    assert body["title"] == "Goblin Rush"
+    # DeckResponseDTO serializes CardInDeckDTO's optional scryfall fields as
+    # explicit nulls, so the response has more keys than the minimal CARDS
+    # fixture used to seed the row — compare against the full shape instead.
+    assert body["cards"] == [
+        {
+            "name": "Shock",
+            "quantity": 4,
+            "scryfall_id": None,
+            "image_uri": None,
+            "mana_cost": None,
+            "type_line": None,
+            "section": "spells",
+        }
+    ]
+
+    async with session_factory() as db:
+        still_draft = (await db.execute(select(Deck).where(Deck.id == draft.id))).scalar_one()
+        snapshot = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(body["id"])))).scalar_one()
+
+    assert still_draft.saved_at is None
+    assert snapshot.saved_at is not None
+    assert snapshot.lineage_id == still_draft.lineage_id
+
+
+async def test_second_save_increments_the_version(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+
+    first = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
+    second = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
+
+    assert first.json()["version_no"] == 1
+    assert second.json()["version_no"] == 2
+
+
+async def test_save_adopts_an_anonymous_deck(client, session_factory):
+    draft = await _insert_deck(session_factory, user_id=None, cards=CARDS, card_count=4)
+
+    res = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
+
+    assert res.status_code == 200
+    async with session_factory() as db:
+        snapshot = (
+            await db.execute(select(Deck).where(Deck.id == uuid.UUID(res.json()["id"])))
+        ).scalar_one()
+    assert snapshot.user_id == TEST_USER_ID
+
+
+async def test_save_rejects_someone_elses_deck(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+
+    res = await client.post(f"/api/v1/decks/{draft.id}/save", headers=OTHER_USER_AUTH)
+
+    assert res.status_code == 403
+
+
+async def test_save_rejects_an_already_saved_snapshot(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+    saved = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
+
+    res = await client.post(f"/api/v1/decks/{saved.json()['id']}/save", headers=AUTH)
+
+    assert res.status_code == 400
+    assert "already saved" in res.json()["detail"].lower()
+
+
+async def test_save_rejects_an_unfinished_deck(client, session_factory):
+    draft = await _insert_deck(session_factory, status=DeckStatus.PROCESSING, cards=None)
+
+    res = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
+
+    assert res.status_code == 400
+
+
+async def test_save_requires_auth(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+
+    res = await client.post(f"/api/v1/decks/{draft.id}/save")
+
+    assert res.status_code == 401

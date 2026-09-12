@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setAuthTokenProvider } from '../../app/lib/apiClient';
 import type { CardInDeck, DeckResponse } from '../../app/types/api';
+import type { UserStatus } from '../../app/context/UserContext';
 import DeckBuilderPage from '../../app/deck-builder/page';
 import {
   BUDGET_MAX,
@@ -33,6 +34,21 @@ import {
   setDeckSizeBound,
   toggleDeckColor,
 } from '../../app/deck-builder/deckLogic';
+
+/* `vi.mock` factories are hoisted above the rest of this module, so the
+   values they close over must be created through `vi.hoisted` rather than a
+   plain top-level `const` — otherwise vitest throws on the temporal-dead-zone
+   reference. */
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushMock, replace: vi.fn() }),
+}));
+
+let userStatus: UserStatus = 'signed-in';
+vi.mock('../../app/context/UserContext', () => ({
+  useUser: () => ({ status: userStatus, user: null }),
+}));
 
 /* ------------------------------------------------------------- fixtures */
 
@@ -66,6 +82,7 @@ function deckFixture(overrides: Partial<DeckResponse> = {}): DeckResponse {
     colors: ['B', 'R'],
     cards: CARDS,
     card_count: 20,
+    version_no: null,
     status: 'completed',
     error_message: null,
     created_at: '2026-01-01T00:00:00Z',
@@ -349,6 +366,8 @@ beforeEach(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('EventSource', StubEventSource);
+  pushMock.mockClear();
+  userStatus = 'signed-in';
 });
 
 afterEach(() => {
@@ -687,7 +706,11 @@ describe('DeckBuilderPage — generation pipeline', () => {
 });
 
 describe('DeckBuilderPage — deck states', () => {
-  async function renderWithDeck(overrides: Partial<DeckResponse> = {}) {
+  async function renderWithDeck(
+    overrides: Partial<DeckResponse> = {},
+    options: { userStatus?: UserStatus } = {},
+  ) {
+    if (options.userStatus) userStatus = options.userStatus;
     render(<DeckBuilderPage />);
     await startGeneration();
     const source = await latestSource();
@@ -733,6 +756,139 @@ describe('DeckBuilderPage — deck states', () => {
     expect(rows[0]).toHaveTextContent('×4');
     expect(rows[0]).toHaveTextContent('Cauldron Familiar');
   });
+
+  describe('save to library', () => {
+    it('saves the deck and reports the version it wrote', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'snap-1', version_no: 2 })));
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/saved to your library as v2/i),
+      );
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('/decks/deck-1/save');
+    });
+
+    it('shows the reason when the save is refused', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'This version is already saved.' }, 400));
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/already saved/i));
+    });
+
+    it('lets the most recent action own the live region, clearing a prior save confirmation', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'snap-1', version_no: 2 })));
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/saved to your library as v2/i),
+      );
+
+      // A later Copy List must retake the live region — the save confirmation
+      // is not allowed to squat on it for the rest of the deck's session.
+      fireEvent.click(screen.getByRole('button', { name: /copy list/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i),
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(/clipboard blocked|decklist copied/i);
+    });
+
+    it('does not let an in-flight save from a previous deck land on the newly loaded deck', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      // The save's fetch is held open under our control, so we can load a
+      // different deck while it is still in flight.
+      let resolveSave!: (value: Response) => void;
+      const savePromise = new Promise<Response>((resolve) => {
+        resolveSave = resolve;
+      });
+      fetchMock.mockImplementationOnce(() => savePromise);
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+      // Before that save resolves, a second generation replaces the deck on screen.
+      // Reuses the existing `userTurns` transcript from the first generation
+      // rather than typing a new draft: `buildGeneratePrompt` composes the
+      // prompt from the whole transcript, so the already-pushed first turn is
+      // enough to make the button clickable again with no further input.
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ task_id: 'task-2', deck_id: 'deck-2', status: 'pending' }, 202),
+      );
+      fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+      await waitFor(() => expect(sources.length).toBeGreaterThan(1));
+      const source = sources[sources.length - 1];
+
+      fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'deck-2', title: 'Second Deck' })));
+      act(() => source.emit({ status: 'completed', message: 'done' }));
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Second Deck' })).toBeInTheDocument(),
+      );
+
+      // Only now let the stale save resolve — it must be a no-op.
+      await act(async () => {
+        resolveSave(jsonResponse(deckFixture({ id: 'snap-1', version_no: 9 })));
+        await savePromise;
+      });
+
+      expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i);
+    });
+
+    it('does not let an in-flight save on the same deck land after a later copy', async () => {
+      setAuthTokenProvider(() => 'token-123');
+      await renderWithDeck();
+
+      // Hold the save's fetch open under our control.
+      let resolveSave!: (value: Response) => void;
+      const savePromise = new Promise<Response>((resolve) => {
+        resolveSave = resolve;
+      });
+      fetchMock.mockImplementationOnce(() => savePromise);
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+      // Before that save resolves, the user copies the list instead.
+      fireEvent.click(screen.getByRole('button', { name: /copy list/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/clipboard blocked|decklist copied/i),
+      );
+
+      // Only now let the stale save resolve — it must be a no-op, not a
+      // takeover of the live region the copy confirmation just claimed.
+      await act(async () => {
+        resolveSave(jsonResponse(deckFixture({ id: 'snap-1', version_no: 5 })));
+        await savePromise;
+      });
+
+      expect(screen.getByRole('status')).not.toHaveTextContent(/saved to your library/i);
+      expect(screen.getByRole('status')).toHaveTextContent(/clipboard blocked|decklist copied/i);
+    });
+
+    it('sends a signed-out visitor to login with the deck in the return path', async () => {
+      setAuthTokenProvider(() => null);
+      await renderWithDeck({}, { userStatus: 'signed-out' });
+
+      fireEvent.click(await screen.findByRole('button', { name: /save to library/i }));
+
+      expect(pushMock).toHaveBeenCalledWith(
+        `/login?next=${encodeURIComponent('/deck-builder?deck=deck-1&save=1')}`,
+      );
+      // Nothing was sent to the API — the save happens after the round-trip.
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/save'))).toBe(false);
+    });
+  });
 });
 
 describe('DeckBuilderPage — permalink', () => {
@@ -745,6 +901,32 @@ describe('DeckBuilderPage — permalink', () => {
         expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument(),
       );
       expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/decks/deck-9');
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+});
+
+describe('DeckBuilderPage — save round trip arrival', () => {
+  it('finishes the save exactly once on ?save=1 and strips the parameter', async () => {
+    setAuthTokenProvider(() => 'token-123');
+    window.history.replaceState({}, '', '/deck-builder?deck=deck-1&save=1');
+    // Queued in call order: the permalink GET, then the auto-fired save.
+    fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture()));
+    fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'snap-1', version_no: 3 })));
+    try {
+      render(<DeckBuilderPage />);
+
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(/saved to your library as v3/i),
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(String(fetchMock.mock.calls[1][0])).toContain('/decks/deck-1/save');
+
+      // The arrival parameter is gone so a reload cannot re-trigger the save,
+      // while the rest of the query string (the permalink) survives.
+      expect(window.location.search).not.toContain('save=1');
+      expect(window.location.search).toContain('deck=deck-1');
     } finally {
       window.history.replaceState({}, '', '/');
     }
