@@ -4,10 +4,11 @@ const API_ORIGIN = process.env.API_ORIGIN ?? "http://localhost:8000";
 
 // `next build` emits a static site to `out/` for Cloudflare Pages, where the
 // browser calls the API origin directly (NEXT_PUBLIC_API_BASE_URL). Rewrites
-// don't exist in a static export, so the `/api` proxy is dev-only.
+// don't exist in a static export, so the `/api` proxy is dev-only. Neither does
+// the `/_next/image` optimizer, so <Image> must point straight at `public/`.
 const nextConfig: NextConfig =
   process.env.NODE_ENV === "production"
-    ? { output: "export" }
+    ? { output: "export", images: { unoptimized: true } }
     : {
         async rewrites() {
           return [
