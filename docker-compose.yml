@@ -15,16 +15,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   ollama:
     image: ollama/ollama
     ports:
@@ -41,29 +31,11 @@ services:
       - ./apps/api-server/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres/magic_grimoire
-      REDIS_URL: redis://redis:6379/0
       OLLAMA_BASE_URL: http://ollama:11434
+      # Deck generation runs inside the API process locally; production async-invokes the worker Lambda.
+      TASK_DISPATCHER: inprocess
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      ollama:
-        condition: service_started
-
-  worker:
-    build: ./apps/api-server
-    command: uv run celery -A app.workers.celery_app worker --loglevel=info
-    env_file:
-      - ./apps/api-server/.env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres/magic_grimoire
-      REDIS_URL: redis://redis:6379/0
-      OLLAMA_BASE_URL: http://ollama:11434
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       ollama:
         condition: service_started

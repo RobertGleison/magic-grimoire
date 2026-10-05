@@ -1,4 +1,4 @@
-.PHONY: dev down build test test-web-app typecheck lint lint-api-server lint-web-app lint-fix
+.PHONY: dev down build test test-web-app typecheck lint lint-api-server lint-web-app lint-fix migrate-prod
 
 ## Start backend services in background, then frontend in foreground
 dev:
@@ -43,3 +43,9 @@ lint: lint-api-server lint-web-app
 lint-fix:
 	cd apps/api-server && uv run ruff check --fix .
 	cd apps/web-app && npm run lint -- --fix
+
+## Apply Alembic migrations to production. Use Supabase's *session* pooler URL
+## (port 5432, postgresql+asyncpg://...): the transaction pooler can't run migrations.
+migrate-prod:
+	@test -n "$(PROD_DATABASE_URL)" || (echo "Set PROD_DATABASE_URL=postgresql+asyncpg://...:5432/postgres" && exit 1)
+	cd apps/api-server && DATABASE_URL="$(PROD_DATABASE_URL)" uv run alembic upgrade head
