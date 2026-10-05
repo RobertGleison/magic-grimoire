@@ -13,11 +13,19 @@ class OpenAICompatService(LLMService):
     # 60s: parse_intent + compose_deck × 2 attempts each = 240s worst case, which leaves the
     # Scryfall steps room inside the worker Lambda's timeout. A slower provider then fails
     # as a recorded LLM error instead of a Lambda timeout that retries (and re-bills) the run.
-    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 60.0):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout: float = 60.0,
+        disable_thinking: bool = False,
+    ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
+        self.disable_thinking = disable_thinking
 
     def _complete(self, system: str, messages: list[dict], *, max_tokens: int, json_mode: bool) -> str:
         payload: dict = {
@@ -27,6 +35,8 @@ class OpenAICompatService(LLMService):
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
+        if self.disable_thinking:
+            payload["thinking"] = {"type": "disabled"}
 
         try:
             response = httpx.post(
@@ -45,9 +55,13 @@ class OpenAICompatService(LLMService):
             raise LLMServiceError(f"Cannot reach LLM provider at {self.base_url}: {exc}") from exc
 
         try:
-            content = response.json()["choices"][0]["message"]["content"]
+            choice = response.json()["choices"][0]
+            content = choice["message"]["content"]
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise LLMServiceError("LLM provider returned an unexpected response shape") from exc
+        # A reasoning model can spend the whole budget before writing any answer.
+        if not content and choice.get("finish_reason") == "length":
+            raise LLMServiceError("LLM ran out of tokens before answering")
         # DeepSeek can return null content in JSON mode.
         if not isinstance(content, str):
             raise LLMServiceError("LLM provider returned no content")

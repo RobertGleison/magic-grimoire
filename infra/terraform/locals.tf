@@ -15,13 +15,14 @@ locals {
   # Non-secret settings read by app/core/config.py. Secrets are loaded at cold
   # start from SSM_PARAMETER_PATH (see ssm.tf), never placed in env vars.
   backend_environment = {
-    ALLOWED_ORIGINS    = "https://${var.domain_name}"
-    DB_USE_NULL_POOL   = "true"
-    ENVIRONMENT        = "production"
-    JWT_ALGORITHM      = var.jwt_algorithm
-    LLM_BASE_URL       = var.llm_base_url
-    LLM_MODEL          = var.llm_model
-    LLM_PROVIDER       = "openai_compat"
-    SSM_PARAMETER_PATH = local.ssm_parameter_path
+    ALLOWED_ORIGINS      = "https://${var.domain_name}"
+    DB_USE_NULL_POOL     = "true"
+    ENVIRONMENT          = "production"
+    JWT_ALGORITHM        = var.jwt_algorithm
+    LLM_BASE_URL         = var.llm_base_url
+    LLM_DISABLE_THINKING = "true"
+    LLM_MODEL            = var.llm_model
+    LLM_PROVIDER         = "openai_compat"
+    SSM_PARAMETER_PATH   = local.ssm_parameter_path
   }
 }
