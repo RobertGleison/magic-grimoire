@@ -3,8 +3,9 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.conftest import make_token
 
-client = TestClient(app)
+client = TestClient(app, headers={"Authorization": f"Bearer {make_token()}"})
 
 _VALID_PAYLOAD = {
     "messages": [{"role": "user", "content": "I want an aggressive red deck"}],
@@ -111,3 +112,11 @@ def test_chat_context_is_optional():
         res = client.post("/api/v1/chat", json={"messages": [{"role": "user", "content": "build something fun"}]})
 
     assert res.status_code == 200
+
+
+def test_chat_requires_auth():
+    with patch("app.chat.service.create_llm_service") as mock_factory:
+        res = TestClient(app).post("/api/v1/chat", json=_VALID_PAYLOAD)
+
+    assert res.status_code == 401
+    mock_factory.assert_not_called()

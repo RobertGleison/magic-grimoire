@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.database import get_db
 from app.main import app
+from tests.conftest import make_token
 
 
 @pytest.fixture
@@ -13,7 +14,7 @@ def client():
         yield AsyncMock()
 
     app.dependency_overrides[get_db] = _mock_db
-    yield TestClient(app)
+    yield TestClient(app, headers={"Authorization": f"Bearer {make_token()}"})
     app.dependency_overrides.clear()
 
 
@@ -65,3 +66,8 @@ def test_generate_rejects_deck_size_above_250(client):
         json={"prompt": "elf tribal", "deck_size": 251},
     )
     assert res.status_code == 422
+
+
+def test_generate_requires_auth(client):
+    res = client.post("/api/v1/decks/generate", json={"prompt": "mono red burn"}, headers={"Authorization": ""})
+    assert res.status_code == 401
