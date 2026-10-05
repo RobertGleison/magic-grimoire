@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.database import DatabaseSessionManager
+from app.core.database import DatabaseSessionManager, engine_kwargs
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
 from app.llm import create_llm_service
@@ -58,9 +58,9 @@ class DeckGenerationPipeline:
         self._db: DatabaseSessionManager | None = None
 
     async def run(self) -> None:
-        # DatabaseSessionManager is created fresh per task invocation — each Celery task call
-        # runs in its own asyncio.run() event loop, and asyncpg connections can't cross event loops.
-        self._db = DatabaseSessionManager(settings.DATABASE_URL, {"pool_pre_ping": True})
+        # Fresh per run: the worker Lambda calls asyncio.run() per invocation, and pooled
+        # asyncpg connections can't cross event loops.
+        self._db = DatabaseSessionManager(settings.DATABASE_URL, engine_kwargs())
 
         try:
             await self._generate()

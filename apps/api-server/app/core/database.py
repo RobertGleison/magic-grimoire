@@ -1,4 +1,5 @@
 import contextlib
+import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -71,19 +73,30 @@ class DatabaseSessionManager:
             await session.close()
 
 
-# echo=True logs all SQL statements to stdout
-# pool_pre_ping=True ensures the connection is alive before returning it to the pool with a lighweight check select 1
-# pool_size=10 and max_overflow=20 ensures we have a pool of 10 connections and 20 idle connections
-# max_overflow=20 ensures we don't create more than 20 idle connections at a time
-sessionmanager = DatabaseSessionManager(
-    settings.DATABASE_URL,
-    {
+def engine_kwargs() -> dict[str, Any]:
+    """Engine options shared by the API's session manager and the pipeline's per-run one."""
+    if settings.DB_USE_NULL_POOL:
+        # Supabase's transaction pooler hands every transaction a different backend, so
+        # connections can't be kept here and asyncpg's prepared statements must be
+        # uncached and uniquely named (SQLAlchemy's documented PgBouncer recipe).
+        return {
+            "poolclass": NullPool,
+            "connect_args": {
+                "statement_cache_size": 0,
+                "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+            },
+        }
+    # echo logs SQL in development; pool_pre_ping runs a cheap SELECT 1 before handing out
+    # a connection; 10 pooled + up to 20 overflow connections.
+    return {
         "echo": settings.ENVIRONMENT == "development",
         "pool_pre_ping": True,
         "pool_size": 10,
         "max_overflow": 20,
-    },
-)
+    }
+
+
+sessionmanager = DatabaseSessionManager(settings.DATABASE_URL, engine_kwargs())
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
