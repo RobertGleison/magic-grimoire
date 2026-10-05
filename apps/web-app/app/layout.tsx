@@ -5,8 +5,6 @@ import { ThemeProvider, themeInitScript } from './context/ThemeContext';
 import { UserProvider } from './context/UserContext';
 import { Header } from './components/Header/Header';
 import { Footer } from './components/Footer/Footer';
-import { MockAuthBanner } from './components/MockAuthBanner/MockAuthBanner';
-import { MOCK_AUTH_ENABLED } from './lib/mockAuth';
 import './globals.css';
 import './layout.css';
 
@@ -67,10 +65,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               Skip to content
             </a>
             <div className="app-shell">
-              {/* DEVELOPMENT ONLY. Present only while NEXT_PUBLIC_MOCK_AUTH=true,
-                  where every email/password combination signs in. Gated here as
-                  well as inside the component so the bundler can drop it. */}
-              {MOCK_AUTH_ENABLED ? <MockAuthBanner /> : null}
               <Header />
               <main id="main-content" className="app-main" tabIndex={-1}>
                 {children}

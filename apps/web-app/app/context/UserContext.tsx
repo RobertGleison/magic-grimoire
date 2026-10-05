@@ -10,21 +10,13 @@ import {
 import type { Session } from '@supabase/supabase-js';
 
 import { getSupabase } from '../lib/supabase';
-import * as mockAuth from '../lib/mockAuth';
-import { MOCK_AUTH_ENABLED } from '../lib/mockAuth';
 import { describeAuthError, type AuthProvider } from '../login/authShared';
 
 /* ==========================================================================
    Auth state for the whole app.
 
-   TWO IMPLEMENTATIONS, ONE SWITCH. Every action below branches once on
-   `MOCK_AUTH_ENABLED` (`NEXT_PUBLIC_MOCK_AUTH === 'true'`):
-
-     mocked  ->  `app/lib/mockAuth.ts`, the development stub
-     real    ->  `@supabase/supabase-js` via `app/lib/supabase.ts`
-
-   The Supabase branch is fully implemented and is what runs by default.
-   Turning the mock off is an env-var change, not a code change.
+   Backed by `@supabase/supabase-js` via `app/lib/supabase.ts`. Every action
+   resolves to an `AuthActionResult` with an already human-readable error.
 
    `resolveNextPath()` in `app/login/authShared.ts` stays the only route to a
    post-auth redirect: this file never reads the query string and never calls
@@ -47,8 +39,6 @@ export type UserStatus = 'checking' | 'signed-in' | 'signed-out';
  */
 export interface AuthActionResult {
   error: string | null;
-  /** Non-fatal message to surface, e.g. the mock's disabled-provider notice. */
-  notice?: string;
   /** Signed up successfully but Supabase wants the address confirmed first. */
   pendingConfirmation?: boolean;
 }
@@ -56,8 +46,6 @@ export interface AuthActionResult {
 export interface UserContextType {
   user: AuthUser | null;
   status: UserStatus;
-  /** True when the stub is in charge. UI uses it to say so out loud. */
-  isMocked: boolean;
   signInWithPassword: (credentials: {
     email: string;
     password: string;
@@ -82,7 +70,7 @@ export interface UserContextType {
 /*
  * Session state lives in a module-level store rather than in provider state.
  *
- * Why: exactly one Supabase (or mock) listener exists per page load no matter
+ * Why: exactly one Supabase listener exists per page load no matter
  * how many components ask, and `useUser()` keeps working in a unit test that
  * renders a page without mounting `<UserProvider>`. The provider is still the
  * documented mounting point — it gives every consumer one shared, referentially
@@ -117,14 +105,6 @@ function setSnapshot(next: Snapshot): void {
   for (const listener of [...listeners]) listener();
 }
 
-function fromMockSession(session: mockAuth.MockSession | null): Snapshot {
-  if (!session) return SIGNED_OUT;
-  return {
-    status: 'signed-in',
-    user: { id: session.user.id, email: session.user.email, name: session.user.name },
-  };
-}
-
 function fromSupabaseSession(session: Session | null): Snapshot {
   if (!session) return SIGNED_OUT;
   const { id, email, user_metadata: metadata } = session.user ?? {};
@@ -139,22 +119,9 @@ function fromSupabaseSession(session: Session | null): Snapshot {
   return { status: 'signed-in', user: { id: id ?? address, email: address, name, avatarUrl } };
 }
 
-/** Starts whichever backend is switched on. Returns its teardown. */
+/** Starts the Supabase session listener. Returns its teardown. */
 function startEngine(): () => void {
   let active = true;
-
-  if (MOCK_AUTH_ENABLED) {
-    void mockAuth.getSession().then(({ data }) => {
-      if (active) setSnapshot(fromMockSession(data.session));
-    });
-    const { data } = mockAuth.onAuthStateChange((_event, session) => {
-      if (active) setSnapshot(fromMockSession(session));
-    });
-    return () => {
-      active = false;
-      data.subscription.unsubscribe();
-    };
-  }
 
   try {
     const supabase = getSupabase();
@@ -219,11 +186,6 @@ async function signInWithPassword({
 }): Promise<AuthActionResult> {
   const address = email.trim();
 
-  if (MOCK_AUTH_ENABLED) {
-    const { error } = await mockAuth.signInWithPassword({ email: address, password });
-    return { error: error ? error.message : null };
-  }
-
   try {
     const { error } = await getSupabase().auth.signInWithPassword({ email: address, password });
     return { error: error ? describeAuthError(error) : null };
@@ -246,11 +208,6 @@ async function signUp({
   const address = email.trim();
   const displayName = name.trim();
 
-  if (MOCK_AUTH_ENABLED) {
-    const { error } = await mockAuth.signUp({ email: address, password, name: displayName });
-    return { error: error ? error.message : null };
-  }
-
   try {
     const { data, error } = await getSupabase().auth.signUp({
       email: address,
@@ -269,11 +226,6 @@ async function signInWithProvider(
   provider: AuthProvider,
   options: { redirectTo?: string } = {},
 ): Promise<AuthActionResult> {
-  if (MOCK_AUTH_ENABLED) {
-    const { notice } = await mockAuth.signInWithProvider(provider);
-    return { error: null, notice };
-  }
-
   try {
     const { error } = await getSupabase().auth.signInWithOAuth({
       provider,
@@ -292,11 +244,6 @@ async function resetPassword(
 ): Promise<AuthActionResult> {
   const address = email.trim();
 
-  if (MOCK_AUTH_ENABLED) {
-    const { error } = await mockAuth.resetPasswordForEmail(address);
-    return { error: error ? error.message : null };
-  }
-
   try {
     const { error } = await getSupabase().auth.resetPasswordForEmail(address, {
       redirectTo: options.redirectTo,
@@ -308,11 +255,6 @@ async function resetPassword(
 }
 
 async function signOut(): Promise<void> {
-  if (MOCK_AUTH_ENABLED) {
-    await mockAuth.signOut();
-    return;
-  }
-
   try {
     await getSupabase().auth.signOut();
   } catch {
@@ -341,7 +283,6 @@ function useAuthValue(): UserContextType {
     () => ({
       user: current.user,
       status: current.status,
-      isMocked: MOCK_AUTH_ENABLED,
       ...ACTIONS,
     }),
     [current],

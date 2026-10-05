@@ -37,14 +37,14 @@ import styles from './page.module.css';
  * Passwords live only in this component's local state and are cleared as soon
  * as the auth layer has them. Nothing is logged.
  *
- * Auth goes through `UserContext`, which owns the single Supabase-vs-mock
- * branch (`NEXT_PUBLIC_MOCK_AUTH`). This component never touches
- * `@supabase/supabase-js` directly, and `resolveNextPath` remains the only
- * way a destination reaches `router.replace`.
+ * Auth goes through `UserContext`, which owns every Supabase call. This
+ * component never touches `@supabase/supabase-js` directly, and
+ * `resolveNextPath` remains the only way a destination reaches
+ * `router.replace`.
  */
 export function SignupForm() {
   const router = useRouter();
-  const { signUp, signInWithProvider, isMocked } = useUser();
+  const { signUp, signInWithProvider } = useUser();
   const searchParams = useSearchParams();
   const nextParam = searchParams?.get('next') ?? null;
   const destination = resolveNextPath(nextParam);
@@ -65,8 +65,7 @@ export function SignupForm() {
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<AuthProvider | null>(null);
 
-  // The mock needs no Supabase project, so it satisfies the config check.
-  const configured = isMocked || isSupabaseConfigured();
+  const configured = isSupabaseConfigured();
   const locked = busy || oauthBusy !== null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -116,18 +115,13 @@ export function SignupForm() {
     setNotice(null);
     setOauthBusy(provider);
     try {
-      const { error, notice: disabled } = await signInWithProvider(provider, {
+      const { error } = await signInWithProvider(provider, {
         redirectTo: oauthRedirectTo(nextParam),
       });
+      // On success the browser has already left for the provider, so only
+      // an error needs handling here.
       if (error) {
         setFormError(error);
-        setOauthBusy(null);
-        return;
-      }
-      // Mock mode: the provider is a no-op, so say so and release the button.
-      // Real mode: the browser has already left for the provider.
-      if (disabled) {
-        setNotice(disabled);
         setOauthBusy(null);
       }
     } catch (error) {
