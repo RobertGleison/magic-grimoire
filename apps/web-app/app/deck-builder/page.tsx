@@ -409,9 +409,9 @@ export default function DeckBuilderPage() {
   const handleSave = useCallback(async () => {
     if (!deck || deck.status !== 'completed') return;
 
-    // Saving is the one deck-builder action that needs an account. Send the
-    // visitor to sign in and back to this exact deck, with `save=1` asking the
-    // page to finish the job on arrival.
+    // The route is guarded (layout.tsx), but a session can still lapse while the
+    // page is open. Send the visitor to sign in and back to this exact deck, with
+    // `save=1` asking the page to finish the job on arrival.
     if (userStatus === 'signed-out') {
       const back = resolveNextPath(`/deck-builder?deck=${encodeURIComponent(deck.id)}&save=1`);
       router.push(`/login?next=${encodeURIComponent(back)}`);
