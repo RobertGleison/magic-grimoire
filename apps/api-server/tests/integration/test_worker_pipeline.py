@@ -78,7 +78,7 @@ def _run(task_id: str, deck_id: str, prompt: str, format: str) -> DeckGeneration
 
 
 @respx.mock
-async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis):
+async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
@@ -118,7 +118,7 @@ async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis)
     ]
 
 
-async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_redis):
+async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_redis, fake_card_cache):
     llm.parse_intent.return_value = {"error": "off_topic", "message": "Only Magic, friend."}
     deck_id, task_id = await _seed(session_factory)
 
@@ -136,7 +136,7 @@ async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_redis)
 
 
 @respx.mock
-async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_redis):
+async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_redis, fake_card_cache):
     _mock_scryfall()
     llm.compose_deck.side_effect = json.JSONDecodeError("Expecting value", doc="", pos=0)
     deck_id, task_id = await _seed(session_factory)
@@ -150,7 +150,7 @@ async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_r
 
 
 @respx.mock
-async def test_pipeline_explicit_colors_override_parse_intent(session_factory, llm, fake_redis):
+async def test_pipeline_explicit_colors_override_parse_intent(session_factory, llm, fake_redis, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
@@ -165,7 +165,7 @@ async def test_pipeline_explicit_colors_override_parse_intent(session_factory, l
 
 
 @respx.mock
-async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, fake_redis):
+async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, fake_redis, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
@@ -177,7 +177,7 @@ async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, f
 
 
 @respx.mock
-async def test_pipeline_defaults_deck_size_to_60_when_omitted(session_factory, llm, fake_redis):
+async def test_pipeline_defaults_deck_size_to_60_when_omitted(session_factory, llm, fake_redis, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 

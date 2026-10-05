@@ -17,7 +17,7 @@ import jwt
 import pytest
 
 from app.core.config import settings
-from app.services import redis_cache
+from app.services import card_cache, redis_cache
 
 TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -48,3 +48,19 @@ def fake_redis(monkeypatch, fake_redis_server):
 
     monkeypatch.setattr(redis_cache, "get_client", _client)
     return _client
+
+
+@pytest.fixture
+def fake_card_cache(monkeypatch) -> dict[str, str]:
+    """Replace the Postgres card cache with a dict; returns the dict for seeding/inspection."""
+    store: dict[str, str] = {}
+
+    async def _get(key: str) -> str | None:
+        return store.get(key)
+
+    async def _set(key: str, value: str, ttl: int = card_cache.CACHE_TTL) -> None:
+        store[key] = value
+
+    monkeypatch.setattr(card_cache, "get", _get)
+    monkeypatch.setattr(card_cache, "set", _set)
+    return store

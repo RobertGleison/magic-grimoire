@@ -5,8 +5,8 @@ from typing import Any
 
 import httpx
 
-from app.services import redis_cache
-from app.services.redis_cache import CACHE_TTL
+from app.services import card_cache
+from app.services.card_cache import CACHE_TTL
 
 SCRYFALL_BASE = "https://api.scryfall.com"
 REQUEST_DELAY = 0.5  # 500ms between requests — Scryfall hard limit is 2 req/s
@@ -68,12 +68,12 @@ def _build_scryfall_query(intent: dict) -> str:
 async def search_cards(intent: dict) -> list[dict]:
     """Search Scryfall for candidate cards matching the intent.
 
-    Results are cached in Redis for 24 hours.
+    Results are cached in Postgres for 24 hours.
     """
     query = _build_scryfall_query(intent)
     cache_key = f"scryfall:search:{urllib.parse.quote(query)}"
 
-    cached = await redis_cache.get(cache_key)
+    cached = await card_cache.get(cache_key)
     if cached:
         return json.loads(cached)
 
@@ -113,7 +113,7 @@ async def search_cards(intent: dict) -> list[dict]:
             has_more = data.get("has_more", False)
             page += 1
 
-    await redis_cache.set(cache_key, json.dumps(results), ttl=CACHE_TTL)
+    await card_cache.set(cache_key, json.dumps(results), ttl=CACHE_TTL)
     return results
 
 
@@ -133,7 +133,7 @@ async def enrich_cards(cards: list[dict]) -> list[dict]:
                 continue
 
             cache_key = f"scryfall:card:{urllib.parse.quote(name)}"
-            cached = await redis_cache.get(cache_key)
+            cached = await card_cache.get(cache_key)
 
             if cached:
                 card_data: dict[str, Any] = json.loads(cached)
@@ -154,7 +154,7 @@ async def enrich_cards(cards: list[dict]) -> list[dict]:
                         "mana_cost": card_data.get("mana_cost", ""),
                         "type_line": card_data.get("type_line", ""),
                     }
-                    await redis_cache.set(cache_key, json.dumps(card_data), ttl=CACHE_TTL)
+                    await card_cache.set(cache_key, json.dumps(card_data), ttl=CACHE_TTL)
                 except httpx.HTTPStatusError:
                     card_data = {}
 

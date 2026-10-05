@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from app.services import redis_cache, scryfall_service
+from app.services import card_cache, scryfall_service
 from app.services.scryfall_service import SCRYFALL_BASE, _build_scryfall_query
 
 
@@ -58,7 +58,7 @@ def test_query_colorless_uses_c_colorless():
 # --- search_cards ---
 
 @respx.mock
-async def test_search_paginates_dedupes_and_caches(fake_redis):
+async def test_search_paginates_dedupes_and_caches(fake_card_cache):
     page1 = {"data": [_card("Shock"), _card("Shock")], "has_more": True}
     page2 = {"data": [_card("Lightning Bolt")], "has_more": False}
     route = respx.get(f"{SCRYFALL_BASE}/cards/search").mock(
@@ -72,13 +72,13 @@ async def test_search_paginates_dedupes_and_caches(fake_redis):
     assert route.call_count == 2
 
     cache_key = f"scryfall:search:{urllib.parse.quote('color<=R')}"
-    assert json.loads(await redis_cache.get(cache_key)) == results
+    assert json.loads(await card_cache.get(cache_key)) == results
 
 
 @respx.mock
-async def test_search_cache_hit_skips_http(fake_redis):
+async def test_search_cache_hit_skips_http(fake_card_cache):
     cache_key = f"scryfall:search:{urllib.parse.quote('color<=R')}"
-    await redis_cache.set(cache_key, json.dumps([{"name": "Cached Card"}]))
+    await card_cache.set(cache_key, json.dumps([{"name": "Cached Card"}]))
     route = respx.get(f"{SCRYFALL_BASE}/cards/search")
 
     results = await scryfall_service.search_cards({"colors": ["R"]})
@@ -88,13 +88,13 @@ async def test_search_cache_hit_skips_http(fake_redis):
 
 
 @respx.mock
-async def test_search_404_returns_empty_list(fake_redis):
+async def test_search_404_returns_empty_list(fake_card_cache):
     respx.get(f"{SCRYFALL_BASE}/cards/search").mock(return_value=httpx.Response(404))
     assert await scryfall_service.search_cards({"colors": ["R"]}) == []
 
 
 @respx.mock
-async def test_search_uses_card_faces_image_fallback(fake_redis):
+async def test_search_uses_card_faces_image_fallback(fake_card_cache):
     faced = _card("Delver of Secrets")
     del faced["image_uris"]
     faced["card_faces"] = [{"image_uris": {"normal": "https://img/front.jpg"}}]
@@ -109,7 +109,7 @@ async def test_search_uses_card_faces_image_fallback(fake_redis):
 # --- enrich_cards ---
 
 @respx.mock
-async def test_enrich_fetches_and_caches_card_data(fake_redis):
+async def test_enrich_fetches_and_caches_card_data(fake_card_cache):
     respx.get(f"{SCRYFALL_BASE}/cards/named").mock(
         return_value=httpx.Response(200, json=_card("Shock"))
     )
@@ -119,13 +119,13 @@ async def test_enrich_fetches_and_caches_card_data(fake_redis):
     assert enriched[0]["scryfall_id"] == "id-Shock"
     assert enriched[0]["image_uri"] == "https://img/Shock.jpg"
     assert enriched[0]["quantity"] == 4
-    cached = await redis_cache.get(f"scryfall:card:{urllib.parse.quote('Shock')}")
+    cached = await card_cache.get(f"scryfall:card:{urllib.parse.quote('Shock')}")
     assert json.loads(cached)["scryfall_id"] == "id-Shock"
 
 
 @respx.mock
-async def test_enrich_cache_hit_skips_http(fake_redis):
-    await redis_cache.set(
+async def test_enrich_cache_hit_skips_http(fake_card_cache):
+    await card_cache.set(
         f"scryfall:card:{urllib.parse.quote('Shock')}",
         json.dumps({"scryfall_id": "cached-id"}),
     )
@@ -138,7 +138,7 @@ async def test_enrich_cache_hit_skips_http(fake_redis):
 
 
 @respx.mock
-async def test_enrich_keeps_card_on_http_error(fake_redis):
+async def test_enrich_keeps_card_on_http_error(fake_card_cache):
     respx.get(f"{SCRYFALL_BASE}/cards/named").mock(return_value=httpx.Response(404))
 
     enriched = await scryfall_service.enrich_cards([{"name": "Fake Card", "quantity": 1}])
@@ -146,6 +146,6 @@ async def test_enrich_keeps_card_on_http_error(fake_redis):
     assert enriched == [{"name": "Fake Card", "quantity": 1}]
 
 
-async def test_enrich_passes_through_nameless_cards(fake_redis):
+async def test_enrich_passes_through_nameless_cards(fake_card_cache):
     enriched = await scryfall_service.enrich_cards([{"quantity": 2}])
     assert enriched == [{"quantity": 2}]
