@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
@@ -14,10 +14,10 @@ OTHER_USER_AUTH = {"Authorization": f"Bearer {make_token('99999999-aaaa-bbbb-ccc
 
 
 @pytest.fixture
-def broker(monkeypatch):
-    """Replace Celery enqueueing with a mock; returns it for assertions."""
-    mock = MagicMock()
-    monkeypatch.setattr("app.decks.routes.generate_deck_task.apply_async", mock)
+def dispatch(monkeypatch):
+    """Replace job dispatch with a mock; returns it for assertions."""
+    mock = AsyncMock()
+    monkeypatch.setattr("app.decks.routes.dispatch_generation", mock)
     return mock
 
 
@@ -32,7 +32,7 @@ async def _insert_deck(session_factory, user_id=TEST_USER_ID, status=DeckStatus.
 
 # --- POST /decks/generate ---
 
-async def test_generate_persists_deck_and_task(client, session_factory, broker, fake_redis):
+async def test_generate_persists_deck_and_task(client, session_factory, dispatch):
     res = await client.post(
         "/api/v1/decks/generate",
         json={"prompt": "mono red burn", "format": "modern"},
@@ -53,12 +53,14 @@ async def test_generate_persists_deck_and_task(client, session_factory, broker, 
     assert task.status == TaskStatus.QUEUED
     assert task.deck_id == deck.id
 
-    broker.assert_called_once()
-    assert broker.call_args.kwargs["task_id"] == body["task_id"]
+    dispatch.assert_awaited_once()
+    job = dispatch.call_args.args[0]
+    assert job.task_id == body["task_id"]
+    assert job.deck_id == body["deck_id"]
 
 
-async def test_generate_broker_down_returns_503_and_marks_failed(client, session_factory, broker, fake_redis):
-    broker.side_effect = ConnectionError("redis down")
+async def test_generate_dispatch_failure_returns_503_and_marks_failed(client, session_factory, dispatch):
+    dispatch.side_effect = ConnectionError("lambda unreachable")
 
     res = await client.post("/api/v1/decks/generate", json={"prompt": "elf tribal"}, headers=AUTH)
     assert res.status_code == 503
@@ -69,6 +71,8 @@ async def test_generate_broker_down_returns_503_and_marks_failed(client, session
     assert deck.status == DeckStatus.FAILED
     assert deck.error_message == "Failed to enqueue deck generation."
     assert task.status == TaskStatus.FAILED
+    assert task.progress == "failed"
+    assert task.message == "Failed to enqueue deck generation."
 
 
 # --- GET /decks ---
@@ -140,7 +144,7 @@ async def test_delete_missing_deck_404(client, db_engine):
     assert (await client.delete(f"/api/v1/decks/{uuid.uuid4()}", headers=AUTH)).status_code == 404
 
 
-async def test_generate_forwards_colors_to_broker(client, session_factory, broker, fake_redis):
+async def test_generate_forwards_colors_to_worker(client, session_factory, dispatch):
     res = await client.post(
         "/api/v1/decks/generate",
         json={"prompt": "azorius control", "format": "modern", "colors": ["W", "U"]},
@@ -149,11 +153,14 @@ async def test_generate_forwards_colors_to_broker(client, session_factory, broke
     assert res.status_code == 202
     body = res.json()
 
-    broker.assert_called_once()
-    assert broker.call_args.kwargs["args"] == [body["deck_id"], "azorius control", "modern", ["W", "U"], 60]
+    dispatch.assert_awaited_once()
+    job = dispatch.call_args.args[0]
+    assert (job.deck_id, job.prompt, job.format, job.colors, job.deck_size) == (
+        body["deck_id"], "azorius control", "modern", ["W", "U"], 60,
+    )
 
 
-async def test_generate_forwards_deck_size_to_broker(client, session_factory, broker, fake_redis):
+async def test_generate_forwards_deck_size_to_worker(client, session_factory, dispatch):
     res = await client.post(
         "/api/v1/decks/generate",
         json={"prompt": "commander deck", "format": "commander", "deck_size": 100},
@@ -162,8 +169,11 @@ async def test_generate_forwards_deck_size_to_broker(client, session_factory, br
     assert res.status_code == 202
     body = res.json()
 
-    broker.assert_called_once()
-    assert broker.call_args.kwargs["args"] == [body["deck_id"], "commander deck", "commander", None, 100]
+    dispatch.assert_awaited_once()
+    job = dispatch.call_args.args[0]
+    assert (job.deck_id, job.prompt, job.format, job.colors, job.deck_size) == (
+        body["deck_id"], "commander deck", "commander", None, 100,
+    )
 
 
 # --- deck versioning columns ---

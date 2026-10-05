@@ -13,6 +13,7 @@ from app.auth.dependencies import get_current_user, get_optional_user
 from app.core.database import get_db
 from app.core.enums import DeckStatus, TaskStatus
 from app.core.guards import sanitize_prompt
+from app.decks.dispatch import GenerationJob, dispatch_generation
 from app.decks.dtos import (
     DeckGenerateRequestDTO,
     DeckGenerateResponseDTO,
@@ -21,7 +22,6 @@ from app.decks.dtos import (
 )
 from app.decks.model import Deck
 from app.decks.pipeline import mark_generation_failed
-from app.decks.worker import generate_deck_task
 from app.tasks.model import Task
 
 _log = logging.getLogger(__name__)
@@ -48,8 +48,8 @@ async def generate_deck(
     )
     db.add(deck)
 
-    # Generate task_id here so we can commit before apply_async — eliminates the race
-    # condition where the worker tries to read the Task record before it's committed.
+    # Generate task_id here so we can commit before dispatching — eliminates the race
+    # where the worker tries to read the Task record before it's committed.
     task_id = str(uuid.uuid4())
     task = Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED)
     db.add(task)
@@ -64,19 +64,18 @@ async def generate_deck(
             detail="Deck storage is temporarily unavailable. Please try again shortly.",
         )
 
+    job = GenerationJob(
+        task_id=task_id,
+        deck_id=str(deck.id),
+        prompt=request.prompt,
+        format=request.format,
+        colors=[c.value for c in request.colors] if request.colors else None,
+        deck_size=request.deck_size,
+    )
     try:
-        generate_deck_task.apply_async(
-            args=[
-                str(deck.id),
-                request.prompt,
-                request.format,
-                [c.value for c in request.colors] if request.colors else None,
-                request.deck_size,
-            ],
-            task_id=task_id,
-        )
+        await dispatch_generation(job)
     except Exception:
-        _log.exception("Broker error enqueueing task (deck_id=%s, task_id=%s)", deck.id, task_id)
+        _log.exception("Error dispatching generation (deck_id=%s, task_id=%s)", deck.id, task_id)
         mark_generation_failed(deck, task, "Failed to enqueue deck generation.")
         await db.commit()
         raise HTTPException(

@@ -8,13 +8,14 @@ import respx
 from sqlalchemy import select
 
 import app.decks.pipeline as pipeline_module
+from app.core.database import DatabaseSessionManager
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
 from app.decks.pipeline import DeckGenerationPipeline
 from app.services import scryfall_service
 from app.services.scryfall_service import SCRYFALL_BASE
 from app.tasks.model import Task
-from app.tasks.streaming import task_channel
+from tests.integration.conftest import TEST_DATABASE_URL
 
 INTENT = {"colors": ["R"], "creature_types": [], "keywords": [], "themes": ["burn"], "strategy": "aggro"}
 COMPOSITION = {
@@ -62,15 +63,36 @@ def _mock_scryfall():
     )
 
 
-async def _seed(session_factory) -> tuple[str, str]:
+async def _seed(session_factory, task_status: TaskStatus = TaskStatus.QUEUED) -> tuple[str, str]:
     task_id = str(uuid.uuid4())
     async with session_factory() as db:
         deck = Deck(prompt="mono red burn", status=DeckStatus.PENDING)
         db.add(deck)
         await db.flush()
-        db.add(Task(id=task_id, deck_id=deck.id, status=TaskStatus.QUEUED))
+        db.add(Task(id=task_id, deck_id=deck.id, status=task_status))
         await db.commit()
         return str(deck.id), task_id
+
+
+async def _load(session_factory, deck_id: str, task_id: str) -> tuple[Deck, Task]:
+    async with session_factory() as db:
+        deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
+        task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one()
+    return deck, task
+
+
+@pytest.fixture
+def stages(monkeypatch) -> list[str]:
+    """Record every stage the pipeline publishes, in order, while still writing it."""
+    recorded: list[str] = []
+    original = DeckGenerationPipeline._publish
+
+    async def _spy(self, progress, message):
+        recorded.append(progress)
+        await original(self, progress, message)
+
+    monkeypatch.setattr(DeckGenerationPipeline, "_publish", _spy)
+    return recorded
 
 
 def _run(task_id: str, deck_id: str, prompt: str, format: str) -> DeckGenerationPipeline:
@@ -78,27 +100,13 @@ def _run(task_id: str, deck_id: str, prompt: str, format: str) -> DeckGeneration
 
 
 @respx.mock
-async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis, fake_card_cache):
+async def test_pipeline_success_completes_deck(session_factory, llm, fake_card_cache, stages):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
-    # Subscribe before running so the progress events published over the shared
-    # task channel are captured — pins the publisher/subscriber contract.
-    async with fake_redis() as subscriber:
-        pubsub = subscriber.pubsub()
-        await pubsub.subscribe(task_channel(task_id))
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
 
-        await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
-
-        events = []
-        while (message := await pubsub.get_message(timeout=1)) is not None:
-            if message["type"] == "message":
-                events.append(json.loads(message["data"]))
-
-    async with session_factory() as db:
-        deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
-        task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one()
-
+    deck, task = await _load(session_factory, deck_id, task_id)
     assert deck.status == DeckStatus.COMPLETED
     assert deck.title == "Burn Baby Burn"
     assert deck.card_count == 60
@@ -107,18 +115,39 @@ async def test_pipeline_success_completes_deck(session_factory, llm, fake_redis,
     assert {c["name"] for c in deck.cards} == {"Lightning Bolt", "Mountain"}
     assert all(c["scryfall_id"] == "sc-x" for c in deck.cards)  # enrichment applied
     assert task.status == TaskStatus.COMPLETED
-
-    statuses = [e["status"] for e in events]
-    assert statuses == [
-        TaskProgress.PROCESSING,
-        TaskProgress.SEARCHING_CARDS,
-        TaskProgress.COMPOSING_DECK,
-        TaskProgress.ENRICHING,
-        TaskProgress.COMPLETED,
-    ]
+    assert task.progress == TaskProgress.COMPLETED
+    assert task.message == "Your deck is ready!"
+    # PROCESSING and COMPLETED are written together with the status change; the
+    # intermediate stages go through _publish.
+    assert stages == [TaskProgress.SEARCHING_CARDS, TaskProgress.COMPOSING_DECK, TaskProgress.ENRICHING]
 
 
-async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_redis, fake_card_cache):
+async def test_publish_writes_stage_to_task_row(session_factory):
+    deck_id, task_id = await _seed(session_factory)
+    pipeline = _run(task_id=task_id, deck_id=deck_id, prompt="x", format="modern")
+    pipeline._db = DatabaseSessionManager(TEST_DATABASE_URL)
+    try:
+        await pipeline._publish(TaskProgress.ENRICHING, "Fetching card images...")
+    finally:
+        await pipeline._db.close()
+
+    _, task = await _load(session_factory, deck_id, task_id)
+    assert task.progress == TaskProgress.ENRICHING
+    assert task.message == "Fetching card images..."
+
+
+@pytest.mark.parametrize("finished", [TaskStatus.COMPLETED, TaskStatus.FAILED])
+async def test_pipeline_skips_already_finished_task(session_factory, llm, fake_card_cache, finished):
+    deck_id, task_id = await _seed(session_factory, task_status=finished)
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    llm.parse_intent.assert_not_called()
+    _, task = await _load(session_factory, deck_id, task_id)
+    assert task.status == finished
+
+
+async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_card_cache):
     llm.parse_intent.return_value = {"error": "off_topic", "message": "Only Magic, friend."}
     deck_id, task_id = await _seed(session_factory)
 
@@ -133,10 +162,12 @@ async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_redis,
     assert deck.error_message == "Only Magic, friend."
     assert deck.failed_at is not None
     assert task.status == TaskStatus.FAILED
+    assert task.progress == TaskProgress.FAILED
+    assert task.message == "Only Magic, friend."
 
 
 @respx.mock
-async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_redis, fake_card_cache):
+async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_card_cache):
     _mock_scryfall()
     llm.compose_deck.side_effect = json.JSONDecodeError("Expecting value", doc="", pos=0)
     deck_id, task_id = await _seed(session_factory)
@@ -150,7 +181,7 @@ async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_r
 
 
 @respx.mock
-async def test_pipeline_explicit_colors_override_parse_intent(session_factory, llm, fake_redis, fake_card_cache):
+async def test_pipeline_explicit_colors_override_parse_intent(session_factory, llm, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
@@ -165,7 +196,7 @@ async def test_pipeline_explicit_colors_override_parse_intent(session_factory, l
 
 
 @respx.mock
-async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, fake_redis, fake_card_cache):
+async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 
@@ -177,7 +208,7 @@ async def test_pipeline_passes_deck_size_to_compose_deck(session_factory, llm, f
 
 
 @respx.mock
-async def test_pipeline_defaults_deck_size_to_60_when_omitted(session_factory, llm, fake_redis, fake_card_cache):
+async def test_pipeline_defaults_deck_size_to_60_when_omitted(session_factory, llm, fake_card_cache):
     _mock_scryfall()
     deck_id, task_id = await _seed(session_factory)
 

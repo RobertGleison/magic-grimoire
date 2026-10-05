@@ -101,4 +101,4 @@ def test_create_dispatcher_rejects_bad_config():
     with pytest.raises(ValueError, match="WORKER_FUNCTION_NAME"):
         create_dispatcher("lambda", None)
     with pytest.raises(ValueError, match="Unknown TASK_DISPATCHER"):
-        create_dispatcher("celery", None)
+        create_dispatcher("sqs", None)

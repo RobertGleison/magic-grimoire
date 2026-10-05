@@ -25,8 +25,6 @@ def load_ssm_parameters(path: str | None, client: Any = None) -> None:
 
 class DatabaseSettings(BaseSettings):
     DATABASE_URL: str
-    # Removed with Celery in the dispatch migration; optional until then.
-    REDIS_URL: str | None = None
     # Supabase's transaction pooler can't hold pooled connections or prepared statements.
     DB_USE_NULL_POOL: bool = False
 
