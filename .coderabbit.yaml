@@ -59,18 +59,19 @@ reviews:
 
     - path: "apps/api-server/app/*/worker.py"
       instructions: >-
-        Review Celery worker code:
+        Review worker code (runs as a Lambda, invoked via app/decks/dispatch.py):
         - Verify async/await patterns and database session management
-        - Check Redis pub/sub usage and channel naming
-        - Validate error handling, retries, and resource cleanup
-        - Verify task status is updated correctly in all code paths
+        - Check progress is written to the tasks row (status, progress, message) at each step
+        - Validate error handling, timeouts, and resource cleanup
+        - Verify task status is updated correctly in all code paths, including failures
+        - Check dispatch: Lambda async invoke in prod, in-process locally
 
     - path: "apps/api-server/app/services/**"
       instructions: >-
         Review service layer:
         - Check Claude and Scryfall API integrations for error handling and timeouts
         - Validate response parsing and type safety
-        - Check caching strategy and Redis usage
+        - Check caching strategy and the Postgres card_cache table (TTL, upserts)
 
     - path: "apps/api-server/app/core/**"
       instructions: >-

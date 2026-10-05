@@ -18,15 +18,29 @@ permissions:
 env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: magic-grimoire
-  FUNCTIONS: magic-grimoire-prod-api magic-grimoire-prod-worker
+  # Worker (consumer) before API (producer), so the API never enqueues work for an older worker.
+  FUNCTIONS: magic-grimoire-prod-worker magic-grimoire-prod-api
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     # Native arm64, matching the Lambdas' architecture — no QEMU emulation.
     runs-on: ubuntu-24.04-arm
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Unit tests
+        working-directory: apps/api-server
+        run: |
+          uv sync --group dev
+          uv run pytest tests/unit -q
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -45,9 +59,13 @@ jobs:
         run: |
           echo "uri=$IMAGE" >> "$GITHUB_OUTPUT"
           # Tags are immutable, so a re-run for the same commit reuses the pushed image.
-          if aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
+          if output=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$GITHUB_SHA" 2>&1); then
             echo "Image $IMAGE already exists; skipping build"
             exit 0
+          fi
+          if ! grep -q ImageNotFoundException <<<"$output"; then
+            echo "$output" >&2
+            exit 1
           fi
           # Lambda rejects the attestation manifests buildx adds by default.
           docker build --provenance=false -f Dockerfile.lambda -t "$IMAGE" .

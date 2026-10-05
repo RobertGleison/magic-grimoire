@@ -46,6 +46,8 @@ lint-fix:
 
 ## Apply Alembic migrations to production. Use Supabase's *session* pooler URL
 ## (port 5432, postgresql+asyncpg://...): the transaction pooler can't run migrations.
+## alembic/env.py imports the app settings, so apps/api-server/.env must still provide
+## SUPABASE_JWT_SECRET, JWT_ALGORITHM, LLM_PROVIDER and ENVIRONMENT (any values work here).
 migrate-prod:
 	@test -n "$(PROD_DATABASE_URL)" || (echo "Set PROD_DATABASE_URL=postgresql+asyncpg://...:5432/postgres" && exit 1)
-	cd apps/api-server && DATABASE_URL="$(PROD_DATABASE_URL)" uv run alembic upgrade head
+	@cd apps/api-server && DATABASE_URL="$(PROD_DATABASE_URL)" uv run alembic upgrade head

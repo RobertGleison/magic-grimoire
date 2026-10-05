@@ -1,7 +1,7 @@
 # One image for both Lambdas; Terraform picks the handler with image_config.command.
 FROM public.ecr.aws/lambda/python:3.13
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.29 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project -o requirements.txt \

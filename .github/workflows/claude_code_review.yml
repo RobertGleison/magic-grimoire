@@ -106,7 +106,7 @@ jobs:
             **Tests**
             - Social tests (integration) vs isolated tests (unit) used in the wrong context — prefer social tests for behavior, isolated for pure logic
             - Test parameters that don't cover edge cases, boundary values, or failure paths
-            - Missing tests for critical paths: deck generation pipeline steps, SSE streaming, auth middleware, Redis cache hits/misses
+            - Missing tests for critical paths: deck generation pipeline steps, task progress polling (GET /tasks/{id}, stale tasks reported as failed), auth middleware, card_cache hits/misses
             - Tests asserting implementation details instead of behavior
             - Duplicate tests or tests that add no new coverage
 
@@ -126,15 +126,16 @@ jobs:
             **Security**
             - Unsanitized user input passed to queries, shell commands, or external APIs
             - JWT claims used without validation (e.g., trusting user_id from payload without verifying signature)
-            - Secrets or API keys hardcoded or logged
+            - Secrets or API keys hardcoded or logged (secrets are loaded from SSM, never committed or put in env files)
             - Overly permissive CORS, auth bypass risks, or missing rate limiting on sensitive endpoints
             - Exposed internal error details in API responses
 
             **Resource Consumption**
-            - Missing connection pool limits or unbounded DB/Redis connections
+            - Missing connection pool limits or unbounded DB connections (Lambda concurrency multiplies pools)
             - Large payloads loaded fully into memory (e.g., full Scryfall results) instead of streamed or paginated
-            - Celery tasks with no timeout or retry limit that could hang indefinitely
-            - Redis keys written without TTL
+            - Worker Lambda invocations (app/decks/dispatch.py) with no timeout or retry limit that could hang indefinitely, or tasks rows left non-terminal on failure
+            - card_cache rows written without an expiry, or task progress (status, progress, message) not written to the tasks row
+            - GET /tasks/{id} responses missing Cache-Control: no-store
             - Missing cleanup for long-lived resources (DB sessions, HTTP clients, file handles)
 
             **Type Hints**
