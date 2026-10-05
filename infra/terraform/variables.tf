@@ -76,12 +76,6 @@ variable "image_tag" {
   type        = string
 }
 
-variable "jwt_algorithm" {
-  description = "Algorithm Supabase signs access tokens with"
-  type        = string
-  default     = "HS256"
-}
-
 variable "llm_api_key" {
   description = "API key for the OpenAI-compatible LLM provider"
   type        = string
@@ -125,11 +119,9 @@ variable "secrets_version" {
   default     = 1
 }
 
-variable "supabase_jwt_secret" {
-  description = "Supabase JWT secret used to verify access tokens"
+variable "supabase_url" {
+  description = "Supabase project URL (https://<ref>.supabase.co); the API verifies access tokens against its public JWKS"
   type        = string
-  sensitive   = true
-  ephemeral   = true
 }
 
 variable "worker_max_retry_attempts" {

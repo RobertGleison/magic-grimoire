@@ -18,11 +18,11 @@ locals {
     ALLOWED_ORIGINS      = "https://${var.domain_name}"
     DB_USE_NULL_POOL     = "true"
     ENVIRONMENT          = "production"
-    JWT_ALGORITHM        = var.jwt_algorithm
     LLM_BASE_URL         = var.llm_base_url
     LLM_DISABLE_THINKING = "true"
     LLM_MODEL            = var.llm_model
     LLM_PROVIDER         = "openai_compat"
+    SUPABASE_URL         = var.supabase_url
     SSM_PARAMETER_PATH   = local.ssm_parameter_path
   }
 }
