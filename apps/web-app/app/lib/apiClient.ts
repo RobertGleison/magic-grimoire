@@ -11,11 +11,12 @@ import type {
 import { getAccessToken } from './supabase';
 
 /**
- * All backend calls go through the Next.js rewrite in `next.config.ts`
- * (`/api/:path*` -> `${API_ORIGIN}/api/:path*`), so the origin is never
- * hardcoded here — the browser always talks to its own origin.
+ * Production is a static export on Cloudflare Pages, so the browser calls the
+ * API's own origin: the build sets `NEXT_PUBLIC_API_BASE_URL` (e.g.
+ * `https://api.magic-grimoire.com/api/v1`). Unset, it falls back to `/api/v1`,
+ * which `next dev` proxies via the rewrite in `next.config.ts`.
  */
-export const API_BASE = '/api/v1';
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1';
 
 /* ------------------------------------------------------------------ errors */
 
