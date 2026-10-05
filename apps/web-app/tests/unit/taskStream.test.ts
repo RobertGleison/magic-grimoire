@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_TASK_STREAM_RETRIES,
   TASK_POLL_INTERVAL_MS,
+  TASK_POLL_TIMEOUT_MS,
   TASK_STAGE_COUNT,
   TASK_TIMEOUT_MESSAGE,
   TASK_TIMEOUT_MS,
@@ -60,6 +61,17 @@ describe('taskProgressEventFrom', () => {
     expect(taskProgressEventFrom(task({ status: 'failed', message: 'boom' }))).toEqual({
       status: 'failed',
       message: 'boom',
+    });
+  });
+
+  it('lets a terminal status win over a stale progress stage', () => {
+    expect(taskProgressEventFrom(task({ status: 'completed', progress: 'enriching', message: 'done' }))).toEqual({
+      status: 'completed',
+      message: 'done',
+    });
+    expect(taskProgressEventFrom(task({ status: 'failed', progress: 'processing', message: 'stuck' }))).toEqual({
+      status: 'failed',
+      message: 'stuck',
     });
   });
 
@@ -411,6 +423,14 @@ describe('useTaskStream polling', () => {
     vi.restoreAllMocks();
   });
 
+  const deferred = () => {
+    let resolve!: (value: TaskStatusResponse) => void;
+    const promise = new Promise<TaskStatusResponse>((res) => {
+      resolve = res;
+    });
+    return { promise, resolve };
+  };
+
   const reply = (
     stage: TaskStatusResponse['progress'],
     status: TaskStatusResponse['status'] = 'processing',
@@ -427,7 +447,8 @@ describe('useTaskStream polling', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(result.current).toMatchObject({ phase: 'streaming', progress: 'searching_cards' });
-    expect(getTask).toHaveBeenCalledWith(TASK_ID, { signal: expect.any(AbortSignal) });
+    // Polls are unauthenticated: the task id is the capability.
+    expect(getTask).toHaveBeenCalledWith(TASK_ID, { signal: expect.any(AbortSignal), token: null });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS);
@@ -497,27 +518,36 @@ describe('useTaskStream polling', () => {
     expect(result.current).toMatchObject({ phase: 'failed', reason: 'transport', message: TASK_TIMEOUT_MESSAGE });
   });
 
-  it('stops polling and aborts the in-flight request on unmount', async () => {
+  it('ignores a response that lands after unmount and stops polling', async () => {
+    const pending = deferred();
     const signals: AbortSignal[] = [];
-    const getTask = vi.spyOn(apiClient, 'getTask').mockImplementation(async (_id, options) => {
+    const getTask = vi.spyOn(apiClient, 'getTask').mockImplementation((_id, options) => {
       if (options?.signal) signals.push(options.signal);
-      return reply('processing');
+      return pending.promise;
     });
-    const { unmount } = renderHook(() => useTaskStream(TASK_ID));
+    const { result, unmount } = renderHook(() => useTaskStream(TASK_ID));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
+    const before = result.current;
+    expect(before).toMatchObject({ phase: 'connecting' });
 
     unmount();
+    pending.resolve(reply('completed', 'completed'));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 3);
     });
+
+    expect(result.current).toBe(before);
     expect(getTask).toHaveBeenCalledTimes(1);
     expect(signals[0].aborted).toBe(true);
   });
 
-  it('abandons the old task and polls the new one when the id changes', async () => {
-    const getTask = vi.spyOn(apiClient, 'getTask').mockResolvedValue(reply('processing'));
+  it('drops a late response for the old task when the id changes', async () => {
+    const oldPending = deferred();
+    const getTask = vi.spyOn(apiClient, 'getTask').mockImplementation((id) =>
+      id === TASK_ID ? oldPending.promise : new Promise<TaskStatusResponse>(() => {}),
+    );
     const { rerender, result } = renderHook(({ id }) => useTaskStream(id), {
       initialProps: { id: TASK_ID },
     });
@@ -527,12 +557,74 @@ describe('useTaskStream polling', () => {
 
     rerender({ id: 'task-xyz' });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const before = result.current;
+    expect(before).toMatchObject({ phase: 'connecting', taskId: 'task-xyz' });
+
+    oldPending.resolve(reply('completed', 'completed'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 3);
     });
 
-    expect(result.current).toMatchObject({ taskId: 'task-xyz' });
-    const ids = getTask.mock.calls.map(([id]) => id);
-    expect(ids.slice(1).every((id) => id === 'task-xyz')).toBe(true);
+    expect(result.current).toBe(before);
+    expect(getTask.mock.calls.filter(([id]) => id === TASK_ID)).toHaveLength(1);
+  });
+
+  it('fails at once on a client error instead of retrying', async () => {
+    const getTask = vi
+      .spyOn(apiClient, 'getTask')
+      .mockRejectedValue(new apiClient.ApiError('Task not found', 404));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toEqual({
+      phase: 'failed',
+      taskId: TASK_ID,
+      progress: 'failed',
+      message: 'Task not found',
+      reason: 'task',
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(getTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps backing off on a server error', async () => {
+    vi.spyOn(apiClient, 'getTask').mockRejectedValueOnce(new apiClient.ApiError('boom', 503));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toMatchObject({ phase: 'connecting', attempt: 1 });
+  });
+
+  it('counts a hung poll as a disconnect once it passes the per-poll timeout', async () => {
+    const getTask = vi.spyOn(apiClient, 'getTask').mockImplementation(
+      (_id, options) =>
+        new Promise<TaskStatusResponse>((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => reject(options.signal?.reason));
+        }),
+    );
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_TIMEOUT_MS - 1);
+    });
+    expect(result.current).toMatchObject({ phase: 'connecting', attempt: 0 });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(result.current).toMatchObject({ phase: 'connecting', attempt: 1 });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(reconnectDelay(1));
+    });
+    expect(getTask).toHaveBeenCalledTimes(2);
   });
 
   it('stays idle without a task id and never polls', async () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useReducer } from 'react';
 
-import { getTask, isAbortError } from '../lib/apiClient';
+import { ApiError, getTask } from '../lib/apiClient';
 import {
   TASK_PROGRESS_VALUES,
   type TaskProgress,
@@ -43,11 +43,12 @@ export function taskStageIndex(progress: TaskProgress | null): number {
 
 /**
  * The progress event a polled task row represents, or `null` while it is still queued.
- * `progress` is the stage the pipeline last wrote; a terminal `status` stands in for it
- * when absent, so a task failed at dispatch (no stage yet) still ends the stream.
+ * A terminal `status` always wins, so a stale `progress` stage can never hide the end of
+ * the task (or a task failed at dispatch, before any stage was written); otherwise
+ * `progress` is the stage the pipeline last wrote.
  */
 export function taskProgressEventFrom(task: TaskStatusResponse): TaskProgressEvent | null {
-  const status = task.progress ?? task.status;
+  const status = task.status === 'completed' || task.status === 'failed' ? task.status : task.progress;
   if (!isTaskProgress(status)) return null;
   return { status, message: task.message ?? '' };
 }
@@ -100,8 +101,17 @@ const MAX_RETRY_DELAY_MS = 8000;
 /** How often the task row is polled while a generation runs. */
 export const TASK_POLL_INTERVAL_MS = 2000;
 
-/** A generation still unfinished after this long is treated as lost (the worker retries are exhausted by then). */
-export const TASK_TIMEOUT_MS = 10 * 60 * 1000;
+/**
+ * Last-resort backstop. The backend reports a task with no progress for 10 minutes as `failed`
+ * (with its own message), which normally ends polling first. This only fires if that answer
+ * never arrives, so it must exceed the worker's worst-case retry window (~18 min).
+ */
+export const TASK_TIMEOUT_MS = 20 * 60 * 1000;
+
+/** A single poll that takes longer than this is abandoned and counted as a dropped connection. */
+export const TASK_POLL_TIMEOUT_MS = 15_000;
+
+const TASK_NOT_FOUND_MESSAGE = 'This deck generation could not be found.';
 
 export const TASK_TIMEOUT_MESSAGE = 'Generation timed out, please try again.';
 
@@ -195,8 +205,9 @@ export function taskStreamReducer(state: TaskStreamState, action: TaskStreamActi
  * `TaskStreamState`. Pass `null` to stay idle.
  *
  * Every `TASK_POLL_INTERVAL_MS` until the task is terminal; a failed fetch is a
- * `disconnect` with the same capped backoff the reducer budgets for; after
- * `TASK_TIMEOUT_MS` the stream gives up (the worker's retries are spent by then).
+ * `disconnect` with the same capped backoff the reducer budgets for, and so is a
+ * poll that hangs past `TASK_POLL_TIMEOUT_MS`. A 4xx (e.g. an unknown task) fails the stream at
+ * once, since retrying cannot help. After `TASK_TIMEOUT_MS` the stream gives up as a backstop.
  */
 export function useTaskStream(taskId: string | null): TaskStreamState {
   const [state, dispatch] = useReducer(taskStreamReducer, initialTaskStreamState);
@@ -215,6 +226,12 @@ export function useTaskStream(taskId: string | null): TaskStreamState {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
 
+    const finish = () => {
+      finished = true;
+      if (timer !== undefined) clearTimeout(timer);
+      clearTimeout(deadline);
+    };
+
     const deadline = setTimeout(() => {
       if (cancelled || finished) return;
       finish();
@@ -222,16 +239,26 @@ export function useTaskStream(taskId: string | null): TaskStreamState {
       dispatch({ type: 'timeout' });
     }, TASK_TIMEOUT_MS);
 
-    function finish() {
-      finished = true;
-      if (timer !== undefined) clearTimeout(timer);
-      clearTimeout(deadline);
-    }
+    // A per-poll signal that follows the effect's controller and also aborts on its own
+    // timer (a plain timer rather than `AbortSignal.timeout`, so fake timers can drive it).
+    const pollSignalFor = () => {
+      const pollController = new AbortController();
+      const abort = () => pollController.abort();
+      controller.signal.addEventListener('abort', abort);
+      const pollTimer = setTimeout(abort, TASK_POLL_TIMEOUT_MS);
+      const release = () => {
+        clearTimeout(pollTimer);
+        controller.signal.removeEventListener('abort', abort);
+      };
+      return { signal: pollController.signal, release };
+    };
 
     const poll = async () => {
       if (cancelled || finished) return;
+      const { signal: pollSignal, release } = pollSignalFor();
       try {
-        const task = await getTask(taskId, { signal: controller.signal });
+        // The task id is the capability, so polls skip the Supabase lookup and bearer header.
+        const task = await getTask(taskId, { signal: pollSignal, token: null });
         if (cancelled || finished) return;
 
         attempt = 0;
@@ -246,7 +273,15 @@ export function useTaskStream(taskId: string | null): TaskStreamState {
         }
         timer = setTimeout(poll, TASK_POLL_INTERVAL_MS);
       } catch (error) {
-        if (cancelled || finished || isAbortError(error)) return;
+        // Only the effect's own abort (unmount, taskId change, deadline) is silent; a per-poll
+        // timeout aborts the request too, but must still count as a dropped connection.
+        if (cancelled || finished || controller.signal.aborted) return;
+
+        if (error instanceof ApiError && error.isClientError) {
+          finish();
+          dispatch({ type: 'event', event: { status: 'failed', message: error.message || TASK_NOT_FOUND_MESSAGE } });
+          return;
+        }
 
         attempt += 1;
         dispatch({ type: 'disconnect' });
@@ -255,6 +290,8 @@ export function useTaskStream(taskId: string | null): TaskStreamState {
           return;
         }
         timer = setTimeout(poll, reconnectDelay(attempt));
+      } finally {
+        release();
       }
     };
 
