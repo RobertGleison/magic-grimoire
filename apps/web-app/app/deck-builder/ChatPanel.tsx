@@ -67,6 +67,8 @@ interface ChatPanelProps {
   chatBusy: boolean;
   /** A generation is in flight (request or live stream). */
   generating: boolean;
+  /** There is something to generate from — nothing described yet blocks it. */
+  canGenerate: boolean;
 }
 
 export function ChatPanel({
@@ -77,6 +79,7 @@ export function ChatPanel({
   onGenerate,
   chatBusy,
   generating,
+  canGenerate,
 }: ChatPanelProps) {
   const listRef = useRef<HTMLOListElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -224,7 +227,7 @@ export function ChatPanel({
             variant="primary"
             size="md"
             loading={generating}
-            disabled={generating}
+            disabled={generating || !canGenerate}
             onClick={onGenerate}
           >
             Generate Deck

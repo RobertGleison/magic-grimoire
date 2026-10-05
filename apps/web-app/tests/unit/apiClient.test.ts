@@ -8,6 +8,7 @@ import {
   getDeck,
   isAbortError,
   listDecks,
+  saveDeck,
   sendChat,
   setAuthTokenProvider,
   taskStreamUrl,
@@ -277,6 +278,31 @@ describe('bearer injection', () => {
 
     await expect(getDeck('deck-1')).resolves.toBeTruthy();
     expect(headersOf(lastCall().init).Authorization).toBeUndefined();
+  });
+});
+
+describe('saveDeck', () => {
+  it('POSTs to the save path and returns the snapshot', async () => {
+    setAuthTokenProvider(() => 'token-123');
+    fetchMock.mockResolvedValue(jsonResponse({ id: 'snap-1', version_no: 2 }));
+
+    const snapshot = await saveDeck('deck-9');
+
+    const { url, init } = lastCall();
+    expect(url).toBe(`${API_BASE}/decks/deck-9/save`);
+    expect(init.method).toBe('POST');
+    expect(headersOf(init).Authorization).toBe('Bearer token-123');
+    expect(snapshot.version_no).toBe(2);
+  });
+
+  it('surfaces a 400 as an ApiError carrying the detail', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'This version is already saved.' }, 400));
+
+    await expect(saveDeck('deck-9')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 400,
+      message: 'This version is already saved.',
+    });
   });
 });
 

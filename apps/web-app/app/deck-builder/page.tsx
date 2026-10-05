@@ -11,14 +11,18 @@ import {
   type PointerEvent,
 } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
+import { useUser } from '../context/UserContext';
 import { useTaskStream } from '../hooks/useTaskStream';
-import { ApiError, generateDeck, getDeck, isAbortError, sendChat } from '../lib/apiClient';
+import { ApiError, generateDeck, getDeck, isAbortError, saveDeck, sendChat } from '../lib/apiClient';
+import { resolveNextPath } from '../login/authShared';
 import type { ChatMessage, DeckResponse } from '../types/api';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
 import { ConfigPanel } from './ConfigPanel';
-import { DeckResultsPanel } from './DeckResultsPanel';
+import { DeckResultsPanel, type SaveState } from './DeckResultsPanel';
 import { GenerationProgress } from './GenerationProgress';
 import {
   DEFAULT_DECK_CONFIG,
@@ -132,8 +136,12 @@ export default function DeckBuilderPage() {
   const [fetchingDeck, setFetchingDeck] = useState(false);
   const [pageError, setPageError] = useState('');
   const [actionNote, setActionNote] = useState('');
+  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
 
   const stream = useTaskStream(taskId);
+
+  const router = useRouter();
+  const { status: userStatus } = useUser();
 
   /* --------------------------------------------------------- lifecycles */
 
@@ -142,14 +150,18 @@ export default function DeckBuilderPage() {
   const chatAbort = useRef<AbortController | null>(null);
   const deckAbort = useRef<AbortController | null>(null);
   const generateAbort = useRef<AbortController | null>(null);
+  const saveAbort = useRef<AbortController | null>(null);
   const entrySeq = useRef(0);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  /** One save per `?save=1` arrival, however many times the effect re-runs. */
+  const autoSaved = useRef(false);
 
   useEffect(
     () => () => {
       chatAbort.current?.abort();
       deckAbort.current?.abort();
       generateAbort.current?.abort();
+      saveAbort.current?.abort();
     },
     [],
   );
@@ -165,6 +177,7 @@ export default function DeckBuilderPage() {
 
   const loadDeck = useCallback(async (id: string) => {
     deckAbort.current?.abort();
+    saveAbort.current?.abort();
     const controller = new AbortController();
     deckAbort.current = controller;
 
@@ -175,6 +188,7 @@ export default function DeckBuilderPage() {
       if (controller.signal.aborted) return;
       setDeck(loaded);
       setDeckId(loaded.id);
+      setSaveState({ kind: 'idle' });
     } catch (error) {
       if (isAbortError(error)) return;
       setDeck(null);
@@ -290,6 +304,7 @@ export default function DeckBuilderPage() {
     announced.current = null;
 
     generateAbort.current?.abort();
+    saveAbort.current?.abort();
     const controller = new AbortController();
     generateAbort.current = controller;
 
@@ -391,8 +406,55 @@ export default function DeckBuilderPage() {
     window.setTimeout(() => setActionNote(''), 4000);
   }, []);
 
+  const handleSave = useCallback(async () => {
+    if (!deck || deck.status !== 'completed') return;
+
+    // Saving is the one deck-builder action that needs an account. Send the
+    // visitor to sign in and back to this exact deck, with `save=1` asking the
+    // page to finish the job on arrival.
+    if (userStatus === 'signed-out') {
+      const back = resolveNextPath(`/deck-builder?deck=${encodeURIComponent(deck.id)}&save=1`);
+      router.push(`/login?next=${encodeURIComponent(back)}`);
+      return;
+    }
+
+    saveAbort.current?.abort();
+    const controller = new AbortController();
+    saveAbort.current = controller;
+
+    setSaveState({ kind: 'saving' });
+    try {
+      const snapshot = await saveDeck(deck.id, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setSaveState({ kind: 'saved', version: snapshot.version_no });
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setSaveState({ kind: 'error', message: errorText(error, 'Could not save that deck.') });
+    }
+  }, [deck, router, userStatus]);
+
+  /* Back from the login round-trip. Gated on a resolved, signed-in session:
+     the parameter is readable on the first paint, while `useUser` is still
+     `checking` and any save would 401. The parameter is stripped before the
+     request so a reload cannot save a second time. */
+  useEffect(() => {
+    if (autoSaved.current || userStatus !== 'signed-in') return;
+    if (!deck || deck.status !== 'completed') return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('save') !== '1') return;
+
+    autoSaved.current = true;
+    params.delete('save');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    void handleSave();
+  }, [deck, userStatus, handleSave]);
+
   const handleCopyList = useCallback(async () => {
     if (!deck) return;
+    saveAbort.current?.abort();
+    setSaveState({ kind: 'idle' });
     try {
       await navigator.clipboard.writeText(deckListText(deck));
       note('Decklist copied.');
@@ -403,6 +465,8 @@ export default function DeckBuilderPage() {
 
   const handleCopyLink = useCallback(async () => {
     if (!deck) return;
+    saveAbort.current?.abort();
+    setSaveState({ kind: 'idle' });
     const url = `${window.location.origin}${window.location.pathname}?deck=${encodeURIComponent(deck.id)}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -414,6 +478,8 @@ export default function DeckBuilderPage() {
 
   const handleExportText = useCallback(() => {
     if (!deck) return;
+    saveAbort.current?.abort();
+    setSaveState({ kind: 'idle' });
     const blob = new Blob([deckListText(deck)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -453,6 +519,7 @@ export default function DeckBuilderPage() {
         onGenerate={handleGenerate}
         chatBusy={chatBusy}
         generating={generating}
+        canGenerate={prompt.length > 0}
       />
 
       <div
@@ -517,6 +584,8 @@ export default function DeckBuilderPage() {
             onCopyList={() => void handleCopyList()}
             onCopyLink={() => void handleCopyLink()}
             onExportText={handleExportText}
+            onSave={() => void handleSave()}
+            saveState={saveState}
           />
         ) : (
           <div className={styles.emptyPanel}>

@@ -1,11 +1,12 @@
 import logging
 import math
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, get_optional_user
@@ -99,15 +100,20 @@ async def list_decks(
 ) -> DeckListResponseDTO:
     offset = (page - 1) * limit
 
+    # Only saved snapshots reach the library. A draft is the deck-builder's
+    # working copy — the forge and every refine overwrites it, so listing it
+    # would show a deck the user never chose to keep.
     count_result = await db.execute(
-        select(func.count()).select_from(Deck).where(Deck.user_id == user_id)
+        select(func.count())
+        .select_from(Deck)
+        .where(Deck.user_id == user_id, Deck.saved_at.is_not(None))
     )
     total = count_result.scalar_one()
 
     result = await db.execute(
         select(Deck)
-        .where(Deck.user_id == user_id)
-        .order_by(Deck.created_at.desc())
+        .where(Deck.user_id == user_id, Deck.saved_at.is_not(None))
+        .order_by(Deck.saved_at.desc())
         .offset(offset)
         .limit(limit)
     )
@@ -139,6 +145,104 @@ async def get_deck(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     return DeckResponseDTO.model_validate(deck)
+
+
+async def _readable_deck_or_error(db: AsyncSession, deck_id: uuid.UUID, user_id: str | None) -> Deck:
+    """The deck at `deck_id`, or the same 404/403 `get_deck` would raise.
+
+    One definition of "may this caller see this deck", shared by get, save and
+    refine: an anonymous deck is readable by anyone holding its id, an owned one
+    only by its owner.
+    """
+    deck = (await db.execute(select(Deck).where(Deck.id == deck_id))).scalar_one_or_none()
+    if deck is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
+    if deck.user_id is not None and deck.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return deck
+
+
+def _snapshot_of(source: Deck, user_id: str, version_no: int) -> Deck:
+    """An immutable copy of `source`, owned by `user_id`, at `version_no`.
+
+    This field list is deliberately exhaustive, not a convenient subset: a
+    column added to `Deck` later must be added here too, or it is silently
+    dropped from every snapshot. Three columns are intentionally left out,
+    not forgotten: `error_message` and `failed_at` are always None on a
+    COMPLETED deck (the only status this function is ever called with), and
+    `created_at` is not carried over because the snapshot is a new row and
+    should get its own.
+    """
+    return Deck(
+        id=uuid.uuid4(),
+        title=source.title,
+        prompt=source.prompt,
+        user_id=user_id,
+        format=source.format,
+        colors=source.colors,
+        cards=source.cards,
+        card_count=source.card_count,
+        status=source.status,
+        completed_at=source.completed_at,
+        saved_at=datetime.now(tz=UTC),
+        lineage_id=source.lineage_id,
+        version_no=version_no,
+    )
+
+
+@router.post("/decks/{deck_id}/save", response_model=DeckResponseDTO)
+async def save_deck(
+    deck_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+) -> DeckResponseDTO:
+    """Persist the working deck as an immutable version in the caller's library.
+
+    This is also what adopts a deck forged while signed out: the snapshot is
+    written with the caller's `user_id` regardless of the source row's null one.
+    """
+    source = await _readable_deck_or_error(db, deck_id, user_id)
+
+    if source.saved_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This version is already saved. Refine it to make a new one.",
+        )
+    if source.status != DeckStatus.COMPLETED or not source.cards:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only a finished deck can be saved.",
+        )
+
+    # `version_no` comes from a read, so a concurrent save can take the number
+    # first. The unique constraint on (lineage_id, version_no) turns that into an
+    # IntegrityError rather than a duplicate, and one retry re-reads the max.
+    for attempt in range(2):
+        highest = await db.execute(
+            select(func.max(Deck.version_no)).where(Deck.lineage_id == source.lineage_id)
+        )
+        snapshot = _snapshot_of(source, user_id, (highest.scalar() or 0) + 1)
+        db.add(snapshot)
+        try:
+            await db.commit()
+            return DeckResponseDTO.model_validate(snapshot)
+        except IntegrityError:
+            await db.rollback()
+            if attempt == 1:
+                _log.warning("Version number contention saving deck %s", deck_id)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Could not save just now. Please try again.",
+                )
+        except SQLAlchemyError:
+            _log.exception("Database error saving deck %s", deck_id)
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Deck storage is temporarily unavailable. Please try again shortly.",
+            )
+
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 @router.delete("/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)

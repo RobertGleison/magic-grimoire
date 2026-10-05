@@ -144,8 +144,8 @@ describe('LoginForm — semantics', () => {
 
   it('binds every label to its control and asks the browser for the right autofill', () => {
     render(<LoginForm />);
-    const email = screen.getByLabelText('Aether Mail (Email)');
-    const password = screen.getByLabelText('Spell-Password');
+    const email = screen.getByLabelText('Email');
+    const password = screen.getByLabelText('Password');
     expect(email).toHaveAttribute('type', 'email');
     expect(email).toHaveAttribute('autocomplete', 'email');
     expect(password).toHaveAttribute('type', 'password');
@@ -176,7 +176,7 @@ describe('LoginForm — validation', () => {
     render(<LoginForm />);
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
-    const email = await screen.findByLabelText('Aether Mail (Email)');
+    const email = await screen.findByLabelText('Email');
     expect(email).toHaveAttribute('aria-invalid', 'true');
     const describedBy = email.getAttribute('aria-describedby');
     expect(describedBy).toBeTruthy();
@@ -185,8 +185,8 @@ describe('LoginForm — validation', () => {
 
   it('rejects an address that is not an address', async () => {
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', 'liliana');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     expect(await screen.findByText(/does not look like an email address/i)).toBeInTheDocument();
@@ -197,8 +197,8 @@ describe('LoginForm — validation', () => {
 describe('LoginForm — sign-in', () => {
   it('signs in with the trimmed email and lands on the library', async () => {
     render(<LoginForm />);
-    type('Aether Mail (Email)', '  liliana@mana.vault  ');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', '  liliana@mana.vault  ');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/library'));
@@ -211,8 +211,8 @@ describe('LoginForm — sign-in', () => {
   it('honours ?next= instead of the default destination', async () => {
     mocks.search = new URLSearchParams('next=/deck-builder');
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/deck-builder'));
@@ -221,8 +221,8 @@ describe('LoginForm — sign-in', () => {
   it('will not follow an off-origin ?next=', async () => {
     mocks.search = new URLSearchParams('next=https://evil.test/steal');
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/library'));
@@ -230,12 +230,12 @@ describe('LoginForm — sign-in', () => {
 
   it('drops the password from state once Supabase has it', async () => {
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalled());
-    expect(screen.getByLabelText('Spell-Password')).toHaveValue('');
+    expect(screen.getByLabelText('Password')).toHaveValue('');
   });
 
   it('shows the real Supabase message and stays put on failure', async () => {
@@ -244,8 +244,8 @@ describe('LoginForm — sign-in', () => {
       error: { message: 'Invalid login credentials' },
     });
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'wrong-password');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'wrong-password');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid login credentials');
@@ -255,8 +255,8 @@ describe('LoginForm — sign-in', () => {
   it('reports a thrown transport failure instead of hanging', async () => {
     mocks.auth.signInWithPassword.mockRejectedValue(new Error('Failed to fetch'));
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch');
@@ -271,8 +271,8 @@ describe('LoginForm — sign-in', () => {
       }),
     );
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     await waitFor(() =>
@@ -335,7 +335,7 @@ describe('LoginForm — OAuth', () => {
 describe('LoginForm — password reset', () => {
   it('needs an email address before it will send anything', async () => {
     render(<LoginForm />);
-    fireEvent.click(screen.getByRole('button', { name: /forgot spell-password/i }));
+    fireEvent.click(screen.getByRole('button', { name: /forgot password/i }));
 
     expect(await screen.findByText('Enter your email address.')).toBeInTheDocument();
     expect(mocks.auth.resetPasswordForEmail).not.toHaveBeenCalled();
@@ -343,8 +343,8 @@ describe('LoginForm — password reset', () => {
 
   it('answers without confirming whether the account exists', async () => {
     render(<LoginForm />);
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    fireEvent.click(screen.getByRole('button', { name: /forgot spell-password/i }));
+    type('Email', 'liliana@mana.vault');
+    fireEvent.click(screen.getByRole('button', { name: /forgot password/i }));
 
     await waitFor(() =>
       expect(mocks.auth.resetPasswordForEmail).toHaveBeenCalledWith('liliana@mana.vault', {
@@ -362,7 +362,7 @@ describe('LoginForm — missing configuration', () => {
     render(<LoginForm />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(/NEXT_PUBLIC_SUPABASE_URL/);
-    expect(screen.queryByLabelText('Spell-Password')).toBeNull();
+    expect(screen.queryByLabelText('Password')).toBeNull();
     // The way out is still reachable.
     expect(screen.getByRole('link', { name: 'Create an account' })).toBeInTheDocument();
   });
@@ -373,10 +373,10 @@ describe('LoginForm — missing configuration', () => {
 describe('SignupForm', () => {
   it('renders the design’s four fields, each with a new-password hint where it belongs', () => {
     render(<SignupForm />);
-    expect(screen.getByLabelText('Planeswalker Handle')).toHaveAttribute('autocomplete', 'nickname');
-    expect(screen.getByLabelText('Aether Mail (Email)')).toHaveAttribute('autocomplete', 'email');
-    expect(screen.getByLabelText('Spell-Password')).toHaveAttribute('autocomplete', 'new-password');
-    expect(screen.getByLabelText('Confirm Spell-Password')).toHaveAttribute(
+    expect(screen.getByLabelText('Username')).toHaveAttribute('autocomplete', 'nickname');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'email');
+    expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password');
+    expect(screen.getByLabelText('Confirm Password')).toHaveAttribute(
       'autocomplete',
       'new-password',
     );
@@ -391,10 +391,10 @@ describe('SignupForm', () => {
 
   it('rejects a short password before it reaches the network', async () => {
     render(<SignupForm />);
-    type('Planeswalker Handle', 'Liliana_Vess_99');
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'short');
-    type('Confirm Spell-Password', 'short');
+    type('Username', 'Liliana_Vess_99');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'short');
+    type('Confirm Password', 'short');
     fireEvent.click(screen.getByRole('button', { name: /^create account$/i }));
 
     expect(await screen.findByText('Use at least 8 characters.')).toBeInTheDocument();
@@ -403,10 +403,10 @@ describe('SignupForm', () => {
 
   it('rejects a mismatched confirmation', async () => {
     render(<SignupForm />);
-    type('Planeswalker Handle', 'Liliana_Vess_99');
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
-    type('Confirm Spell-Password', 'ravnica-2025');
+    type('Username', 'Liliana_Vess_99');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
+    type('Confirm Password', 'ravnica-2025');
     fireEvent.click(screen.getByRole('button', { name: /^create account$/i }));
 
     expect(await screen.findByText('The two spells do not match.')).toBeInTheDocument();
@@ -415,10 +415,10 @@ describe('SignupForm', () => {
 
   it('rejects a handle that is too short', async () => {
     render(<SignupForm />);
-    type('Planeswalker Handle', 'ab');
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
-    type('Confirm Spell-Password', 'ravnica-2024');
+    type('Username', 'ab');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
+    type('Confirm Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^create account$/i }));
 
     expect(await screen.findByText('Use at least 3 characters.')).toBeInTheDocument();
@@ -428,10 +428,10 @@ describe('SignupForm', () => {
   it('creates the account, carrying the handle and the confirmation return URL', async () => {
     mocks.search = new URLSearchParams('next=/deck-builder');
     render(<SignupForm />);
-    type('Planeswalker Handle', '  Liliana_Vess_99  ');
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
-    type('Confirm Spell-Password', 'ravnica-2024');
+    type('Username', '  Liliana_Vess_99  ');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
+    type('Confirm Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^create account$/i }));
 
     await waitFor(() =>
@@ -450,17 +450,17 @@ describe('SignupForm', () => {
   it('asks the user to confirm by email when no session comes back', async () => {
     mocks.auth.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null });
     render(<SignupForm />);
-    type('Planeswalker Handle', 'Liliana_Vess_99');
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
-    type('Confirm Spell-Password', 'ravnica-2024');
+    type('Username', 'Liliana_Vess_99');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
+    type('Confirm Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^create account$/i }));
 
     // Queried by text, not by role: a loading Button also renders role="status".
     expect(await screen.findByText(/check your inbox/i)).toBeInTheDocument();
     expect(mocks.replace).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Spell-Password')).toHaveValue('');
-    expect(screen.getByLabelText('Confirm Spell-Password')).toHaveValue('');
+    expect(screen.getByLabelText('Password')).toHaveValue('');
+    expect(screen.getByLabelText('Confirm Password')).toHaveValue('');
   });
 
   it('shows the real Supabase message on failure', async () => {
@@ -469,10 +469,10 @@ describe('SignupForm', () => {
       error: { message: 'User already registered' },
     });
     render(<SignupForm />);
-    type('Planeswalker Handle', 'Liliana_Vess_99');
-    type('Aether Mail (Email)', 'liliana@mana.vault');
-    type('Spell-Password', 'ravnica-2024');
-    type('Confirm Spell-Password', 'ravnica-2024');
+    type('Username', 'Liliana_Vess_99');
+    type('Email', 'liliana@mana.vault');
+    type('Password', 'ravnica-2024');
+    type('Confirm Password', 'ravnica-2024');
     fireEvent.click(screen.getByRole('button', { name: /^create account$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('User already registered');
@@ -505,6 +505,6 @@ describe('SignupForm', () => {
     render(<SignupForm />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(/NEXT_PUBLIC_SUPABASE_ANON_KEY/);
-    expect(screen.queryByLabelText('Planeswalker Handle')).toBeNull();
+    expect(screen.queryByLabelText('Username')).toBeNull();
   });
 });

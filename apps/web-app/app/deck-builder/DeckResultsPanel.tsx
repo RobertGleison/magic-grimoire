@@ -199,6 +199,17 @@ function ColorRing({ deck }: { deck: DeckResponse }) {
 
 /* ------------------------------------------------------------------ panel */
 
+/**
+ * One source of truth for what the Save button is doing, so "saving" and
+ * "saved" can never both be true. Mirrors the `DeleteState` shape in
+ * `app/library/page.tsx`.
+ */
+export type SaveState =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'saved'; version: number | null }
+  | { kind: 'error'; message: string };
+
 interface DeckResultsPanelProps {
   deck: DeckResponse;
   /** Copies the plain-text decklist. */
@@ -209,6 +220,10 @@ interface DeckResultsPanelProps {
   onCopyLink: () => void;
   /** Transient confirmation for whichever action last ran. */
   actionNote?: string;
+  /** Writes the deck to the library as a new version. */
+  onSave: () => void;
+  /** What that save is currently doing. */
+  saveState: SaveState;
 }
 
 export function DeckResultsPanel({
@@ -217,6 +232,8 @@ export function DeckResultsPanel({
   onExportText,
   onCopyLink,
   actionNote = '',
+  onSave,
+  saveState,
 }: DeckResultsPanelProps) {
   const [view, setView] = useState<DeckView>('grid');
   const { preview, hoverProps } = useCardHoverPreview();
@@ -242,6 +259,15 @@ export function DeckResultsPanel({
         </div>
 
         <div className={styles.deckActions}>
+          <Button
+            variant="primary"
+            size="xs"
+            loading={saveState.kind === 'saving'}
+            disabled={deck.status !== 'completed' || saveState.kind === 'saving'}
+            onClick={onSave}
+          >
+            Save to Library
+          </Button>
           <Button variant="subtle" size="xs" className={styles.goldButton} onClick={onCopyList}>
             Copy List
           </Button>
@@ -274,7 +300,13 @@ export function DeckResultsPanel({
           </div>
 
           <p className={styles.actionNote} role="status" aria-live="polite">
-            {actionNote}
+            {saveState.kind === 'saved'
+              ? saveState.version !== null
+                ? `Saved to your library as v${saveState.version}.`
+                : 'Saved to your library.'
+              : saveState.kind === 'error'
+                ? saveState.message
+                : actionNote}
           </p>
         </div>
       </header>
