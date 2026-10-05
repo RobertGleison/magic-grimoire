@@ -37,6 +37,11 @@ resource "aws_lambda_function" "worker" {
   }
 
   depends_on = [aws_iam_role_policy.worker_base]
+
+  # CI owns the deployed image (deploy-api.yml); var.image_tag only seeds the first create.
+  lifecycle {
+    ignore_changes = [image_uri]
+  }
 }
 
 # Async invoke is the job queue: Lambda retries failures, then parks the event
@@ -88,6 +93,11 @@ resource "aws_lambda_function" "api" {
   }
 
   depends_on = [aws_iam_role_policy.api_base]
+
+  # CI owns the deployed image (deploy-api.yml); var.image_tag only seeds the first create.
+  lifecycle {
+    ignore_changes = [image_uri]
+  }
 }
 
 # CORS stays in FastAPI's middleware; configuring it here too would duplicate headers.

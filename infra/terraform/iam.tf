@@ -93,3 +93,50 @@ resource "aws_iam_role_policy" "worker_dead_letter" {
   role   = aws_iam_role.worker.id
   policy = data.aws_iam_policy_document.worker_dead_letter.json
 }
+
+# CI (.github/workflows/deploy-api.yml) pushes images and points both functions at
+# them. GitHub OIDC needs iam:CreateOpenIDConnectProvider, which this account's SCP
+# denies, so CI uses this user's access key. The key is created in the console, not
+# here, so it never lands in state. Function ARNs are built from names so this can be
+# applied (-target) before the functions exist.
+resource "aws_iam_user" "deploy" {
+  name = "${local.name_prefix}-deploy"
+}
+
+data "aws_iam_policy_document" "deploy" {
+  statement {
+    sid       = "EcrLogin"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "PushImage"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:DescribeImages",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [aws_ecr_repository.main.arn]
+  }
+
+  statement {
+    sid     = "UpdateFunctionCode"
+    actions = ["lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:UpdateFunctionCode"]
+    resources = [
+      for name in ["api", "worker"] :
+      "arn:aws:lambda:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:function:${local.name_prefix}-${name}"
+    ]
+  }
+}
+
+resource "aws_iam_user_policy" "deploy" {
+  name   = "deploy"
+  user   = aws_iam_user.deploy.name
+  policy = data.aws_iam_policy_document.deploy.json
+}

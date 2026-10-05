@@ -72,7 +72,7 @@ variable "generate_rate_limit_requests" {
 }
 
 variable "image_tag" {
-  description = "Tag of the backend image in ECR that both Lambdas run"
+  description = "ECR image tag both Lambdas are created with; CI deploys later images"
   type        = string
 }
 
