@@ -1,4 +1,5 @@
 import json
+import logging
 
 import httpx
 import pytest
@@ -51,6 +52,28 @@ def test_http_error_normalized_and_retried_once():
     with pytest.raises(LLMServiceError, match="429"):
         _service().chat([{"role": "user", "content": "hi"}], system="s")
     assert route.call_count == 2
+
+
+@respx.mock
+def test_http_error_logs_provider_body_but_keeps_message(caplog):
+    respx.post(f"{BASE}/chat/completions").mock(
+        return_value=httpx.Response(402, json={"error": {"message": "Insufficient Balance"}})
+    )
+    with caplog.at_level(logging.WARNING, logger="app.llm.openai_compat"):
+        with pytest.raises(LLMServiceError, match=r"^LLM provider error: 402$"):
+            _service().chat([{"role": "user", "content": "hi"}], system="s")
+
+    assert "402" in caplog.text
+    assert "Insufficient Balance" in caplog.text
+
+
+@respx.mock
+def test_null_content_normalized():
+    respx.post(f"{BASE}/chat/completions").mock(
+        return_value=httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": None}}]})
+    )
+    with pytest.raises(LLMServiceError, match="returned no content"):
+        _service().parse_intent("elf tribal")
 
 
 @respx.mock

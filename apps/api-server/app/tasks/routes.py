@@ -1,12 +1,15 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.tasks.dtos import TaskStatusResponseDTO
 from app.tasks.model import Task
+from app.tasks.status import effective_task_status
 
 router = APIRouter()
 
@@ -26,4 +29,5 @@ async def get_task(
 
     # Polled every couple of seconds; no cache between here and the browser may hold it.
     response.headers["Cache-Control"] = "no-store"
-    return TaskStatusResponseDTO(id=task.id, status=task.status, progress=task.progress, message=task.message)
+    # Read-only: a stale task is reported as failed, never written back.
+    return effective_task_status(task, datetime.now(tz=UTC), settings.TASK_STALE_AFTER_SECONDS)

@@ -1,5 +1,9 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
+
+from app.core.config import settings
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
 from app.tasks.model import Task
@@ -48,3 +52,42 @@ async def test_get_queued_task_has_no_progress_yet(client, session_factory):
 
 async def test_get_missing_task_404(client, db_engine):
     assert (await client.get(f"/api/v1/tasks/{uuid.uuid4()}")).status_code == 404
+
+
+async def test_get_stale_processing_task_reports_failed_without_writing(client, session_factory):
+    # Inserting with an explicit updated_at sidesteps the column's onupdate.
+    long_ago = datetime.now(tz=UTC) - timedelta(seconds=settings.TASK_STALE_AFTER_SECONDS + 60)
+    task_id = await _seed_task(
+        session_factory,
+        status=TaskStatus.PROCESSING,
+        progress=TaskProgress.COMPOSING_DECK,
+        message="Building your deck...",
+        updated_at=long_ago,
+    )
+
+    body = (await client.get(f"/api/v1/tasks/{task_id}")).json()
+
+    assert body == {
+        "id": task_id,
+        "status": "failed",
+        "progress": "failed",
+        "message": "Deck generation stopped responding. Please try again.",
+    }
+    async with session_factory() as db:
+        task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one()
+    assert task.status == TaskStatus.PROCESSING  # the route only reads
+    assert task.updated_at == long_ago
+
+
+async def test_get_fresh_processing_task_is_not_stale(client, session_factory):
+    task_id = await _seed_task(
+        session_factory,
+        status=TaskStatus.PROCESSING,
+        progress=TaskProgress.ENRICHING,
+        message="Fetching card images...",
+    )
+
+    body = (await client.get(f"/api/v1/tasks/{task_id}")).json()
+
+    assert body["status"] == "processing"
+    assert body["progress"] == "enriching"

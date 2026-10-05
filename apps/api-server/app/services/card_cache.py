@@ -28,7 +28,9 @@ async def get(key: str) -> str | None:
     """Return the cached value, or None on a miss, an expired entry, or a database error.
 
     A cache outage must never fail a deck generation, so errors degrade to a miss.
-    `database.sessionmanager` is looked up per call so tests can rebind it.
+    `database.sessionmanager` is looked up per call so tests can rebind it. In the worker
+    Lambda it outlives each invocation's event loop; worker_handler disposes its pooled
+    connections after every run, so none leak into the next loop.
     """
     try:
         async with database.sessionmanager.session() as db:

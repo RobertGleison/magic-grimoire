@@ -16,5 +16,6 @@ def test_null_pool_disables_asyncpg_statement_cache(monkeypatch):
     kwargs = database.engine_kwargs()
     assert kwargs["poolclass"] is NullPool
     assert kwargs["connect_args"]["statement_cache_size"] == 0
+    assert kwargs["connect_args"]["prepared_statement_cache_size"] == 0  # SQLAlchemy's own cache
     name_func = kwargs["connect_args"]["prepared_statement_name_func"]
     assert name_func() != name_func()  # unique per statement, never reused across backends

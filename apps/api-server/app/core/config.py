@@ -8,8 +8,9 @@ def load_ssm_parameters(path: str | None, client: Any = None) -> None:
     """Copy every SSM parameter under `path` into os.environ before Settings() reads it.
 
     The Lambdas get their secrets this way at cold start (see infra/terraform/ssm.tf):
-    each parameter's last path segment is the settings field it fills. Variables already
-    in the environment win, so a local override is never clobbered.
+    each parameter's last path segment is the settings field it fills. Environment
+    variables already set (non-empty) win, so a local override is never clobbered; values
+    from .env files don't count, since Settings() only reads those afterwards.
     """
     if not path:
         return
@@ -20,7 +21,10 @@ def load_ssm_parameters(path: str | None, client: Any = None) -> None:
     paginator = client.get_paginator("get_parameters_by_path")
     for page in paginator.paginate(Path=path, WithDecryption=True, Recursive=False):
         for parameter in page["Parameters"]:
-            os.environ.setdefault(parameter["Name"].rsplit("/", 1)[-1], parameter["Value"])
+            name = parameter["Name"].rsplit("/", 1)[-1]
+            # An empty variable (e.g. a blank placeholder in the Lambda config) counts as unset.
+            if not os.environ.get(name):
+                os.environ[name] = parameter["Value"]
 
 
 class DatabaseSettings(BaseSettings):
@@ -47,6 +51,9 @@ class DispatchSettings(BaseSettings):
     # "lambda" async-invokes WORKER_FUNCTION_NAME (production).
     TASK_DISPATCHER: str = "inprocess"
     WORKER_FUNCTION_NAME: str | None = None
+    # GET /tasks/{id} reports an unfinished task untouched for this long as failed
+    # (reasoning in app/tasks/status.py).
+    TASK_STALE_AFTER_SECONDS: int = 600
 
 
 class AIModelsSettings(BaseSettings):

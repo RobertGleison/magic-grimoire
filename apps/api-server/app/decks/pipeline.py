@@ -17,6 +17,16 @@ from app.tasks.model import Task
 _log = logging.getLogger(__name__)
 
 
+class FailureNotRecorded(Exception):
+    """A generation failed and the failure could not be written to the deck/task rows.
+
+    The worker handler swallows ordinary failures because they're already recorded, and
+    a retry would rerun the same prompt into the same error. This one must escape instead:
+    nothing in the database says the task is finished, so Lambda's retries (and then the
+    DLQ) are the only way it gets another attempt or is noticed at all.
+    """
+
+
 def mark_generation_failed(deck: Deck | None, task: Task | None, error: str) -> None:
     """Set the failure fields on a deck/task pair.
 
@@ -63,13 +73,12 @@ class DeckGenerationPipeline:
         self._db = DatabaseSessionManager(settings.DATABASE_URL, engine_kwargs())
 
         try:
-            # Lambda async invoke is at-least-once; a redelivered job must not redo work.
-            if await self._already_finished():
-                _log.info("Task %s already finished; skipping duplicate delivery", self.task_id)
+            if await self._should_skip():
                 return
             await self._generate()
         except Exception as exc:
-            await self._mark_failed(str(exc))
+            if not await self._mark_failed(str(exc)):
+                raise FailureNotRecorded(f"Task {self.task_id} failed and could not be marked failed") from exc
             raise
         finally:
             await self._db.close()
@@ -120,10 +129,19 @@ class DeckGenerationPipeline:
         task = (await db.execute(select(Task).where(Task.id == self.task_id))).scalar_one_or_none()
         return deck, task
 
-    async def _already_finished(self) -> bool:
+    async def _should_skip(self) -> bool:
+        """True when this delivery must do no work (and so make no LLM calls)."""
         async with self._db.session() as db:
             _, task = await self._fetch_deck_and_task(db)
-            return task is not None and task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED)
+        if task is None:
+            # A stale or malformed event: there's no row to report progress on.
+            _log.warning("Task %s not found; skipping generation", self.task_id)
+            return True
+        # Lambda async invoke is at-least-once; a redelivered job must not redo work.
+        if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+            _log.info("Task %s already %s; skipping duplicate delivery", self.task_id, task.status)
+            return True
+        return False
 
     async def _mark_processing(self) -> None:
         async with self._db.session() as db:
@@ -153,10 +171,13 @@ class DeckGenerationPipeline:
                 task.message = "Your deck is ready!"
                 task.updated_at = now
 
-    async def _mark_failed(self, error: str) -> None:
+    async def _mark_failed(self, error: str) -> bool:
+        """Record the failure; returns False when the database write itself failed."""
         try:
             async with self._db.session() as db:
                 deck, task = await self._fetch_deck_and_task(db)
                 mark_generation_failed(deck, task, error)
         except Exception:
             _log.exception("Could not mark deck %s / task %s as failed", self.deck_uuid, self.task_id)
+            return False
+        return True

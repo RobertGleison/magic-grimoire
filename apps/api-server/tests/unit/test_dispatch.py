@@ -3,6 +3,7 @@ import json
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 import app.decks.dispatch as dispatch_module
@@ -32,6 +33,26 @@ async def test_lambda_dispatcher_async_invokes_worker_with_job_payload():
         )
         await LambdaDispatcher("worker-fn", client=client).dispatch(JOB)
         stub.assert_no_pending_responses()
+
+
+async def test_lambda_dispatcher_raises_when_invoke_fails():
+    client = boto3.client(
+        "lambda", region_name="eu-north-1", aws_access_key_id="test", aws_secret_access_key="test"
+    )
+    with Stubber(client) as stub:
+        stub.add_client_error("invoke", service_error_code="ServiceException", http_status_code=500)
+        with pytest.raises(ClientError):
+            await LambdaDispatcher("worker-fn", client=client).dispatch(JOB)
+
+
+def test_lambda_client_has_short_timeouts(monkeypatch):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-north-1")
+    config = LambdaDispatcher("worker-fn")._lambda().meta.config
+
+    assert config.connect_timeout == 3
+    assert config.read_timeout == 5
+    assert config.retries["total_max_attempts"] == 3  # botocore stores max_attempts=2 retries as 3 tries
+    assert config.retries["mode"] == "standard"
 
 
 class _RecordingPipeline:

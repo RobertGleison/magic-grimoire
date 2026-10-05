@@ -57,6 +57,20 @@ def test_existing_environment_wins():
     assert os.environ["GRIMOIRE_TEST_C"] == "from-env"
 
 
+def test_empty_environment_variable_counts_as_unset():
+    os.environ["GRIMOIRE_TEST_C"] = ""
+    client = _ssm()
+    with Stubber(client) as stub:
+        stub.add_response(
+            "get_parameters_by_path",
+            {"Parameters": [{"Name": "/app/prod/GRIMOIRE_TEST_C", "Value": "from-ssm"}]},
+            {"Path": "/app/prod", "WithDecryption": True, "Recursive": False},
+        )
+        load_ssm_parameters("/app/prod", client=client)
+
+    assert os.environ["GRIMOIRE_TEST_C"] == "from-ssm"
+
+
 def test_no_path_makes_no_call():
     client = _ssm()
     with Stubber(client):  # any call would raise: no responses queued

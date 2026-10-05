@@ -51,7 +51,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "decks", "generate"]
             },
-            "description": "Enqueues async deck generation. Optional auth — guests are rate-limited to 1 generation per IP per 30 days (429 when exceeded).\n\n`format` is one of: `standard`, `modern`, `pioneer`, `legacy`, `commander` (default `standard`). `prompt` is 1–2000 chars.\n\nReturns **202** with `task_id`, `deck_id`, `status` (saved to collection variables by the test script). Then stream progress via `GET /tasks/:task_id/stream`.\n\nErrors: 400 (prompt rejected by sanitizer), 429 (guest limit), 503 (broker unavailable)."
+            "description": "Enqueues async deck generation. Optional auth — guests are rate-limited to 1 generation per IP per 30 days (429 when exceeded).\n\n`format` is one of: `standard`, `modern`, `pioneer`, `legacy`, `commander` (default `standard`). `prompt` is 1–2000 chars.\n\nReturns **202** with `task_id`, `deck_id`, `status` (saved to collection variables by the test script). Then poll progress via `GET /tasks/:task_id`.\n\nErrors: 400 (prompt rejected by sanitizer), 429 (guest limit), 503 (worker dispatch failed)."
           }
         },
         {
@@ -100,19 +100,17 @@
       "name": "Tasks",
       "item": [
         {
-          "name": "Stream Task Progress (SSE)",
+          "name": "Get Task Progress",
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "header": [
-              { "key": "Accept", "value": "text/event-stream" }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/tasks/{{task_id}}/stream",
+              "raw": "{{base_url}}/api/v1/tasks/{{task_id}}",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "tasks", "{{task_id}}", "stream"]
+              "path": ["api", "v1", "tasks", "{{task_id}}"]
             },
-            "description": "Server-Sent Events stream of deck-generation progress published via Redis Pub/Sub (`task:{id}`). Deliberately unauthenticated — the UUIDv4 task ID acts as a capability URL.\n\nEmits `data: {...}` events per pipeline step plus `: keepalive` comments every 15s; the stream closes when status reaches `completed` or `failed`. If the task already finished, a single terminal event is sent immediately.\n\nNote: Postman keeps the connection open — use the response viewer's event stream, and cancel manually if needed. Errors: 404 (task not found)."
+            "description": "Current deck-generation progress, read from the task row: returns `{id, status, progress, message}`. The frontend polls it every 2s until `status` is `completed` or `failed`; responses are `Cache-Control: no-store`. A task whose worker stops updating it for 10 minutes is reported as `failed`. Deliberately unauthenticated — the UUIDv4 task ID acts as a capability URL.\n\nErrors: 404 (task not found)."
           }
         }
       ]

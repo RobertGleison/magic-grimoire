@@ -11,7 +11,7 @@ import app.decks.pipeline as pipeline_module
 from app.core.database import DatabaseSessionManager
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
-from app.decks.pipeline import DeckGenerationPipeline
+from app.decks.pipeline import DeckGenerationPipeline, FailureNotRecorded
 from app.services import scryfall_service
 from app.services.scryfall_service import SCRYFALL_BASE
 from app.tasks.model import Task
@@ -145,6 +145,41 @@ async def test_pipeline_skips_already_finished_task(session_factory, llm, fake_c
     llm.parse_intent.assert_not_called()
     _, task = await _load(session_factory, deck_id, task_id)
     assert task.status == finished
+
+
+async def test_pipeline_skips_missing_task(session_factory, llm, fake_card_cache):
+    await _run(task_id=str(uuid.uuid4()), deck_id=str(uuid.uuid4()), prompt="elves", format="modern").run()
+
+    llm.parse_intent.assert_not_called()
+
+
+async def test_pipeline_raises_failure_not_recorded_when_db_is_unreachable(
+    session_factory, llm, fake_card_cache, monkeypatch
+):
+    """The LLM fails, then the database goes away before the failure can be written."""
+
+    class _BreakableSessionManager(DatabaseSessionManager):
+        broken = False
+
+        def session(self):
+            if type(self).broken:
+                raise ConnectionError("database unreachable")
+            return super().session()
+
+    def _fail_and_break_db(prompt):
+        _BreakableSessionManager.broken = True
+        raise RuntimeError("LLM down")
+
+    monkeypatch.setattr(pipeline_module, "DatabaseSessionManager", _BreakableSessionManager)
+    llm.parse_intent.side_effect = _fail_and_break_db
+    deck_id, task_id = await _seed(session_factory)
+
+    with pytest.raises(FailureNotRecorded) as excinfo:
+        await _run(task_id=task_id, deck_id=deck_id, prompt="elves", format="modern").run()
+
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
+    _, task = await _load(session_factory, deck_id, task_id)
+    assert task.status == TaskStatus.PROCESSING
 
 
 async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_card_cache):

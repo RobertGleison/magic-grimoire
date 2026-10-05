@@ -40,8 +40,12 @@ class LambdaDispatcher:
     def _lambda(self) -> Any:
         if self._client is None:
             import boto3
+            from botocore.config import Config
 
-            self._client = boto3.client("lambda")
+            # Tight limits so a slow invoke fails fast enough for the generate route's
+            # 503 path to run inside the API Lambda's 60s timeout.
+            config = Config(connect_timeout=3, read_timeout=5, retries={"max_attempts": 2, "mode": "standard"})
+            self._client = boto3.client("lambda", config=config)
         return self._client
 
     async def dispatch(self, job: GenerationJob) -> None:

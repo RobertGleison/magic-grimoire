@@ -34,6 +34,13 @@ class DatabaseSessionManager:
         )
 
 
+    async def dispose(self) -> None:
+        """Drop pooled connections but keep the engine usable; it reconnects on demand."""
+        if self._engine is None:
+            raise Exception("DatabaseSessionManager is not initialized")
+        await self._engine.dispose()
+
+
     async def close(self) -> None:
         if self._engine is None:
             raise Exception("DatabaseSessionManager is not initialized")
@@ -83,6 +90,8 @@ def engine_kwargs() -> dict[str, Any]:
             "poolclass": NullPool,
             "connect_args": {
                 "statement_cache_size": 0,
+                # SQLAlchemy's asyncpg dialect keeps a prepared-statement cache of its own.
+                "prepared_statement_cache_size": 0,
                 "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
             },
         }
