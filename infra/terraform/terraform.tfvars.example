@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+# Cloudflare credentials: export CLOUDFLARE_API_TOKEN=... (Zone DNS/Settings/Rulesets edit + Pages edit)
+# AWS credentials: export AWS_PROFILE=...
+
+alert_email           = "you@example.com"
+cloudflare_account_id = "0123456789abcdef0123456789abcdef"
+cloudflare_zone_id    = "0123456789abcdef0123456789abcdef"
+domain_name           = "grimoire.example"
+image_tag             = "2026-10-05-abc1234"
+
+# Secrets: ephemeral + write-only, so they never land in Terraform state.
+# Bump secrets_version whenever you change one of them.
+database_url        = "postgresql+asyncpg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres"
+llm_api_key         = "sk-..."
+supabase_jwt_secret = "..."
+secrets_version     = 1
