@@ -27,9 +27,9 @@ variable "api_timeout" {
 }
 
 variable "aws_region" {
-  description = "AWS region for the Lambdas; pick the one closest to the Supabase project"
+  description = "AWS region for the Lambdas. The account is locked to eu-north-1 (its home region); Supabase stays in eu-west-1, adding ~30-40ms per query"
   type        = string
-  default     = "eu-west-1"
+  default     = "eu-north-1"
 }
 
 variable "cloudflare_account_id" {
