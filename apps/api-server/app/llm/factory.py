@@ -24,4 +24,17 @@ def create_llm_service() -> LLMService:
             model=settings.OLLAMA_MODEL,
         )
 
+    if provider == "openai_compat":
+        for name in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"):
+            if not getattr(settings, name):
+                raise ValueError(f"{name} is required when LLM_PROVIDER=openai_compat")
+
+        from app.llm.openai_compat import OpenAICompatService
+
+        return OpenAICompatService(
+            base_url=settings.LLM_BASE_URL,
+            api_key=settings.LLM_API_KEY,
+            model=settings.LLM_MODEL,
+        )
+
     raise ValueError(f"Unknown LLM provider: {provider}")
