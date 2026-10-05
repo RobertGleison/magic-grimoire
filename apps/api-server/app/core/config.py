@@ -34,8 +34,9 @@ class DatabaseSettings(BaseSettings):
 
 
 class AuthSettings(BaseSettings):
-    SUPABASE_JWT_SECRET: str
-    JWT_ALGORITHM: str
+    # Supabase signs access tokens with an asymmetric key (ES256) and publishes the
+    # public half at {SUPABASE_URL}/auth/v1/.well-known/jwks.json — not a shared secret.
+    SUPABASE_URL: str | None = None
 
 
 class CORSSettings(BaseSettings):
