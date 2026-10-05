@@ -14,8 +14,8 @@ def effective_task_status(task: Task, now: datetime, stale_after: int) -> TaskSt
     recorded) leaves the row unfinished forever, and the frontend would poll it forever.
     So an unfinished task that hasn't been touched in `stale_after` seconds reads as failed.
     Within an attempt the pipeline bumps updated_at at every stage and an attempt can't
-    outlive the worker's 300s timeout; between Lambda's retry attempts the gap is at most
-    about 300s + 120s. The 600s default therefore never fails a task that is still alive.
+    outlive the worker's 360s timeout; between Lambda's retry attempts the gap is at most
+    about 360s + 120s. The 600s default therefore never fails a task that is still alive.
     """
     unfinished = task.status not in (TaskStatus.COMPLETED, TaskStatus.FAILED)
     if unfinished and now - task.updated_at > timedelta(seconds=stale_after):

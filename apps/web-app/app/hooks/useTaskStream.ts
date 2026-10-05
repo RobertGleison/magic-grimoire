@@ -113,6 +113,9 @@ export const TASK_POLL_TIMEOUT_MS = 15_000;
 
 const TASK_NOT_FOUND_MESSAGE = 'This deck generation could not be found.';
 
+/** Shown for any other 4xx: the raw body may be an HTML challenge page, never show it. */
+const TASK_REJECTED_MESSAGE = 'Could not check on your deck. Please try again.';
+
 export const TASK_TIMEOUT_MESSAGE = 'Generation timed out, please try again.';
 
 /** Exponential backoff for reconnect attempt `n` (1-based), capped. */
@@ -279,7 +282,7 @@ export function useTaskStream(taskId: string | null): TaskStreamState {
 
         if (error instanceof ApiError && error.isClientError) {
           finish();
-          dispatch({ type: 'event', event: { status: 'failed', message: error.message || TASK_NOT_FOUND_MESSAGE } });
+          dispatch({ type: 'event', event: { status: 'failed', message: error.status === 404 ? TASK_NOT_FOUND_MESSAGE : TASK_REJECTED_MESSAGE } });
           return;
         }
 

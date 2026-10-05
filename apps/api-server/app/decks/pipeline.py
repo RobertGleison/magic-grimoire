@@ -11,6 +11,7 @@ from app.core.database import DatabaseSessionManager, engine_kwargs
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
 from app.llm import create_llm_service
+from app.llm.base import LLMServiceError
 from app.services import scryfall_service
 from app.tasks.model import Task
 
@@ -25,6 +26,21 @@ class FailureNotRecorded(Exception):
     nothing in the database says the task is finished, so Lambda's retries (and then the
     DLQ) are the only way it gets another attempt or is noticed at all.
     """
+
+
+GENERIC_FAILURE_MESSAGE = "Something went wrong while forging your deck. Please try again."
+
+
+def user_facing_error(exc: Exception) -> str:
+    """The failure message stored on the deck/task rows, which GET /tasks/{id} serves unauthenticated.
+
+    LLM and validation errors (an off-topic prompt, unusable LLM output) are written for
+    users. Anything else (database, network, Scryfall) can carry SQL, hostnames or the
+    pooler username, so it's replaced; the worker handler logs the real exception.
+    """
+    if isinstance(exc, (LLMServiceError, ValueError)):
+        return str(exc)
+    return GENERIC_FAILURE_MESSAGE
 
 
 def mark_generation_failed(deck: Deck | None, task: Task | None, error: str) -> None:
@@ -77,7 +93,7 @@ class DeckGenerationPipeline:
                 return
             await self._generate()
         except Exception as exc:
-            if not await self._mark_failed(str(exc)):
+            if not await self._mark_failed(user_facing_error(exc)):
                 raise FailureNotRecorded(f"Task {self.task_id} failed and could not be marked failed") from exc
             raise
         finally:

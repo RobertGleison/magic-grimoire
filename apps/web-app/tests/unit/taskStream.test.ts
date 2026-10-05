@@ -584,7 +584,7 @@ describe('useTaskStream polling', () => {
       phase: 'failed',
       taskId: TASK_ID,
       progress: 'failed',
-      message: 'Task not found',
+      message: 'This deck generation could not be found.',
       reason: 'task',
     });
 

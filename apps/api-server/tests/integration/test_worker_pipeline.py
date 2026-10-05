@@ -202,6 +202,21 @@ async def test_pipeline_off_topic_marks_failed(session_factory, llm, fake_card_c
 
 
 @respx.mock
+async def test_pipeline_hides_infrastructure_errors_from_users(session_factory, llm, fake_card_cache):
+    # A Scryfall 500 (like a DB or network error) must not leak its raw text onto the
+    # unauthenticated task endpoint; LLM and validation errors stay readable.
+    respx.get(f"{SCRYFALL_BASE}/cards/search").mock(return_value=httpx.Response(500))
+    deck_id, task_id = await _seed(session_factory)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    deck, task = await _load(session_factory, deck_id, task_id)
+    assert deck.error_message == pipeline_module.GENERIC_FAILURE_MESSAGE
+    assert task.message == pipeline_module.GENERIC_FAILURE_MESSAGE
+
+
+@respx.mock
 async def test_pipeline_llm_json_error_marks_failed(session_factory, llm, fake_card_cache):
     _mock_scryfall()
     llm.compose_deck.side_effect = json.JSONDecodeError("Expecting value", doc="", pos=0)

@@ -10,7 +10,10 @@ _log = logging.getLogger(__name__)
 class OpenAICompatService(LLMService):
     """Any provider that speaks OpenAI's /chat/completions — DeepSeek in production."""
 
-    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 120.0):
+    # 60s: parse_intent + compose_deck × 2 attempts each = 240s worst case, which leaves the
+    # Scryfall steps room inside the worker Lambda's timeout. A slower provider then fails
+    # as a recorded LLM error instead of a Lambda timeout that retries (and re-bills) the run.
+    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 60.0):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
