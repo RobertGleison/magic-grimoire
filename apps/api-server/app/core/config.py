@@ -71,6 +71,11 @@ class AIModelsSettings(BaseSettings):
     LLM_API_KEY: str | None = None
     LLM_BASE_URL: str | None = None
     LLM_MODEL: str | None = None
+    # DeepSeek's models reason before answering, and those hidden tokens count against
+    # max_tokens: compose_deck spent its whole 2048 on reasoning and returned "". Off, a
+    # deck comes back in ~2s instead of ~25s (or nothing). Only send it to providers
+    # that accept DeepSeek's `thinking` parameter.
+    LLM_DISABLE_THINKING: bool = False
 
 
 class Settings(DatabaseSettings, AuthSettings, CORSSettings, DispatchSettings, AIModelsSettings):

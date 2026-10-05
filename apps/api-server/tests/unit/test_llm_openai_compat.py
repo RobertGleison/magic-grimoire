@@ -88,3 +88,35 @@ def test_unexpected_shape_normalized():
     respx.post(f"{BASE}/chat/completions").mock(return_value=httpx.Response(200, json={"choices": []}))
     with pytest.raises(LLMServiceError, match="unexpected response"):
         _service().chat([{"role": "user", "content": "hi"}], system="s")
+
+
+@respx.mock
+def test_thinking_left_alone_by_default():
+    route = respx.post(f"{BASE}/chat/completions").mock(return_value=_reply('{"colors": ["G"]}'))
+
+    _service().parse_intent("elf tribal")
+
+    assert "thinking" not in json.loads(route.calls.last.request.content)
+
+
+@respx.mock
+def test_disable_thinking_sends_deepseek_flag():
+    route = respx.post(f"{BASE}/chat/completions").mock(return_value=_reply('{"colors": ["G"]}'))
+    service = OpenAICompatService(base_url=BASE, api_key="sk-test", model="test-model", disable_thinking=True)
+
+    service.parse_intent("elf tribal")
+
+    assert json.loads(route.calls.last.request.content)["thinking"] == {"type": "disabled"}
+
+
+@respx.mock
+def test_budget_spent_on_reasoning_reports_out_of_tokens():
+    # What deepseek-flash returned for compose_deck with max_tokens=2048 and thinking on.
+    respx.post(f"{BASE}/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={"choices": [{"finish_reason": "length", "message": {"role": "assistant", "content": ""}}]},
+        )
+    )
+    with pytest.raises(LLMServiceError, match="ran out of tokens"):
+        _service().parse_intent("elf tribal")

@@ -35,7 +35,10 @@ def test_factory_returns_openai_compat(monkeypatch):
     monkeypatch.setattr(settings, "LLM_API_KEY", "sk-test")
     monkeypatch.setattr(settings, "LLM_BASE_URL", "https://llm.test")
     monkeypatch.setattr(settings, "LLM_MODEL", "test-model")
-    assert isinstance(create_llm_service(), OpenAICompatService)
+    monkeypatch.setattr(settings, "LLM_DISABLE_THINKING", True)
+    service = create_llm_service()
+    assert isinstance(service, OpenAICompatService)
+    assert service.disable_thinking is True
 
 
 @pytest.mark.parametrize("missing", ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"])

@@ -35,6 +35,7 @@ def create_llm_service() -> LLMService:
             base_url=settings.LLM_BASE_URL,
             api_key=settings.LLM_API_KEY,
             model=settings.LLM_MODEL,
+            disable_thinking=settings.LLM_DISABLE_THINKING,
         )
 
     raise ValueError(f"Unknown LLM provider: {provider}")
