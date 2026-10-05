@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, text
+from sqlalchemy import DateTime, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,6 +21,10 @@ class Task(Base):
     status: Mapped[str] = mapped_column(
         String, server_default="queued", nullable=False
     )
+    # Latest pipeline stage (a TaskProgress value) and its human-readable message.
+    # Written by DeckGenerationPipeline, polled by the frontend via GET /tasks/{id}.
+    progress: Mapped[str | None] = mapped_column(String, nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )

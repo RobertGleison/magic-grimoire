@@ -1,0 +1,92 @@
+name: deploy api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api-server/**"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  ECR_REPOSITORY: magic-grimoire
+  # Worker (consumer) before API (producer), so the API never enqueues work for an older worker.
+  FUNCTIONS: magic-grimoire-prod-worker magic-grimoire-prod-api
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    # Native arm64, matching the Lambdas' architecture — no QEMU emulation.
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.9.29" # same uv as Dockerfile.lambda
+
+      - name: Unit tests
+        working-directory: apps/api-server
+        run: |
+          uv sync --locked --group dev
+          uv run pytest tests/unit -q
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: image
+        working-directory: apps/api-server
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          echo "uri=$IMAGE" >> "$GITHUB_OUTPUT"
+          # Tags are immutable, so a re-run for the same commit reuses the pushed image.
+          if output=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$GITHUB_SHA" 2>&1); then
+            echo "Image $IMAGE already exists; skipping build"
+            exit 0
+          fi
+          if ! grep -q ImageNotFoundException <<<"$output"; then
+            echo "$output" >&2
+            exit 1
+          fi
+          # Lambda rejects the attestation manifests buildx adds by default.
+          docker build --provenance=false -f Dockerfile.lambda -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Update functions
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          for fn in $FUNCTIONS; do
+            if ! output=$(aws lambda get-function --function-name "$fn" 2>&1); then
+              if grep -q ResourceNotFoundException <<<"$output"; then
+                echo "::notice::$fn does not exist yet. Set image_tag = \"$GITHUB_SHA\" in terraform.tfvars and run terraform apply."
+                continue
+              fi
+              echo "$output" >&2
+              exit 1
+            fi
+            aws lambda update-function-code --function-name "$fn" --image-uri "$IMAGE" >/dev/null
+            aws lambda wait function-updated-v2 --function-name "$fn"
+            echo "Deployed $IMAGE to $fn"
+          done

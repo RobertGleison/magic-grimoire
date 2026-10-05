@@ -72,7 +72,7 @@ variable "generate_rate_limit_requests" {
 }
 
 variable "image_tag" {
-  description = "Tag of the backend image in ECR that both Lambdas run"
+  description = "ECR image tag both Lambdas are created with; CI deploys later images"
   type        = string
 }
 
@@ -156,7 +156,7 @@ variable "worker_reserved_concurrency" {
 }
 
 variable "worker_timeout" {
-  description = "Timeout (seconds) for one deck generation"
+  description = "Timeout (seconds) for one deck generation; must exceed the LLM worst case (4 x 60s) plus Scryfall, and stay under TASK_STALE_AFTER_SECONDS (600)"
   type        = number
-  default     = 300
+  default     = 360
 }

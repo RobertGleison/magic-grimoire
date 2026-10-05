@@ -37,3 +37,8 @@ output "worker_lambda_function_name" {
   description = "Name of the deck-generation worker Lambda function"
   value       = aws_lambda_function.worker.function_name
 }
+
+output "deploy_iam_user_name" {
+  description = "IAM user whose access key GitHub Actions deploys with (create the key in the console)"
+  value       = aws_iam_user.deploy.name
+}

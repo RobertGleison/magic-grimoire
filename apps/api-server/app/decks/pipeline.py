@@ -7,22 +7,47 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.database import DatabaseSessionManager
+from app.core.database import DatabaseSessionManager, engine_kwargs
 from app.core.enums import DeckStatus, TaskProgress, TaskStatus
 from app.decks.model import Deck
 from app.llm import create_llm_service
-from app.services import redis_cache, scryfall_service
+from app.llm.base import LLMServiceError
+from app.services import scryfall_service
 from app.tasks.model import Task
-from app.tasks.streaming import task_channel
 
 _log = logging.getLogger(__name__)
+
+
+class FailureNotRecorded(Exception):
+    """A generation failed and the failure could not be written to the deck/task rows.
+
+    The worker handler swallows ordinary failures because they're already recorded, and
+    a retry would rerun the same prompt into the same error. This one must escape instead:
+    nothing in the database says the task is finished, so Lambda's retries (and then the
+    DLQ) are the only way it gets another attempt or is noticed at all.
+    """
+
+
+GENERIC_FAILURE_MESSAGE = "Something went wrong while forging your deck. Please try again."
+
+
+def user_facing_error(exc: Exception) -> str:
+    """The failure message stored on the deck/task rows, which GET /tasks/{id} serves unauthenticated.
+
+    LLM and validation errors (an off-topic prompt, unusable LLM output) are written for
+    users. Anything else (database, network, Scryfall) can carry SQL, hostnames or the
+    pooler username, so it's replaced; the worker handler logs the real exception.
+    """
+    if isinstance(exc, (LLMServiceError, ValueError)):
+        return str(exc)
+    return GENERIC_FAILURE_MESSAGE
 
 
 def mark_generation_failed(deck: Deck | None, task: Task | None, error: str) -> None:
     """Set the failure fields on a deck/task pair.
 
     The single definition of what a failed generation looks like — used by the
-    pipeline mid-run and by the generate route when enqueueing fails.
+    pipeline mid-run and by the generate route when dispatching fails.
     """
     now = datetime.now(tz=UTC)
     if deck:
@@ -31,13 +56,15 @@ def mark_generation_failed(deck: Deck | None, task: Task | None, error: str) -> 
         deck.failed_at = now
     if task:
         task.status = TaskStatus.FAILED
+        task.progress = TaskProgress.FAILED
+        task.message = error
         task.failed_at = now
         task.updated_at = now
 
 
 class DeckGenerationPipeline:
     """Owns the full deck-generation sequence: intent parsing, card search,
-    composition, enrichment, persistence, progress events, and failure handling."""
+    composition, enrichment, persistence, progress on the task row, and failure handling."""
 
     def __init__(
         self,
@@ -54,26 +81,26 @@ class DeckGenerationPipeline:
         self.format = format
         self.explicit_colors = colors
         self.deck_size = deck_size
-        self.channel = task_channel(task_id)
         self._db: DatabaseSessionManager | None = None
 
     async def run(self) -> None:
-        # DatabaseSessionManager is created fresh per task invocation — each Celery task call
-        # runs in its own asyncio.run() event loop, and asyncpg connections can't cross event loops.
-        self._db = DatabaseSessionManager(settings.DATABASE_URL, {"pool_pre_ping": True})
+        # Fresh per run: the worker Lambda calls asyncio.run() per invocation, and pooled
+        # asyncpg connections can't cross event loops.
+        self._db = DatabaseSessionManager(settings.DATABASE_URL, engine_kwargs())
 
         try:
+            if await self._should_skip():
+                return
             await self._generate()
         except Exception as exc:
-            await self._mark_failed(str(exc))
-            await self._publish(TaskProgress.FAILED, str(exc))
+            if not await self._mark_failed(user_facing_error(exc)):
+                raise FailureNotRecorded(f"Task {self.task_id} failed and could not be marked failed") from exc
             raise
         finally:
             await self._db.close()
 
     async def _generate(self) -> None:
         await self._mark_processing()
-        await self._publish(TaskProgress.PROCESSING, "Parsing your request...")
 
         llm = create_llm_service()
         loop = asyncio.get_running_loop()
@@ -103,20 +130,34 @@ class DeckGenerationPipeline:
             cards=enriched_cards,
             colors=intent.get("colors", []),
         )
-        await self._publish(TaskProgress.COMPLETED, "Your deck is ready!")
 
-    async def _publish(self, status: str, message: str) -> None:
-        try:
-            await redis_cache.publish(self.channel, {"status": status, "message": message})
-        except Exception:
-            _log.warning(
-                "SSE publish failed (channel=%s, status=%s) — notification dropped", self.channel, status
-            )
+    async def _publish(self, progress: TaskProgress, message: str) -> None:
+        """Record the current stage on the task row; the frontend polls GET /tasks/{id}."""
+        async with self._db.session() as db:
+            _, task = await self._fetch_deck_and_task(db)
+            if task:
+                task.progress = progress
+                task.message = message
+                task.updated_at = datetime.now(tz=UTC)
 
     async def _fetch_deck_and_task(self, db: AsyncSession) -> tuple[Deck | None, Task | None]:
         deck = (await db.execute(select(Deck).where(Deck.id == self.deck_uuid))).scalar_one_or_none()
         task = (await db.execute(select(Task).where(Task.id == self.task_id))).scalar_one_or_none()
         return deck, task
+
+    async def _should_skip(self) -> bool:
+        """True when this delivery must do no work (and so make no LLM calls)."""
+        async with self._db.session() as db:
+            _, task = await self._fetch_deck_and_task(db)
+        if task is None:
+            # A stale or malformed event: there's no row to report progress on.
+            _log.warning("Task %s not found; skipping generation", self.task_id)
+            return True
+        # Lambda async invoke is at-least-once; a redelivered job must not redo work.
+        if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+            _log.info("Task %s already %s; skipping duplicate delivery", self.task_id, task.status)
+            return True
+        return False
 
     async def _mark_processing(self) -> None:
         async with self._db.session() as db:
@@ -125,6 +166,8 @@ class DeckGenerationPipeline:
                 deck.status = DeckStatus.PROCESSING
             if task:
                 task.status = TaskStatus.PROCESSING
+                task.progress = TaskProgress.PROCESSING
+                task.message = "Parsing your request..."
                 task.updated_at = datetime.now(tz=UTC)
 
     async def _save_completed(self, title: str | None, cards: list[dict], colors: list[str]) -> None:
@@ -140,12 +183,17 @@ class DeckGenerationPipeline:
                 deck.completed_at = now
             if task:
                 task.status = TaskStatus.COMPLETED
+                task.progress = TaskProgress.COMPLETED
+                task.message = "Your deck is ready!"
                 task.updated_at = now
 
-    async def _mark_failed(self, error: str) -> None:
+    async def _mark_failed(self, error: str) -> bool:
+        """Record the failure; returns False when the database write itself failed."""
         try:
             async with self._db.session() as db:
                 deck, task = await self._fetch_deck_and_task(db)
                 mark_generation_failed(deck, task, error)
         except Exception:
             _log.exception("Could not mark deck %s / task %s as failed", self.deck_uuid, self.task_id)
+            return False
+        return True

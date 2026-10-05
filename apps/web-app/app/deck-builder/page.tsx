@@ -41,7 +41,7 @@ import styles from './page.module.css';
    Wiring, end to end:
      1. `POST /api/v1/chat`            — conversational refinement
      2. `POST /api/v1/decks/generate`  — 202 { task_id, deck_id }
-     3. `useTaskStream(task_id)`       — SSE, six TaskProgress values
+     3. `useTaskStream(task_id)`       — polls the task, six TaskProgress values
      4. `GET  /api/v1/decks/{deck_id}` — on the terminal `completed`
 
    This page is NOT auth-gated. `POST /decks/generate`, `POST /chat` and
@@ -337,7 +337,7 @@ export default function DeckBuilderPage() {
     deckAbort.current?.abort();
     setSubmitting(false);
     setFetchingDeck(false);
-    // Dropping the task id tears the EventSource down through the hook's own
+    // Dropping the task id stops the polling through the hook's own
     // cleanup; the server keeps building, and `?deck=` still recovers it.
     setTaskId(null);
     setPageError('Generation stopped. The forge may still finish on the server.');

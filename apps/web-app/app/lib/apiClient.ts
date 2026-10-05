@@ -6,6 +6,7 @@ import type {
   DeckListParams,
   DeckListResponse,
   DeckResponse,
+  TaskStatusResponse,
 } from '../types/api';
 import { getAccessToken } from './supabase';
 
@@ -270,7 +271,16 @@ export function sendChat(body: ChatRequest, options: RequestOptions = {}): Promi
   return request<ChatResponse>({ ...options, method: 'POST', path: '/chat', body });
 }
 
-/** URL of the progress stream for a task. Deliberately unauthenticated server-side. */
-export function taskStreamUrl(taskId: string): string {
-  return `${API_BASE}/tasks/${encodeURIComponent(taskId)}/stream`;
+/* ------------------------------------------------------------------ tasks */
+
+/**
+ * `GET /api/v1/tasks/{task_id}` — generation progress, polled by `useTaskStream`.
+ * Deliberately unauthenticated server-side: the task id is the capability.
+ */
+export function getTask(taskId: string, options: RequestOptions = {}): Promise<TaskStatusResponse> {
+  return request<TaskStatusResponse>({
+    ...options,
+    method: 'GET',
+    path: `/tasks/${encodeURIComponent(taskId)}`,
+  });
 }

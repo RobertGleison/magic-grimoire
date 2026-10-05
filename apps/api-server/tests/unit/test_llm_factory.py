@@ -26,3 +26,22 @@ def test_factory_rejects_unknown_provider(monkeypatch):
 def test_prompts_contain_off_topic_guard():
     assert "off_topic" in PARSE_INTENT_SYSTEM
     assert "off_topic" in CHAT_SYSTEM
+
+
+def test_factory_returns_openai_compat(monkeypatch):
+    from app.llm.openai_compat import OpenAICompatService
+
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openai_compat")
+    monkeypatch.setattr(settings, "LLM_API_KEY", "sk-test")
+    monkeypatch.setattr(settings, "LLM_BASE_URL", "https://llm.test")
+    monkeypatch.setattr(settings, "LLM_MODEL", "test-model")
+    assert isinstance(create_llm_service(), OpenAICompatService)
+
+
+@pytest.mark.parametrize("missing", ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"])
+def test_factory_openai_compat_requires_settings(monkeypatch, missing):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openai_compat")
+    for name in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"):
+        monkeypatch.setattr(settings, name, None if name == missing else "x")
+    with pytest.raises(ValueError, match=missing):
+        create_llm_service()
