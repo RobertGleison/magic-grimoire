@@ -1,18 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   MAX_TASK_STREAM_RETRIES,
+  TASK_POLL_INTERVAL_MS,
   TASK_STAGE_COUNT,
+  TASK_TIMEOUT_MESSAGE,
+  TASK_TIMEOUT_MS,
   initialTaskStreamState,
   isTerminalProgress,
-  parseTaskProgressEvent,
   reconnectDelay,
+  taskProgressEventFrom,
   taskStageIndex,
   taskStreamReducer,
   type TaskStreamAction,
   type TaskStreamState,
+  useTaskStream,
 } from '../../app/hooks/useTaskStream';
-import type { TaskProgress } from '../../app/types/api';
+import * as apiClient from '../../app/lib/apiClient';
+import type { TaskProgress, TaskStatusResponse } from '../../app/types/api';
 
 const TASK_ID = 'task-abc';
 
@@ -30,41 +36,35 @@ function connected(): TaskStreamState {
   return run([{ type: 'subscribe', taskId: TASK_ID }, { type: 'open' }]);
 }
 
-describe('parseTaskProgressEvent', () => {
-  it('parses a well-formed pipeline event', () => {
-    expect(parseTaskProgressEvent('{"status":"searching_cards","message":"Searching for cards..."}')).toEqual({
-      status: 'searching_cards',
-      message: 'Searching for cards...',
-    });
+describe('taskProgressEventFrom', () => {
+  const task = (overrides: Partial<TaskStatusResponse>): TaskStatusResponse => ({
+    id: 't',
+    status: 'processing',
+    progress: null,
+    message: null,
+    ...overrides,
   });
 
-  it('accepts the synthetic already-finished event the endpoint replays', () => {
-    expect(parseTaskProgressEvent('{"status":"completed","message":"Task already completed"}')).toEqual({
-      status: 'completed',
-      message: 'Task already completed',
-    });
-  });
-
-  it('defaults a missing or non-string message to an empty string', () => {
-    expect(parseTaskProgressEvent('{"status":"enriching"}')).toEqual({ status: 'enriching', message: '' });
-    expect(parseTaskProgressEvent('{"status":"enriching","message":42}')).toEqual({
+  it('uses the progress stage and message', () => {
+    expect(taskProgressEventFrom(task({ progress: 'enriching', message: 'Fetching…' }))).toEqual({
       status: 'enriching',
-      message: '',
+      message: 'Fetching…',
     });
   });
 
-  it('rejects a status this frontend does not know', () => {
-    expect(parseTaskProgressEvent('{"status":"queued","message":"x"}')).toBeNull();
-    expect(parseTaskProgressEvent('{"status":"shuffling","message":"x"}')).toBeNull();
+  it('defaults a null message to an empty string', () => {
+    expect(taskProgressEventFrom(task({ progress: 'processing' }))).toEqual({ status: 'processing', message: '' });
   });
 
-  it('rejects malformed frames, keepalive comments and non-objects', () => {
-    expect(parseTaskProgressEvent('')).toBeNull();
-    expect(parseTaskProgressEvent('{"status":')).toBeNull();
-    expect(parseTaskProgressEvent(': keepalive')).toBeNull();
-    expect(parseTaskProgressEvent('null')).toBeNull();
-    expect(parseTaskProgressEvent('"completed"')).toBeNull();
-    expect(parseTaskProgressEvent('[]')).toBeNull();
+  it('falls back to a terminal status when progress is missing', () => {
+    expect(taskProgressEventFrom(task({ status: 'failed', message: 'boom' }))).toEqual({
+      status: 'failed',
+      message: 'boom',
+    });
+  });
+
+  it('returns null for a queued task with no progress yet', () => {
+    expect(taskProgressEventFrom(task({ status: 'queued' }))).toBeNull();
   });
 });
 
@@ -328,7 +328,7 @@ describe('transport drops', () => {
       phase: 'failed',
       taskId: TASK_ID,
       progress: null,
-      message: 'Lost connection to the deck generation stream.',
+      message: 'Lost connection while checking on your deck.',
       reason: 'transport',
     });
   });
@@ -380,5 +380,168 @@ describe('transport drops', () => {
   it('treats a redundant open as a no-op', () => {
     const state = connected();
     expect(taskStreamReducer(state, { type: 'open' })).toBe(state);
+  });
+});
+
+describe('timeout', () => {
+  it('fails a live stream with reason "transport" and the timeout message', () => {
+    const live = run([progress('composing_deck')], connected());
+    expect(taskStreamReducer(live, { type: 'timeout' })).toEqual({
+      phase: 'failed',
+      taskId: TASK_ID,
+      progress: null,
+      message: TASK_TIMEOUT_MESSAGE,
+      reason: 'transport',
+    });
+  });
+
+  it('is ignored once terminal', () => {
+    const done = run([progress('completed', 'ok')], connected());
+    expect(taskStreamReducer(done, { type: 'timeout' })).toBe(done);
+  });
+});
+
+describe('useTaskStream polling', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const reply = (
+    stage: TaskStatusResponse['progress'],
+    status: TaskStatusResponse['status'] = 'processing',
+  ): TaskStatusResponse => ({ id: TASK_ID, status, progress: stage, message: `${stage}` });
+
+  it('polls until a terminal stage, then stops', async () => {
+    const getTask = vi
+      .spyOn(apiClient, 'getTask')
+      .mockResolvedValueOnce(reply('searching_cards'))
+      .mockResolvedValueOnce(reply('completed', 'completed'));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toMatchObject({ phase: 'streaming', progress: 'searching_cards' });
+    expect(getTask).toHaveBeenCalledWith(TASK_ID, { signal: expect.any(AbortSignal) });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS);
+    });
+    expect(result.current.phase).toBe('completed');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5);
+    });
+    expect(getTask).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps polling a queued task without inventing a stage', async () => {
+    const getTask = vi
+      .spyOn(apiClient, 'getTask')
+      .mockResolvedValueOnce(reply(null, 'queued'))
+      .mockResolvedValueOnce(reply('processing'));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toMatchObject({ phase: 'streaming', progress: null });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS);
+    });
+    expect(result.current).toMatchObject({ phase: 'streaming', progress: 'processing' });
+    expect(getTask).toHaveBeenCalledTimes(2);
+  });
+
+  it('backs off on a failed fetch and recovers', async () => {
+    vi.spyOn(apiClient, 'getTask')
+      .mockRejectedValueOnce(new apiClient.ApiError('down', 0))
+      .mockResolvedValueOnce(reply('enriching'));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toMatchObject({ phase: 'connecting', attempt: 1 });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(reconnectDelay(1));
+    });
+    expect(result.current).toMatchObject({ phase: 'streaming', progress: 'enriching', attempt: 0 });
+  });
+
+  it('gives up after the retry budget and stops polling', async () => {
+    const getTask = vi.spyOn(apiClient, 'getTask').mockRejectedValue(new apiClient.ApiError('down', 0));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(result.current).toMatchObject({ phase: 'failed', reason: 'transport' });
+    expect(getTask).toHaveBeenCalledTimes(MAX_TASK_STREAM_RETRIES + 1);
+  });
+
+  it('times out a task that never finishes', async () => {
+    vi.spyOn(apiClient, 'getTask').mockResolvedValue(reply('composing_deck'));
+    const { result } = renderHook(() => useTaskStream(TASK_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_TIMEOUT_MS);
+    });
+    expect(result.current).toMatchObject({ phase: 'failed', reason: 'transport', message: TASK_TIMEOUT_MESSAGE });
+  });
+
+  it('stops polling and aborts the in-flight request on unmount', async () => {
+    const signals: AbortSignal[] = [];
+    const getTask = vi.spyOn(apiClient, 'getTask').mockImplementation(async (_id, options) => {
+      if (options?.signal) signals.push(options.signal);
+      return reply('processing');
+    });
+    const { unmount } = renderHook(() => useTaskStream(TASK_ID));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 3);
+    });
+    expect(getTask).toHaveBeenCalledTimes(1);
+    expect(signals[0].aborted).toBe(true);
+  });
+
+  it('abandons the old task and polls the new one when the id changes', async () => {
+    const getTask = vi.spyOn(apiClient, 'getTask').mockResolvedValue(reply('processing'));
+    const { rerender, result } = renderHook(({ id }) => useTaskStream(id), {
+      initialProps: { id: TASK_ID },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    rerender({ id: 'task-xyz' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS);
+    });
+
+    expect(result.current).toMatchObject({ taskId: 'task-xyz' });
+    const ids = getTask.mock.calls.map(([id]) => id);
+    expect(ids.slice(1).every((id) => id === 'task-xyz')).toBe(true);
+  });
+
+  it('stays idle without a task id and never polls', async () => {
+    const getTask = vi.spyOn(apiClient, 'getTask');
+    const { result } = renderHook(() => useTaskStream(null));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 2);
+    });
+    expect(result.current).toEqual({ phase: 'idle' });
+    expect(getTask).not.toHaveBeenCalled();
   });
 });

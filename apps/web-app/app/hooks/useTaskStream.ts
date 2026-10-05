@@ -2,10 +2,15 @@
 
 import { useEffect, useReducer } from 'react';
 
-import { taskStreamUrl } from '../lib/apiClient';
-import { TASK_PROGRESS_VALUES, type TaskProgress, type TaskProgressEvent } from '../types/api';
+import { getTask, isAbortError } from '../lib/apiClient';
+import {
+  TASK_PROGRESS_VALUES,
+  type TaskProgress,
+  type TaskProgressEvent,
+  type TaskStatusResponse,
+} from '../types/api';
 
-/* ------------------------------------------------------------- event wire */
+/* ------------------------------------------------------------- task wire */
 
 /** Pipeline order of the non-terminal stages; both terminal values sort last. */
 export const TASK_STAGE_ORDER: Record<TaskProgress, number> = {
@@ -37,23 +42,14 @@ export function taskStageIndex(progress: TaskProgress | null): number {
 }
 
 /**
- * Parses one SSE `data:` payload. Returns `null` for anything that is not a
- * recognised progress event — keepalive comments, truncated frames, or a status
- * this frontend does not know — so unknown traffic can never corrupt the state.
+ * The progress event a polled task row represents, or `null` while it is still queued.
+ * `progress` is the stage the pipeline last wrote; a terminal `status` stands in for it
+ * when absent, so a task failed at dispatch (no stage yet) still ends the stream.
  */
-export function parseTaskProgressEvent(raw: string): TaskProgressEvent | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== 'object') return null;
-
-  const { status, message } = parsed as { status?: unknown; message?: unknown };
+export function taskProgressEventFrom(task: TaskStatusResponse): TaskProgressEvent | null {
+  const status = task.progress ?? task.status;
   if (!isTaskProgress(status)) return null;
-
-  return { status, message: typeof message === 'string' ? message : '' };
+  return { status, message: task.message ?? '' };
 }
 
 /* ------------------------------------------------------------------ state */
@@ -90,7 +86,8 @@ export type TaskStreamAction =
   | { type: 'subscribe'; taskId: string }
   | { type: 'open' }
   | { type: 'event'; event: TaskProgressEvent }
-  | { type: 'disconnect' };
+  | { type: 'disconnect' }
+  | { type: 'timeout' };
 
 export const initialTaskStreamState: TaskStreamState = { phase: 'idle' };
 
@@ -99,6 +96,14 @@ export const MAX_TASK_STREAM_RETRIES = 5;
 
 const BASE_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 8000;
+
+/** How often the task row is polled while a generation runs. */
+export const TASK_POLL_INTERVAL_MS = 2000;
+
+/** A generation still unfinished after this long is treated as lost (the worker retries are exhausted by then). */
+export const TASK_TIMEOUT_MS = 10 * 60 * 1000;
+
+export const TASK_TIMEOUT_MESSAGE = 'Generation timed out, please try again.';
 
 /** Exponential backoff for reconnect attempt `n` (1-based), capped. */
 export function reconnectDelay(attempt: number): number {
@@ -115,7 +120,7 @@ function isTerminalState(state: TaskStreamState): state is TerminalTaskStreamSta
 
 /**
  * Pure transition function, exported so the whole protocol can be tested
- * without React or a live EventSource.
+ * without React or a live backend.
  */
 export function taskStreamReducer(state: TaskStreamState, action: TaskStreamAction): TaskStreamState {
   if (action.type === 'reset') return initialTaskStreamState;
@@ -159,7 +164,7 @@ export function taskStreamReducer(state: TaskStreamState, action: TaskStreamActi
           phase: 'failed',
           taskId: state.taskId,
           progress: null,
-          message: 'Lost connection to the deck generation stream.',
+          message: 'Lost connection while checking on your deck.',
           reason: 'transport',
         };
       }
@@ -171,25 +176,27 @@ export function taskStreamReducer(state: TaskStreamState, action: TaskStreamActi
         message: state.message,
       };
     }
+
+    case 'timeout':
+      return {
+        phase: 'failed',
+        taskId: state.taskId,
+        progress: null,
+        message: TASK_TIMEOUT_MESSAGE,
+        reason: 'transport',
+      };
   }
 }
 
 /* ------------------------------------------------------------------- hook */
 
 /**
- * Subscribes to `GET /api/v1/tasks/{taskId}/stream` and reduces the progress
- * events into a single `TaskStreamState`. Pass `null` to stay idle.
+ * Polls `GET /api/v1/tasks/{taskId}` and reduces each response into a single
+ * `TaskStreamState`. Pass `null` to stay idle.
  *
- * Transport is native `EventSource`: `app/tasks/routes.py` documents the
- * endpoint as deliberately unauthenticated ("the frontend consumes this with
- * native EventSource, which cannot send Authorization headers"), so there is no
- * bearer token to smuggle and no reason to hand-roll a fetch/ReadableStream
- * parser. EventSource also discards the `: keepalive` comment frames the
- * backend emits every 10s for free.
- *
- * Automatic EventSource retries are replaced with explicit backoff: the native
- * retry is a fixed interval and unbounded, and it must not fire at all once a
- * terminal event has landed.
+ * Every `TASK_POLL_INTERVAL_MS` until the task is terminal; a failed fetch is a
+ * `disconnect` with the same capped backoff the reducer budgets for; after
+ * `TASK_TIMEOUT_MS` the stream gives up (the worker's retries are spent by then).
  */
 export function useTaskStream(taskId: string | null): TaskStreamState {
   const [state, dispatch] = useReducer(taskStreamReducer, initialTaskStreamState);
@@ -199,73 +206,66 @@ export function useTaskStream(taskId: string | null): TaskStreamState {
       dispatch({ type: 'reset' });
       return;
     }
-    if (typeof EventSource === 'undefined') return;
 
     // `cancelled` gates every async callback so nothing dispatches after the
     // effect is torn down by an unmount or a taskId change.
     let cancelled = false;
     let finished = false;
-    let source: EventSource | null = null;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
 
-    const closeSource = () => {
-      if (source) {
-        source.onopen = null;
-        source.onmessage = null;
-        source.onerror = null;
-        source.close();
-        source = null;
+    const deadline = setTimeout(() => {
+      if (cancelled || finished) return;
+      finish();
+      controller.abort();
+      dispatch({ type: 'timeout' });
+    }, TASK_TIMEOUT_MS);
+
+    function finish() {
+      finished = true;
+      if (timer !== undefined) clearTimeout(timer);
+      clearTimeout(deadline);
+    }
+
+    const poll = async () => {
+      if (cancelled || finished) return;
+      try {
+        const task = await getTask(taskId, { signal: controller.signal });
+        if (cancelled || finished) return;
+
+        attempt = 0;
+        dispatch({ type: 'open' });
+        const event = taskProgressEventFrom(task);
+        if (event) {
+          dispatch({ type: 'event', event });
+          if (isTerminalProgress(event.status)) {
+            finish();
+            return;
+          }
+        }
+        timer = setTimeout(poll, TASK_POLL_INTERVAL_MS);
+      } catch (error) {
+        if (cancelled || finished || isAbortError(error)) return;
+
+        attempt += 1;
+        dispatch({ type: 'disconnect' });
+        if (attempt > MAX_TASK_STREAM_RETRIES) {
+          finish();
+          return;
+        }
+        timer = setTimeout(poll, reconnectDelay(attempt));
       }
     };
 
-    const connect = () => {
-      if (cancelled || finished) return;
-
-      const es = new EventSource(taskStreamUrl(taskId));
-      source = es;
-
-      es.onopen = () => {
-        if (cancelled || finished) return;
-        attempt = 0;
-        dispatch({ type: 'open' });
-      };
-
-      es.onmessage = (event: MessageEvent<string>) => {
-        if (cancelled || finished) return;
-
-        const progressEvent = parseTaskProgressEvent(event.data);
-        if (!progressEvent) return;
-
-        // A delivered event proves the connection is healthy again.
-        attempt = 0;
-
-        dispatch({ type: 'event', event: progressEvent });
-
-        if (isTerminalProgress(progressEvent.status)) {
-          finished = true;
-          closeSource();
-        }
-      };
-
-      es.onerror = () => {
-        if (cancelled || finished) return;
-
-        closeSource();
-        attempt += 1;
-        dispatch({ type: 'disconnect' });
-        if (attempt > MAX_TASK_STREAM_RETRIES) return;
-        timer = setTimeout(connect, reconnectDelay(attempt));
-      };
-    };
-
     dispatch({ type: 'subscribe', taskId });
-    connect();
+    void poll();
 
     return () => {
       cancelled = true;
       if (timer !== undefined) clearTimeout(timer);
-      closeSource();
+      clearTimeout(deadline);
+      controller.abort();
     };
   }, [taskId]);
 

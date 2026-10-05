@@ -7,9 +7,8 @@
  * Sources:
  *   app/core/enums.py     — every enum below
  *   app/decks/dtos.py     — CardInDeck, DeckGenerate*, DeckResponse, DeckListResponse
- *   app/tasks/dtos.py     — TaskStatusResponse
+ *   app/tasks/dtos.py     — TaskStatusResponse (polled by useTaskStream)
  *   app/chat/dtos.py      — ChatMessage, ChatContext, ChatRequest, ChatResponse
- *   app/decks/pipeline.py — TaskProgressEvent (the SSE payload)
  */
 
 /* ------------------------------------------------------------------ enums */
@@ -110,24 +109,16 @@ export interface DeckListParams {
 
 /* ------------------------------------------------------------------ tasks */
 
-/**
- * `TaskStatusResponseDTO` exists in `app/tasks/dtos.py` but no route returns it
- * today — the only task endpoint is the SSE stream. Kept for parity.
- */
+/** `GET /api/v1/tasks/{task_id}` — the task row the deck pipeline writes progress to. */
 export interface TaskStatusResponse {
   id: string;
   status: TaskStatus;
+  /** Latest pipeline stage; `null` while the task is still queued. */
+  progress: TaskProgress | null;
   message: string | null;
 }
 
-/**
- * The SSE payload. Published by `DeckGenerationPipeline._publish` as a bare
- * `{"status", "message"}` dict — there is no `id` field on the wire.
- *
- * The endpoint also emits one synthetic event of this shape when the task had
- * already finished before the client subscribed; its `status` is a `TaskStatus`,
- * but only the terminal values, which are also valid `TaskProgress` values.
- */
+/** One progress step as `useTaskStream` consumes it, derived from a `TaskStatusResponse`. */
 export interface TaskProgressEvent {
   status: TaskProgress;
   message: string;

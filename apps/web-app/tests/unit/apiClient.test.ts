@@ -6,12 +6,12 @@ import {
   deleteDeck,
   generateDeck,
   getDeck,
+  getTask,
   isAbortError,
   listDecks,
   saveDeck,
   sendChat,
   setAuthTokenProvider,
-  taskStreamUrl,
 } from '../../app/lib/apiClient';
 import type { DeckGenerateResponse, DeckListResponse } from '../../app/types/api';
 
@@ -306,8 +306,21 @@ describe('saveDeck', () => {
   });
 });
 
-describe('taskStreamUrl', () => {
-  it('points at the proxied v1 stream endpoint', () => {
-    expect(taskStreamUrl('abc-123')).toBe('/api/v1/tasks/abc-123/stream');
+describe('getTask', () => {
+  it('GETs the task by id and returns the parsed body', async () => {
+    const body = { id: 'abc 123', status: 'processing', progress: 'enriching', message: 'Fetching card images...' };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(getTask('abc 123')).resolves.toEqual(body);
+    expect(lastCall().url).toBe('/api/v1/tasks/abc%20123');
+    expect(lastCall().init).toMatchObject({ method: 'GET' });
+  });
+
+  it('threads the abort signal through to fetch', async () => {
+    const controller = new AbortController();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 't', status: 'queued', progress: null, message: null }));
+
+    await getTask('t', { signal: controller.signal });
+    expect(lastCall().init.signal).toBe(controller.signal);
   });
 });

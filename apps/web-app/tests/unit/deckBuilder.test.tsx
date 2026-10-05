@@ -3,8 +3,8 @@
  *
  * Two halves:
  *   1. `deckLogic` — pure, so it is tested directly with no DOM.
- *   2. The screen — rendered against a stubbed `fetch` and a stubbed
- *      `EventSource`, so every branch of the pipeline (all six `TaskProgress`
+ *   2. The screen — rendered against a stubbed `fetch` that also answers the
+ *      task polls, so every branch of the pipeline (all six `TaskProgress`
  *      values, a transport drop, an already-finished task, and `ApiError`)
  *      is reachable without a backend.
  */
@@ -12,8 +12,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TASK_POLL_INTERVAL_MS } from '../../app/hooks/useTaskStream';
 import { setAuthTokenProvider } from '../../app/lib/apiClient';
-import type { CardInDeck, DeckResponse } from '../../app/types/api';
+import type { CardInDeck, DeckResponse, TaskProgress, TaskStatus } from '../../app/types/api';
 import type { UserStatus } from '../../app/context/UserContext';
 import DeckBuilderPage from '../../app/deck-builder/page';
 import {
@@ -314,39 +315,6 @@ describe('buildGeneratePrompt', () => {
    2. The screen
    ========================================================================== */
 
-interface StubSource {
-  url: string;
-  emit: (payload: unknown) => void;
-  drop: () => void;
-  open: () => void;
-  closed: boolean;
-}
-
-const sources: StubSource[] = [];
-
-class StubEventSource {
-  onopen: (() => void) | null = null;
-  onmessage: ((event: MessageEvent<string>) => void) | null = null;
-  onerror: (() => void) | null = null;
-  closed = false;
-
-  constructor(readonly url: string) {
-    sources.push({
-      url,
-      emit: (payload) => this.onmessage?.(new MessageEvent('message', { data: JSON.stringify(payload) })),
-      drop: () => this.onerror?.(),
-      open: () => this.onopen?.(),
-      get closed() {
-        return false;
-      },
-    } as StubSource);
-  }
-
-  close() {
-    this.closed = true;
-  }
-}
-
 function jsonResponse(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -357,15 +325,53 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-let fetchMock: ReturnType<typeof vi.fn>;
+/** Every non-task call: the queued `mockResolvedValueOnce` replies are consumed here, in order. */
+let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
+
+/** URLs of every `GET /api/v1/tasks/:id` poll the page made. */
+const taskPolls: string[] = [];
+
+interface TaskReply {
+  status: TaskStatus;
+  progress: TaskProgress | null;
+  message?: string;
+}
+
+/** What every task poll answers until the test changes it; an `Error` rejects the poll like a network drop. */
+let taskReply: TaskReply | Error = { status: 'queued', progress: null };
+
+function setTask(reply: TaskReply | Error) {
+  taskReply = reply;
+}
+
+/**
+ * Task polls are answered beside `fetchMock` rather than through it, so a poll
+ * can never consume a `mockResolvedValueOnce` queued for the deck or save call
+ * that follows it, and call counts on `fetchMock` stay about the page's own calls.
+ */
+async function routedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = String(input);
+  if (!url.startsWith('/api/v1/tasks/')) return fetchMock(input, init);
+
+  taskPolls.push(url);
+  if (taskReply instanceof Error) throw taskReply;
+  return jsonResponse({ id: 'task-1', message: '', ...taskReply });
+}
+
+/** Lets the next scheduled poll run under fake timers. */
+async function nextPoll() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS);
+  });
+}
 
 beforeEach(() => {
-  sources.length = 0;
+  taskPolls.length = 0;
+  setTask({ status: 'queued', progress: null });
   // Never let a test reach Supabase for a bearer token; the page works signed out.
   setAuthTokenProvider(() => null);
-  fetchMock = vi.fn();
-  vi.stubGlobal('fetch', fetchMock);
-  vi.stubGlobal('EventSource', StubEventSource);
+  fetchMock = vi.fn<typeof fetch>();
+  vi.stubGlobal('fetch', routedFetch);
   pushMock.mockClear();
   userStatus = 'signed-in';
 });
@@ -376,12 +382,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
-
-/** The stream the page opened, once React has run the effect. */
-async function latestSource(): Promise<StubSource> {
-  await waitFor(() => expect(sources.length).toBeGreaterThan(0));
-  return sources[sources.length - 1];
-}
 
 async function describeADeck(text = 'A Rakdos sacrifice deck') {
   fireEvent.change(screen.getByLabelText('Describe your ideal deck'), { target: { value: text } });
@@ -594,41 +594,43 @@ describe('DeckBuilderPage — generation pipeline', () => {
     // AbortSignal is threaded through so unmounting cancels the request.
     expect(init.signal).toBeInstanceOf(AbortSignal);
 
-    const source = await latestSource();
-    expect(source.url).toBe('/api/v1/tasks/task-1/stream');
+    await waitFor(() => expect(taskPolls[0]).toBe('/api/v1/tasks/task-1'));
   });
 
   it('walks the four non-terminal stages in order and never rewinds', async () => {
-    render(<DeckBuilderPage />);
-    await startGeneration();
-    const source = await latestSource();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<DeckBuilderPage />);
+      await startGeneration();
+      await waitFor(() => expect(taskPolls.length).toBeGreaterThan(0));
+      const bar = () => screen.getByRole('progressbar');
 
-    act(() => source.open());
-    const bar = () => screen.getByRole('progressbar');
+      for (const [stage, expected] of [
+        ['processing', 1],
+        ['searching_cards', 2],
+        ['composing_deck', 3],
+        ['enriching', 4],
+      ] as const) {
+        setTask({ status: 'processing', progress: stage, message: `at ${stage}` });
+        await nextPoll();
+        await waitFor(() => expect(bar()).toHaveAttribute('aria-valuenow', String(expected)));
+        expect(screen.getAllByText(`at ${stage}`).length).toBeGreaterThan(0);
+      }
 
-    for (const [status, expected] of [
-      ['processing', 1],
-      ['searching_cards', 2],
-      ['composing_deck', 3],
-      ['enriching', 4],
-    ] as const) {
-      act(() => source.emit({ status, message: `at ${status}` }));
-      await waitFor(() => expect(bar()).toHaveAttribute('aria-valuenow', String(expected)));
-      expect(screen.getAllByText(`at ${status}`).length).toBeGreaterThan(0);
+      // A stale earlier stage from a lagging read must not walk the bar backwards.
+      setTask({ status: 'processing', progress: 'processing', message: 'replay' });
+      await nextPoll();
+      expect(bar()).toHaveAttribute('aria-valuenow', '4');
+    } finally {
+      vi.useRealTimers();
     }
-
-    // A replayed early event after a reconnect must not walk the bar backwards.
-    act(() => source.emit({ status: 'processing', message: 'replay' }));
-    expect(bar()).toHaveAttribute('aria-valuenow', '4');
   });
 
   it('fetches and renders the deck on the terminal completed event', async () => {
+    setTask({ status: 'completed', progress: 'completed', message: 'Deck ready' });
     render(<DeckBuilderPage />);
     await startGeneration();
-    const source = await latestSource();
-
     fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture()));
-    act(() => source.emit({ status: 'completed', message: 'Deck ready' }));
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument());
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/decks/deck-1');
@@ -650,24 +652,19 @@ describe('DeckBuilderPage — generation pipeline', () => {
   });
 
   it('handles a task that had already finished before the client subscribed', async () => {
+    // The very first poll already reads a terminal row, with no stage ever seen.
+    setTask({ status: 'completed', progress: 'completed', message: 'Task already completed' });
     render(<DeckBuilderPage />);
     await startGeneration();
-    const source = await latestSource();
-
-    // The endpoint replays exactly one synthetic terminal event in this case,
-    // with no preceding stage events at all.
     fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture()));
-    act(() => source.emit({ status: 'completed', message: 'Task already completed' }));
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument());
   });
 
   it('shows the backend message when the task itself fails', async () => {
+    setTask({ status: 'failed', progress: 'failed', message: 'Scryfall returned no cards' });
     render(<DeckBuilderPage />);
     await startGeneration();
-    const source = await latestSource();
-
-    act(() => source.emit({ status: 'failed', message: 'Scryfall returned no cards' }));
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'The forge could not finish' })).toBeInTheDocument(),
@@ -685,15 +682,15 @@ describe('DeckBuilderPage — generation pipeline', () => {
       fireEvent.change(screen.getByLabelText('Describe your ideal deck'), {
         target: { value: 'A Rakdos sacrifice deck' },
       });
+      // Every poll fails at the transport, never reaching the task row.
+      setTask(new TypeError('network'));
       fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
       await act(async () => {});
 
       // Exhaust the hook's bounded backoff.
       for (let attempt = 0; attempt <= 5; attempt += 1) {
-        const source = sources[sources.length - 1];
-        act(() => source.drop());
         await act(async () => {
-          vi.advanceTimersByTime(10_000);
+          await vi.advanceTimersByTimeAsync(10_000);
         });
       }
 
@@ -711,11 +708,10 @@ describe('DeckBuilderPage — deck states', () => {
     options: { userStatus?: UserStatus } = {},
   ) {
     if (options.userStatus) userStatus = options.userStatus;
+    setTask({ status: 'completed', progress: 'completed', message: 'done' });
     render(<DeckBuilderPage />);
     await startGeneration();
-    const source = await latestSource();
     fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture(overrides)));
-    act(() => source.emit({ status: 'completed', message: 'done' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   }
 
@@ -733,12 +729,10 @@ describe('DeckBuilderPage — deck states', () => {
   });
 
   it('recovers from an ApiError on GET /decks/{id} and offers a retry', async () => {
+    setTask({ status: 'completed', progress: 'completed', message: 'done' });
     render(<DeckBuilderPage />);
     await startGeneration();
-    const source = await latestSource();
-
     fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'Deck not found' }, 404));
-    act(() => source.emit({ status: 'completed', message: 'done' }));
 
     await waitFor(() => expect(screen.getByText('Deck not found')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
@@ -822,19 +816,19 @@ describe('DeckBuilderPage — deck states', () => {
       // rather than typing a new draft: `buildGeneratePrompt` composes the
       // prompt from the whole transcript, so the already-pushed first turn is
       // enough to make the button clickable again with no further input.
+      // The task row still reads completed, so task-2's first poll finishes it
+      // at once: both replies are queued before the click, in call order.
+      const pollsBefore = taskPolls.length;
       fetchMock.mockResolvedValueOnce(
         jsonResponse({ task_id: 'task-2', deck_id: 'deck-2', status: 'pending' }, 202),
       );
-      fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
-      await waitFor(() => expect(sources.length).toBeGreaterThan(1));
-      const source = sources[sources.length - 1];
-
       fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture({ id: 'deck-2', title: 'Second Deck' })));
-      act(() => source.emit({ status: 'completed', message: 'done' }));
+      fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
       await waitFor(() =>
         expect(screen.getByRole('heading', { name: 'Second Deck' })).toBeInTheDocument(),
       );
+      expect(fetchMock.mock.calls[3][0]).toBe('/api/v1/decks/generate');
+      expect(taskPolls.slice(pollsBefore)).toContain('/api/v1/tasks/task-2');
 
       // Only now let the stale save resolve — it must be a no-op.
       await act(async () => {
