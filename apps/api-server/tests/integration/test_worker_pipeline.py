@@ -20,6 +20,7 @@ from tests.integration.conftest import TEST_DATABASE_URL
 INTENT = {"colors": ["R"], "creature_types": [], "keywords": [], "themes": ["burn"], "strategy": "aggro"}
 COMPOSITION = {
     "title": "Burn Baby Burn",
+    "description": "Cheap burn spells go face\nuntil the opponent is dead.",
     "cards": [
         {"name": "Lightning Bolt", "quantity": 4, "section": "spells"},
         {"name": "Mountain", "quantity": 56, "section": "lands"},
@@ -109,6 +110,7 @@ async def test_pipeline_success_completes_deck(session_factory, llm, fake_card_c
     deck, task = await _load(session_factory, deck_id, task_id)
     assert deck.status == DeckStatus.COMPLETED
     assert deck.title == "Burn Baby Burn"
+    assert deck.description == "Cheap burn spells go face until the opponent is dead."
     assert deck.card_count == 60
     assert deck.colors == ["R"]
     assert deck.completed_at is not None
@@ -265,3 +267,15 @@ async def test_pipeline_defaults_deck_size_to_60_when_omitted(session_factory, l
     await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
 
     assert llm.compose_deck.call_args.args[-1] == 60
+
+
+@respx.mock
+async def test_pipeline_falls_back_to_intent_strategy_for_description(session_factory, llm, fake_card_cache):
+    _mock_scryfall()
+    llm.compose_deck.return_value = {k: v for k, v in COMPOSITION.items() if k != "description"}
+    deck_id, task_id = await _seed(session_factory)
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    deck, _ = await _load(session_factory, deck_id, task_id)
+    assert deck.description == "aggro"

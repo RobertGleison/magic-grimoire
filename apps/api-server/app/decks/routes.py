@@ -176,6 +176,7 @@ def _snapshot_of(source: Deck, user_id: str, version_no: int) -> Deck:
     return Deck(
         id=uuid.uuid4(),
         title=source.title,
+        description=source.description,
         prompt=source.prompt,
         user_id=user_id,
         format=source.format,

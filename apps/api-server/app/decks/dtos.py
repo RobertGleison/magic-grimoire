@@ -37,6 +37,8 @@ class DeckGenerateResponseDTO(BaseModel):
 class DeckResponseDTO(BaseModel):
     id: uuid.UUID
     title: str | None
+    # Short deck idea (sanitized, capped at DESCRIPTION_MAX); None on older decks.
+    description: str | None = None
     prompt: str
     format: str
     colors: list[str] | None

@@ -57,6 +57,13 @@ class Deck(Base):
         nullable=True
     )
 
+    # One or two sentences on the deck idea, written by the composer. Null on
+    # decks forged before it existed; the UI hides the block then.
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
     cards: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True
