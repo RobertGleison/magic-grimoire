@@ -548,6 +548,46 @@ describe('DeckBuilderPage — shell', () => {
   });
 });
 
+describe('DeckBuilderPage — config panel collapse', () => {
+  it('retracts the config to a rail when a generation starts', async () => {
+    render(<DeckBuilderPage />);
+    expect(screen.getByRole('heading', { name: 'Deck Configuration' })).toBeInTheDocument();
+
+    await startGeneration();
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Deck Configuration' })).toBeNull(),
+    );
+    expect(screen.getByRole('button', { name: 'Expand deck configuration' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('reopens from the rail with every selection preserved', async () => {
+    render(<DeckBuilderPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Black' }));
+    await startGeneration(undefined, 'Modern');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Expand deck configuration' })).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand deck configuration' }));
+
+    expect(screen.getByRole('heading', { name: 'Deck Configuration' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Black' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Red' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Modern' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('does not retract when Generate is blocked', () => {
+    render(<DeckBuilderPage />);
+    void describeADeck();
+    fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
+    expect(screen.getByRole('heading', { name: 'Deck Configuration' })).toBeInTheDocument();
+  });
+});
+
 describe('DeckBuilderPage — chat input', () => {
   it('is a wrapping textarea, so a long brief is not typed on one endless line', () => {
     render(<DeckBuilderPage />);

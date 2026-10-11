@@ -28,12 +28,27 @@
      `minmax()` floor would fight that clamp and overflow the grid instead of
      stopping the drag, so the constraint lives in one place. */
   display: grid;
-  grid-template-columns: var(--config-w, 280px) var(--chat-w, 380px) auto minmax(0, 1fr);
+  /* --chat-w fallback is CHAT_WIDTH_DEFAULT in page.tsx: 1.5x the design's 380. */
+  grid-template-columns: var(--config-w, 280px) var(--chat-w, 570px) auto minmax(0, 1fr);
   gap: var(--space-16);
   align-items: start;
   max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-32) var(--page-pad-app);
+  /* The config retracting on Generate slides its column shut rather than
+     snapping, and the freed width eases over to the chat and deck. */
+  transition: grid-template-columns var(--dur-slow) var(--ease);
+}
+
+/* A drag must follow the pointer 1:1 — an eased column would trail it. */
+.workspaceResizing {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace {
+    transition: none;
+  }
 }
 
 /* ---- Splitter (chat <-> deck) -------------------------------------------
