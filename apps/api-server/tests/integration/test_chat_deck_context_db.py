@@ -82,3 +82,18 @@ async def test_deck_still_forging_chats_without_a_deck_block(client, session_fac
 
     assert res.status_code == 200
     assert llm.chat_with_context.call_args.kwargs["deck_context"] is None
+
+
+async def test_selected_cards_reach_the_prompt_as_a_constraint(client, session_factory, llm):
+    deck = await _insert_deck(session_factory)
+    payload = {**_payload(deck.id), "selected_cards": ["lightning bolt", "Black Lotus"]}
+
+    res = await client.post("/api/v1/chat", json=payload, headers=AUTH)
+
+    assert res.status_code == 200
+    deck_context = llm.chat_with_context.call_args.kwargs["deck_context"]
+    selection = deck_context[deck_context.index("Selected cards"):]
+    # Matched to the deck's spelling; a name not in the deck never reaches the prompt.
+    assert "- Lightning Bolt" in selection
+    assert "Black Lotus" not in deck_context
+    assert "ONLY the selected cards" in selection
