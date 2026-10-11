@@ -67,6 +67,12 @@ def test_deck_response_serializes_the_total_from_its_current_cards():
     assert body["cards"][0]["price_eur"] == "0.25"
 
 
+def test_a_trimmed_copy_keeps_the_whole_decks_total():
+    dto = DeckResponseDTO.model_validate(_deck([_card(4, "0.25"), _card(2, "1.00")]))
+    trimmed = dto.model_copy(update={"cards": dto.cards[:1]})
+    assert trimmed.model_dump(mode="json")["total_price_eur"] == "3.00"
+
+
 def test_deck_response_without_cards_has_a_null_total():
     body = DeckResponseDTO.model_validate(_deck(None)).model_dump(mode="json")
     assert body["total_price_eur"] is None
