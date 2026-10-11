@@ -251,6 +251,7 @@ async def test_save_creates_v1_snapshot_and_leaves_the_draft(client, session_fac
             "mana_cost": None,
             "type_line": None,
             "section": "spells",
+            "price_eur": None,
         }
     ]
 
@@ -341,6 +342,21 @@ async def test_update_cards_replaces_the_draft_list(client, session_factory):
         stored = (await db.execute(select(Deck).where(Deck.id == draft.id))).scalar_one()
     assert stored.card_count == 24
     assert stored.cards[1]["name"] == "Mountain"
+
+
+async def test_update_cards_recomputes_the_deck_total(client, session_factory):
+    priced = [{"name": "Shock", "quantity": 4, "section": "spells", "price_eur": "0.25"}]
+    draft = await _insert_deck(session_factory, cards=priced, card_count=4)
+    edited = [*priced, {"name": "Lightning Bolt", "quantity": 2, "section": "spells", "price_eur": "1.50"},
+              {"name": "Mountain", "quantity": 20, "section": "lands"}]
+
+    res = await client.put(f"/api/v1/decks/{draft.id}/cards", json={"cards": edited}, headers=AUTH)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total_price_eur"] == "4.00"
+    assert body["unpriced_card_count"] == 20
+    assert body["cards"][1]["price_eur"] == "1.50"
 
 
 async def test_update_cards_requires_auth(client, session_factory):

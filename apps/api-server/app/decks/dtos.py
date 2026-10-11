@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.core.enums import DeckFormat, DeckStatus, MTGColor
+from app.decks.pricing import deck_price
 from app.decks.tags import normalize_tags
 
 
@@ -18,6 +20,9 @@ class CardInDeckDTO(BaseModel):
     mana_cost: str | None = None
     type_line: str | None = None
     section: str
+    # Scryfall's euro price as a decimal string (MTG-26). None when Scryfall has no
+    # euro price, or on cards enriched before prices were stored.
+    price_eur: str | None = None
 
 
 # Card art is always Scryfall's CDN; anything else in an edited list is refused
@@ -36,6 +41,8 @@ class DeckCardEditDTO(BaseModel):
     image_uri: str | None = Field(default=None, max_length=500)
     mana_cost: str | None = Field(default=None, max_length=100)
     type_line: str | None = Field(default=None, max_length=200)
+    # Same shape as Scryfall's prices.eur; it only ever feeds the owner's own deck total.
+    price_eur: str | None = Field(default=None, pattern=r"^\d{1,7}(\.\d{1,2})?$")
 
     @field_validator("image_uri")
     @classmethod
@@ -95,6 +102,20 @@ class DeckResponseDTO(BaseModel):
     failed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+    # Derived from `cards` at serialization time, so they always match the card list.
+    @computed_field
+    @property
+    def total_price_eur(self) -> Decimal | None:
+        return deck_price(self._card_dicts()).total_eur
+
+    @computed_field
+    @property
+    def unpriced_card_count(self) -> int:
+        return deck_price(self._card_dicts()).unpriced_card_count
+
+    def _card_dicts(self) -> list[dict]:
+        return [card.model_dump(include={"quantity", "price_eur"}) for card in self.cards or []]
 
 
 class DeckListResponseDTO(BaseModel):

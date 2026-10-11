@@ -24,6 +24,7 @@ def _card(name: str, **extra) -> dict:
         "mana_cost": "{R}",
         "type_line": "Instant",
         "image_uris": {"normal": f"https://cards.scryfall.io/normal/{name}.jpg"},
+        "prices": {"eur": "1.50", "eur_foil": None},
         **extra,
     }
 
@@ -74,6 +75,7 @@ async def test_search_by_name_returns_summaries_and_caches(fake_card_cache):
         "image_uri": "https://cards.scryfall.io/normal/Lightning Bolt.jpg",
         "mana_cost": "{R}",
         "type_line": "Instant",
+        "price_eur": "1.50",
     }
     assert second == first
     assert route.call_count == 1  # second read came from the cache
@@ -116,6 +118,20 @@ async def test_search_by_name_raises_on_other_errors(fake_card_cache):
         await scryfall_service.search_cards_by_name("bolt")
 
 
+@respx.mock
+async def test_search_by_name_refetches_cached_results_without_prices(fake_card_cache):
+    key = f"scryfall:search:{urllib.parse.quote(_build_name_query('lightning'))}"
+    fake_card_cache[key] = json.dumps([{"name": "Lightning Bolt", "scryfall_id": "stale"}])
+    route = respx.get(f"{SCRYFALL_BASE}/cards/search").mock(
+        return_value=httpx.Response(200, json={"data": [_card("Lightning Bolt")]})
+    )
+
+    [card] = await scryfall_service.search_cards_by_name("lightning")
+
+    assert route.call_count == 1
+    assert card["price_eur"] == "1.50"
+
+
 # --- GET /cards/search ---
 
 @pytest.fixture
@@ -135,7 +151,7 @@ def test_route_returns_matching_cards(client, monkeypatch):
 
     assert res.status_code == 200
     assert res.json() == {"cards": [{"name": "Lightning Bolt", "scryfall_id": "x", "image_uri": None,
-                                     "mana_cost": "{R}", "type_line": "Instant"}]}
+                                     "mana_cost": "{R}", "type_line": "Instant", "price_eur": None}]}
 
 
 @pytest.mark.parametrize("q", ["", "b", "x" * 101])
