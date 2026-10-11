@@ -12,6 +12,7 @@ from alembic import context
 from app.decks.model import Deck  # noqa: F401
 from app.tasks.model import Task  # noqa: F401
 from app.services.card_cache import CardCacheEntry  # noqa: F401
+from app.profiles.model import Profile  # noqa: F401
 from app.core.database import Base
 
 # this is the Alembic Config object, which provides
