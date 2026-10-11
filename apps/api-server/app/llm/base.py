@@ -87,8 +87,13 @@ class LLMService(ABC):
         format: str | None = None,
         colors: list[str] | None = None,
         strategy: str | None = None,
+        deck_context: str | None = None,
     ) -> str:
         """Chat as the Grimoire, folding optional deck context into the system prompt.
+
+        ``deck_context`` is the pre-formatted "Current deck" block (see
+        ``app.chat.deck_context``) for a forged deck; the config fields are the
+        live panel values, which hold even before any deck exists.
 
         Async and cancellable: cancelling the awaiting task aborts the in-flight
         provider request (see ``_acomplete``). Unwraps the off-topic guard JSON
@@ -104,6 +109,8 @@ class LLMService(ABC):
             parts.append(f"strategy: {strategy}")
         if parts:
             system += f"\n\nCurrent deck context — {'; '.join(parts)}."
+        if deck_context:
+            system += f"\n\n{deck_context}"
 
         reply = await self._awith_retry(
             lambda: self._acomplete(system, messages, max_tokens=512, json_mode=False)

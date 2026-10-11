@@ -186,6 +186,11 @@ export interface ChatRequest {
   /** 1..20 messages. */
   messages: ChatMessage[];
   context?: ChatContext | null;
+  /**
+   * The deck on screen. Only the id is sent: the server reads the caller's own
+   * deck row (404 for anyone else's), so the chat sees the saved cards.
+   */
+  deck_id?: string | null;
 }
 
 export interface ChatResponse {

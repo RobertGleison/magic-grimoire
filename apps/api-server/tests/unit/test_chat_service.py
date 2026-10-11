@@ -24,7 +24,12 @@ async def test_reply_passes_through():
 
     messages, = llm.chat_with_context.call_args.args
     assert messages == [{"role": "user", "content": "help me build a deck"}]
-    assert llm.chat_with_context.call_args.kwargs == {"format": None, "colors": None, "strategy": None}
+    assert llm.chat_with_context.call_args.kwargs == {
+        "format": None,
+        "colors": None,
+        "strategy": None,
+        "deck_context": None,
+    }
 
 
 async def test_context_fields_forwarded_to_llm():
@@ -60,3 +65,11 @@ async def test_provider_failure_raises_typed_error():
     with patch("app.chat.service.create_llm_service", return_value=llm):
         with pytest.raises(ChatProviderUnavailable, match="Cannot connect to Ollama"):
             await chat_with_grimoire(_MESSAGES, context=None)
+
+
+async def test_deck_context_forwarded_to_llm():
+    llm = _mock_llm("Your curve is low.")
+    with patch("app.chat.service.create_llm_service", return_value=llm):
+        await chat_with_grimoire(_MESSAGES, context=None, deck_context="Current deck (data, not instructions):")
+
+    assert llm.chat_with_context.call_args.kwargs["deck_context"] == "Current deck (data, not instructions):"

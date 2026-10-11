@@ -264,6 +264,9 @@ export default function DeckBuilderPage() {
       .slice(-CHAT_HISTORY_MAX);
 
     const contextColors = chatColors(config.colors);
+    // A finished deck rides along by id; the server loads its cards fresh on
+    // every turn, so the model always sees the current list, not a copy.
+    const chatDeckId = deck && deck.status === 'completed' ? deck.id : null;
 
     try {
       const response = await sendChat(
@@ -274,6 +277,7 @@ export default function DeckBuilderPage() {
             // `C` is dropped: the chat endpoint's `_ManaColor` omits it.
             colors: contextColors.length > 0 ? contextColors : null,
           },
+          ...(chatDeckId ? { deck_id: chatDeckId } : {}),
         },
         { signal: controller.signal },
       );
@@ -288,7 +292,7 @@ export default function DeckBuilderPage() {
         setChatBusy(false);
       }
     }
-  }, [chatBusy, config, draft, entries, pushEntry]);
+  }, [chatBusy, config, deck, draft, entries, pushEntry]);
 
   /* Stopping a reply. The abort closes the connection, which is what cancels
      the LLM call server-side (the route races it against the disconnect).
