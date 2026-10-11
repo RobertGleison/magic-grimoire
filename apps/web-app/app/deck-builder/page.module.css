@@ -607,6 +607,58 @@
   gap: var(--space-8);
 }
 
+.generateGate {
+  position: relative;
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+}
+
+.generateGate:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: var(--space-2);
+}
+
+/* Tooltip for a Generate blocked by the config panel. Hidden with
+   visibility, not display, so `aria-describedby` still resolves its text. */
+.generateHint {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-8));
+  z-index: 2;
+  width: max-content;
+  max-width: var(--space-180);
+  padding: var(--space-6) var(--space-8);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--void-2);
+  box-shadow: var(--shadow-2);
+  color: var(--cream);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  text-align: left;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(var(--space-4));
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease), visibility var(--dur);
+  pointer-events: none;
+}
+
+.generateGate:hover .generateHint,
+.generateGate:focus-within .generateHint,
+.generateGate:focus-visible .generateHint {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .generateHint {
+    transition: none;
+    transform: none;
+  }
+}
+
 .buttonSparkle {
   width: var(--space-12);
   height: var(--space-12);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, type FormEvent, type KeyboardEvent } from 'react';
 
 import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
@@ -69,6 +69,11 @@ interface ChatPanelProps {
   generating: boolean;
   /** There is something to generate from — nothing described yet blocks it. */
   canGenerate: boolean;
+  /**
+   * Why Generate is blocked by the config panel, shown as a tooltip on hover
+   * and focus of the disabled button. `null` when the config is complete.
+   */
+  generateBlockedReason?: string | null;
 }
 
 export function ChatPanel({
@@ -80,7 +85,9 @@ export function ChatPanel({
   chatBusy,
   generating,
   canGenerate,
+  generateBlockedReason = null,
 }: ChatPanelProps) {
+  const hintId = useId();
   const listRef = useRef<HTMLOListElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -222,16 +229,31 @@ export function ChatPanel({
             duplicate that also forced two full-width buttons into a column the
             splitter can drag down to 300px, overflowing the panel. */}
         <div className={styles.chatActions}>
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            loading={generating}
-            disabled={generating || !canGenerate}
-            onClick={onGenerate}
+          {/* A disabled button fires no hover or focus events in some browsers,
+              so the wrapper carries them: it joins the tab order only while
+              the config blocks Generate, and owns the tooltip's description. */}
+          <span
+            className={styles.generateGate}
+            tabIndex={generateBlockedReason && !generating ? 0 : undefined}
+            aria-describedby={generateBlockedReason ? hintId : undefined}
           >
-            Generate Deck
-          </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              loading={generating}
+              disabled={generating || !canGenerate}
+              aria-describedby={generateBlockedReason ? hintId : undefined}
+              onClick={onGenerate}
+            >
+              Generate Deck
+            </Button>
+            {generateBlockedReason && !generating && (
+              <span id={hintId} role="tooltip" className={styles.generateHint}>
+                {generateBlockedReason}
+              </span>
+            )}
+          </span>
         </div>
       </form>
     </section>

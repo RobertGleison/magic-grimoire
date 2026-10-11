@@ -239,7 +239,7 @@ export function ConfigPanel({
         </div>
         <p className={styles.configHint}>
           {config.colors.length === 0
-            ? 'Any colours — the forge decides.'
+            ? 'Pick at least one colour to forge a deck.'
             : config.colors.map((color) => MANA_COLOR_NAMES[color]).join(' · ')}
         </p>
       </div>
@@ -263,6 +263,9 @@ export function ConfigPanel({
             </button>
           ))}
         </div>
+        {config.format === null && (
+          <p className={styles.configHint}>Pick a format to forge a deck.</p>
+        )}
       </div>
 
       {/* ---- Card count (10:106) --------------------------------------- */}
