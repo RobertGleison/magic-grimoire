@@ -52,6 +52,11 @@ export interface CardInDeck {
   quantity: number;
   scryfall_id: string | null;
   image_uri: string | null;
+  /**
+   * Scryfall `art_crop` — the artwork alone, no frame or rules text. Optional:
+   * decks enriched before the backend stored it don't carry the key.
+   */
+  art_crop_uri?: string | null;
   mana_cost: string | null;
   type_line: string | null;
   section: string;

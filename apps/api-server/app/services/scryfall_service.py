@@ -26,6 +26,33 @@ def _sanitize_creature_type(raw: str) -> str | None:
     return " ".join(words) if words else None
 
 
+# Scryfall's image CDN serves every size of a printing under the same path,
+# differing only in the size segment: /normal/... vs /art_crop/...
+_SCRYFALL_CDN_PREFIX = "https://cards.scryfall.io/"
+
+
+def art_crop_from_normal(image_uri: str | None) -> str | None:
+    """The art-crop URL for a Scryfall `normal` image URL, or None if it is not one.
+
+    Lets decks enriched before `art_crop_uri` was stored get a cover image
+    without re-fetching anything.
+    """
+    if not image_uri or not image_uri.startswith(_SCRYFALL_CDN_PREFIX):
+        return None
+    rest = image_uri[len(_SCRYFALL_CDN_PREFIX):]
+    if not rest.startswith("normal/"):
+        return None
+    return f"{_SCRYFALL_CDN_PREFIX}art_crop/{rest[len('normal/'):]}"
+
+
+def _image_uri(card: dict, size: str) -> str | None:
+    """`image_uris[size]`, falling back to the front face of a double-faced card."""
+    return (
+        card.get("image_uris", {}).get(size)
+        or (card.get("card_faces", [{}])[0].get("image_uris", {}).get(size))
+    )
+
+
 async def _get(client: httpx.AsyncClient, url: str, params: dict | None = None) -> dict:
     """Perform a GET request with rate limiting."""
     await asyncio.sleep(REQUEST_DELAY)
@@ -104,10 +131,7 @@ async def search_cards(intent: dict) -> list[dict]:
                         "type_line": card.get("type_line", ""),
                         "oracle_text": card.get("oracle_text", ""),
                         "colors": card.get("colors", []),
-                        "image_uri": (
-                            card.get("image_uris", {}).get("normal")
-                            or (card.get("card_faces", [{}])[0].get("image_uris", {}).get("normal"))
-                        ),
+                        "image_uri": _image_uri(card, "normal"),
                     })
 
             has_more = data.get("has_more", False)
@@ -120,7 +144,7 @@ async def search_cards(intent: dict) -> list[dict]:
 async def enrich_cards(cards: list[dict]) -> list[dict]:
     """Enrich a list of {name, quantity, section} dicts with Scryfall data.
 
-    Fetches scryfall_id, image_uri, mana_cost, type_line for each card.
+    Fetches scryfall_id, image_uri, art_crop_uri, mana_cost, type_line for each card.
     Results are cached per card name for 24 hours.
     """
     enriched: list[dict] = []
@@ -147,16 +171,21 @@ async def enrich_cards(cards: list[dict]) -> list[dict]:
                     # Cache only the fields we need
                     card_data = {
                         "scryfall_id": card_data.get("id"),
-                        "image_uri": (
-                            card_data.get("image_uris", {}).get("normal")
-                            or (card_data.get("card_faces", [{}])[0].get("image_uris", {}).get("normal"))
-                        ),
+                        "image_uri": _image_uri(card_data, "normal"),
+                        "art_crop_uri": _image_uri(card_data, "art_crop"),
                         "mana_cost": card_data.get("mana_cost", ""),
                         "type_line": card_data.get("type_line", ""),
                     }
                     await card_cache.set(cache_key, json.dumps(card_data), ttl=CACHE_TTL)
                 except httpx.HTTPStatusError:
                     card_data = {}
+
+            # Entries cached before art_crop_uri was stored only carry the
+            # normal image; derive the crop from it rather than refetching.
+            if not card_data.get("art_crop_uri"):
+                derived = art_crop_from_normal(card_data.get("image_uri"))
+                if derived:
+                    card_data["art_crop_uri"] = derived
 
             enriched_card = {**card, **card_data}
             enriched.append(enriched_card)

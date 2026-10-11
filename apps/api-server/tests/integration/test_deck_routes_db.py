@@ -238,6 +238,7 @@ async def test_save_creates_v1_snapshot_and_leaves_the_draft(client, session_fac
             "quantity": 4,
             "scryfall_id": None,
             "image_uri": None,
+            "art_crop_uri": None,
             "mana_cost": None,
             "type_line": None,
             "section": "spells",

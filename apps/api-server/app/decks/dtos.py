@@ -11,6 +11,9 @@ class CardInDeckDTO(BaseModel):
     quantity: int
     scryfall_id: str | None = None
     image_uri: str | None = None
+    # Scryfall's `art_crop`: the artwork alone, no frame or rules text. Used
+    # as the deck's cover. Absent on decks enriched before it was stored.
+    art_crop_uri: str | None = None
     mana_cost: str | None = None
     type_line: str | None = None
     section: str
