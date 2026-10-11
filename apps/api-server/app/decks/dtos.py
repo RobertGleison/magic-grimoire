@@ -20,6 +20,42 @@ class CardInDeckDTO(BaseModel):
     section: str
 
 
+# Card art is always Scryfall's CDN; anything else in an edited list is refused
+# rather than rendered as an <img> from an arbitrary host.
+_SCRYFALL_IMAGE_PREFIX = "https://cards.scryfall.io/"
+
+
+class DeckCardEditDTO(BaseModel):
+    """One entry of a hand-edited deck list (PUT /decks/{id}/cards)."""
+
+    name: str = Field(..., min_length=1, max_length=200)
+    quantity: int = Field(..., ge=1, le=250)
+    # Free-form like CardInDeckDTO.section: the composer's own values round-trip.
+    section: str = Field(..., min_length=1, max_length=50)
+    scryfall_id: str | None = Field(default=None, max_length=64)
+    image_uri: str | None = Field(default=None, max_length=500)
+    mana_cost: str | None = Field(default=None, max_length=100)
+    type_line: str | None = Field(default=None, max_length=200)
+
+    @field_validator("image_uri")
+    @classmethod
+    def _scryfall_art_only(cls, value: str | None) -> str | None:
+        if value is not None and not value.startswith(_SCRYFALL_IMAGE_PREFIX):
+            raise ValueError("image_uri must be a Scryfall card image")
+        return value
+
+
+class DeckCardsUpdateDTO(BaseModel):
+    cards: list[DeckCardEditDTO] = Field(..., min_length=1, max_length=250)
+
+    @field_validator("cards")
+    @classmethod
+    def _total_within_limit(cls, cards: list[DeckCardEditDTO]) -> list[DeckCardEditDTO]:
+        if sum(card.quantity for card in cards) > 250:
+            raise ValueError("A deck can hold at most 250 cards")
+        return cards
+
+
 class DeckGenerateRequestDTO(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
     # Both required: the builder blocks Generate until a format and at least one
