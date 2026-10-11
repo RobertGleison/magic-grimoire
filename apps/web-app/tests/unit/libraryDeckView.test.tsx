@@ -49,6 +49,7 @@ function makeDeck(overrides: Partial<DeckResponse> = {}): DeckResponse {
     card_count: 4,
     version_no: 1,
     is_public: true,
+    tags: [],
     is_owner: true,
     status: 'completed',
     error_message: null,
@@ -112,8 +113,11 @@ describe('/library/deck read-only view (MTG-15)', () => {
     // A saved snapshot cannot be re-saved, so the builder's Save is omitted.
     expect(screen.queryByRole('button', { name: 'Save to Library' })).toBeNull();
 
-    // No chat surface: no message box, and the chat API is never touched.
-    expect(screen.queryByRole('textbox')).toBeNull();
+    // No chat surface: no conversation panel or message box, and the chat
+    // API is never touched. (The only textbox is the owner's tag field.)
+    expect(screen.queryByRole('region', { name: 'Deck conversation' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: /describe your ideal deck/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
     expect(mocks.sendChat).not.toHaveBeenCalled();
 
     expect(screen.getByRole('link', { name: /back to library/i })).toHaveAttribute('href', '/library');
@@ -124,7 +128,7 @@ describe('/library/deck read-only view (MTG-15)', () => {
     visit('?id=someone-elses');
     render(<LibraryDeckPage />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not yours to view/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/does not exist, or it is private/i);
     expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
   });
 

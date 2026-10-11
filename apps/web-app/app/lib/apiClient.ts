@@ -6,6 +6,8 @@ import type {
   DeckListParams,
   DeckListResponse,
   DeckResponse,
+  ExploreDeckListResponse,
+  ExploreParams,
   TaskStatusResponse,
 } from '../types/api';
 import { getAccessToken } from './supabase';
@@ -109,9 +111,10 @@ export interface RequestOptions {
 }
 
 interface RequestSpec extends RequestOptions {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
-  query?: Record<string, string | number | undefined>;
+  /** An array value repeats the key: `{ tags: ['a', 'b'] }` → `tags=a&tags=b`. */
+  query?: Record<string, string | number | readonly string[] | undefined>;
   body?: unknown;
 }
 
@@ -121,7 +124,9 @@ function buildUrl(path: string, query?: RequestSpec['query']): string {
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) params.set(key, String(value));
+    if (value === undefined) continue;
+    if (Array.isArray(value)) value.forEach((item) => params.append(key, String(item)));
+    else params.set(key, String(value));
   }
   const qs = params.toString();
   return qs ? `${url}?${qs}` : url;
@@ -270,6 +275,46 @@ export function setDeckVisibility(
     method: 'PATCH',
     path: `/decks/${encodeURIComponent(deckId)}/visibility`,
     body: { is_public: isPublic },
+  });
+}
+
+/**
+ * `PUT /api/v1/decks/{deck_id}/tags` — replace the deck's tags. The server
+ * normalises them and 422s on too many / too long. Requires auth and ownership.
+ */
+export function setDeckTags(
+  deckId: string,
+  tags: string[],
+  options: RequestOptions = {},
+): Promise<DeckResponse> {
+  return request<DeckResponse>({
+    ...options,
+    method: 'PUT',
+    path: `/decks/${encodeURIComponent(deckId)}/tags`,
+    body: { tags },
+  });
+}
+
+/**
+ * `GET /api/v1/explore/decks` — public saved decks, newest first, cursor-paged.
+ * No auth needed (a token, when present, is sent but ignored).
+ */
+export function exploreDecks(
+  params: ExploreParams = {},
+  options: RequestOptions = {},
+): Promise<ExploreDeckListResponse> {
+  return request<ExploreDeckListResponse>({
+    ...options,
+    method: 'GET',
+    path: '/explore/decks',
+    query: {
+      q: params.q || undefined,
+      colors: params.colors?.length ? params.colors : undefined,
+      tags: params.tags?.length ? params.tags : undefined,
+      format: params.format,
+      cursor: params.cursor,
+      limit: params.limit,
+    },
   });
 }
 

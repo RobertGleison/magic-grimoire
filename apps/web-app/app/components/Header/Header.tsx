@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/deck-builder', label: 'Deck Builder' },
   { href: '/library', label: 'My Decks' },
+  { href: '/explore', label: 'Explore' },
   { href: '/pricing', label: 'Pricing' },
 ] as const;
 

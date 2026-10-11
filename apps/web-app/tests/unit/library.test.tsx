@@ -69,6 +69,7 @@ function makeDeck(overrides: Partial<DeckResponse> = {}): DeckResponse {
     card_count: 60,
     version_no: null,
     is_public: true,
+    tags: [],
     is_owner: true,
     status: 'completed',
     error_message: null,

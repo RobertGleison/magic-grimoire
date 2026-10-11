@@ -125,6 +125,12 @@ function unknownColorCount(deck: DeckResponse): number {
 interface DeckSummaryCardProps {
   deck: DeckResponse;
   /**
+   * `library` (default) is the owner's tile: status and timestamps. `feed` is
+   * the community explore tile: the deck's prompt as a short description in
+   * place of the owner-facing stat block.
+   */
+  variant?: 'library' | 'feed';
+  /**
    * Where clicking the tile goes — the read-only deck view. Present ⇒ the
    * whole tile is a link (the title's anchor is stretched over the card), and
    * the footer actions sit above it so they never trigger it.
@@ -148,6 +154,7 @@ interface DeckSummaryCardProps {
 
 export function DeckSummaryCard({
   deck,
+  variant = 'library',
   viewHref,
   editHref,
   onDelete,
@@ -173,6 +180,9 @@ export function DeckSummaryCard({
   );
 
   const href = editHref ?? `/deck-builder?deck=${encodeURIComponent(deck.id)}`;
+  // In the community feed, Edit is only for the deck's own author.
+  const showEdit = variant === 'library' || deck.is_owner;
+  const showFooter = showEdit || Boolean(onToggleVisibility) || Boolean(onDelete);
 
   return (
     <Card
@@ -240,58 +250,76 @@ export function DeckSummaryCard({
         </span>
       </div>
 
-      <dl className="deck-summary-stats">
-        <div className="deck-summary-stat">
-          <dt className="deck-summary-stat-label">Status</dt>
-          <dd className="deck-summary-stat-value">
-            <Badge variant={deck.status} size="sm">
-              {STATUS_LABELS[deck.status]}
-            </Badge>
-          </dd>
-        </div>
-        <div className="deck-summary-stat">
-          <dt className="deck-summary-stat-label">Synthesized</dt>
-          <dd className="deck-summary-stat-value">{synthesized ?? '—'}</dd>
-        </div>
-        <div className="deck-summary-stat deck-summary-stat-quiet">
-          <dt className="deck-summary-stat-label">{settledLabel}</dt>
-          <dd className="deck-summary-stat-value">{settled ?? '—'}</dd>
-        </div>
-      </dl>
+      {deck.tags?.length ? (
+        <ul className="deck-summary-tags" aria-label="Tags">
+          {deck.tags.map((tag) => (
+            <li key={tag} className="deck-summary-tag">
+              {tag}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-      {deck.error_message ? (
+      {variant === 'feed' ? (
+        <p className="deck-summary-description">{deck.prompt}</p>
+      ) : (
+        <dl className="deck-summary-stats">
+          <div className="deck-summary-stat">
+            <dt className="deck-summary-stat-label">Status</dt>
+            <dd className="deck-summary-stat-value">
+              <Badge variant={deck.status} size="sm">
+                {STATUS_LABELS[deck.status]}
+              </Badge>
+            </dd>
+          </div>
+          <div className="deck-summary-stat">
+            <dt className="deck-summary-stat-label">Synthesized</dt>
+            <dd className="deck-summary-stat-value">{synthesized ?? '—'}</dd>
+          </div>
+          <div className="deck-summary-stat deck-summary-stat-quiet">
+            <dt className="deck-summary-stat-label">{settledLabel}</dt>
+            <dd className="deck-summary-stat-value">{settled ?? '—'}</dd>
+          </div>
+        </dl>
+      )}
+
+      {variant === 'library' && deck.error_message ? (
         <p className="deck-summary-error">{deck.error_message}</p>
       ) : null}
 
-      <footer className="deck-summary-actions">
-        <Button
-          href={isReady ? href : undefined}
-          variant="secondary"
-          size="xs"
-          disabled={!isReady || busy}
-        >
-          Edit
-        </Button>
-        {onToggleVisibility ? (
-          <VisibilityToggle
-            isPublic={deck.is_public}
-            onToggle={() => onToggleVisibility(deck)}
-            disabled={busy}
-            deckName={title}
-          />
-        ) : null}
-        {onDelete ? (
-          <Button
-            variant="danger"
-            size="xs"
-            disabled={busy}
-            onClick={() => onDelete(deck)}
-            aria-label={`Dissolve ${title}`}
-          >
-            Dissolve
-          </Button>
-        ) : null}
-      </footer>
+      {showFooter ? (
+        <footer className="deck-summary-actions">
+          {showEdit ? (
+            <Button
+              href={isReady ? href : undefined}
+              variant="secondary"
+              size="xs"
+              disabled={!isReady || busy}
+            >
+              Edit
+            </Button>
+          ) : null}
+          {onToggleVisibility ? (
+            <VisibilityToggle
+              isPublic={deck.is_public}
+              onToggle={() => onToggleVisibility(deck)}
+              disabled={busy}
+              deckName={title}
+            />
+          ) : null}
+          {onDelete ? (
+            <Button
+              variant="danger"
+              size="xs"
+              disabled={busy}
+              onClick={() => onDelete(deck)}
+              aria-label={`Dissolve ${title}`}
+            >
+              Dissolve
+            </Button>
+          ) : null}
+        </footer>
+      ) : null}
     </Card>
   );
 }
