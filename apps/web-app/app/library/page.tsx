@@ -349,6 +349,7 @@ export default function LibraryPage() {
                       <li key={deck.id} className={styles.gridItem}>
                         <DeckSummaryCard
                           deck={deck}
+                          viewHref={`/library/deck?id=${encodeURIComponent(deck.id)}`}
                           busy={pendingDelete?.id === deck.id && deleteState.kind === 'deleting'}
                           onDelete={setPendingDelete}
                         />

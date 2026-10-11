@@ -1,0 +1,59 @@
+/* ==========================================================================
+   Read-only deck view. The cards, analytics and their own styles come from
+   the deck builder's `DeckResultsPanel`; this file only frames the page.
+   ========================================================================== */
+
+.page {
+  width: 100%;
+  padding: var(--space-40) var(--page-pad) var(--space-80);
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+}
+
+.centered {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-80) 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-64) var(--space-32);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--void-2);
+  text-align: center;
+}
+
+.panelTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-7xl);
+  font-weight: 400;
+  color: var(--cream);
+}
+
+.panelBody {
+  max-width: 52ch;
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-loose);
+  color: var(--muted);
+}

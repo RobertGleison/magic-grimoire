@@ -37,6 +37,44 @@
   box-shadow: var(--shadow-2);
 }
 
+/* ---- Whole-tile link ---------------------------------------------------
+   The title's anchor is stretched over the card ("stretched link"), so the
+   tile is one real link — keyboard focusable, announced by its title —
+   without nesting the footer buttons inside an <a>. The actions are lifted
+   above the overlay, so clicking Edit or Dissolve never opens the deck. */
+
+.deck-summary-clickable {
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.deck-summary-clickable:hover {
+  border-color: var(--accent);
+}
+
+.deck-summary-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.deck-summary-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--radius-lg);
+}
+
+/* The ring belongs on the tile the overlay covers, not on the clipped title. */
+.deck-summary-link:focus-visible {
+  outline: none;
+}
+
+.deck-summary-link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---- Heading (9:54) ------------------------------------------------------ */
 
 .deck-summary-head {
@@ -214,6 +252,8 @@
 /* ---- Actions (9:74) ------------------------------------------------------ */
 
 .deck-summary-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;

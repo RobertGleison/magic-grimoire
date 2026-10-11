@@ -220,10 +220,13 @@ interface DeckResultsPanelProps {
   onCopyLink: () => void;
   /** Transient confirmation for whichever action last ran. */
   actionNote?: string;
-  /** Writes the deck to the library as a new version. */
-  onSave: () => void;
+  /**
+   * Writes the deck to the library as a new version. Omit (read-only views of
+   * an already-saved deck) to hide the action.
+   */
+  onSave?: () => void;
   /** What that save is currently doing. */
-  saveState: SaveState;
+  saveState?: SaveState;
 }
 
 export function DeckResultsPanel({
@@ -233,7 +236,7 @@ export function DeckResultsPanel({
   onCopyLink,
   actionNote = '',
   onSave,
-  saveState,
+  saveState = { kind: 'idle' },
 }: DeckResultsPanelProps) {
   const [view, setView] = useState<DeckView>('grid');
   const { preview, hoverProps } = useCardHoverPreview();
@@ -259,15 +262,17 @@ export function DeckResultsPanel({
         </div>
 
         <div className={styles.deckActions}>
-          <Button
-            variant="primary"
-            size="xs"
-            loading={saveState.kind === 'saving'}
-            disabled={deck.status !== 'completed' || saveState.kind === 'saving'}
-            onClick={onSave}
-          >
-            Save to Library
-          </Button>
+          {onSave ? (
+            <Button
+              variant="primary"
+              size="xs"
+              loading={saveState.kind === 'saving'}
+              disabled={deck.status !== 'completed' || saveState.kind === 'saving'}
+              onClick={onSave}
+            >
+              Save to Library
+            </Button>
+          ) : null}
           <Button variant="subtle" size="xs" className={styles.goldButton} onClick={onCopyList}>
             Copy List
           </Button>
