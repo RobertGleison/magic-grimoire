@@ -17,7 +17,15 @@ import { Button } from '../components/Button/Button';
 import { Spinner } from '../components/Spinner/Spinner';
 import { useUser } from '../context/UserContext';
 import { useTaskStream } from '../hooks/useTaskStream';
-import { ApiError, generateDeck, getDeck, isAbortError, saveDeck, sendChat } from '../lib/apiClient';
+import {
+  ApiError,
+  cancelTask,
+  generateDeck,
+  getDeck,
+  isAbortError,
+  saveDeck,
+  sendChat,
+} from '../lib/apiClient';
 import { resolveNextPath } from '../login/authShared';
 import type { ChatMessage, DeckResponse } from '../types/api';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
@@ -125,6 +133,13 @@ function clampChatWidth(width: number, workspace: HTMLElement | null, configWidt
   return Math.round(Math.min(Math.max(width, CHAT_WIDTH_MIN), ceiling));
 }
 
+/**
+ * Where a cancel stands. `cancelling` covers both the `POST /tasks/:id/cancel`
+ * round trip and a cancel pressed before the generate request has returned a
+ * task id; `cancelled` is the settled outcome the results column shows.
+ */
+type CancelState = 'idle' | 'cancelling' | 'cancelled';
+
 function errorText(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
@@ -151,6 +166,7 @@ export default function DeckBuilderPage() {
   const [pageError, setPageError] = useState('');
   const [actionNote, setActionNote] = useState('');
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  const [cancelState, setCancelState] = useState<CancelState>('idle');
 
   const stream = useTaskStream(taskId);
 
@@ -169,6 +185,8 @@ export default function DeckBuilderPage() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   /** One save per `?save=1` arrival, however many times the effect re-runs. */
   const autoSaved = useRef(false);
+  /** Cancel was pressed before `POST /decks/generate` answered with a task id. */
+  const cancelPending = useRef(false);
 
   useEffect(
     () => () => {
@@ -284,6 +302,48 @@ export default function DeckBuilderPage() {
     }
   }, [chatBusy, config, draft, entries, pushEntry]);
 
+  const note = useCallback((text: string) => {
+    setActionNote(text);
+    window.setTimeout(() => setActionNote(''), 4000);
+  }, []);
+
+  /* -------------------------------------------------------------- cancel */
+
+  /**
+   * `POST /tasks/:id/cancel`. The server marks the task and deck `cancelled`
+   * and the pipeline stops at its next stage boundary without saving a deck,
+   * so on success the page simply returns to the config state. A 409 means the
+   * forge beat the cancel to the finish: polling carries on and the finished
+   * (or failed) deck is shown as usual.
+   */
+  const requestCancel = useCallback(
+    async (id: string) => {
+      try {
+        await cancelTask(id);
+      } catch (error) {
+        setCancelState('idle');
+        if (error instanceof ApiError && error.status === 409) {
+          note('Too late to cancel — the forge already finished.');
+        } else {
+          note(errorText(error, 'Could not cancel. The forge is still running.'));
+        }
+        return;
+      }
+      generateAbort.current?.abort();
+      deckAbort.current?.abort();
+      setSubmitting(false);
+      setFetchingDeck(false);
+      // Dropping the ids stops the polling through the hook's own cleanup.
+      setTaskId(null);
+      setDeckId(null);
+      setDeck(null);
+      setPageError('');
+      setConfigCollapsed(false);
+      setCancelState('cancelled');
+    },
+    [note],
+  );
+
   /* ------------------------------------------------------------ generate */
 
   const userTurns = useMemo(
@@ -296,7 +356,14 @@ export default function DeckBuilderPage() {
     [userTurns, draft, config],
   );
 
-  const streaming = stream.phase === 'connecting' || stream.phase === 'streaming';
+  // A task id the hook has not subscribed to yet (its effect runs after the
+  // render that set it) is already a live generation; without this the panel
+  // flashes back to "Nothing forged yet" for a frame between request and poll,
+  // taking the Cancel button with it.
+  const streaming =
+    stream.phase === 'connecting' ||
+    stream.phase === 'streaming' ||
+    (taskId !== null && stream.phase === 'idle');
   const generating = submitting || streaming;
   const configReady = isDeckConfigReady(config);
 
@@ -327,6 +394,8 @@ export default function DeckBuilderPage() {
     setDeck(null);
     setTaskId(null);
     setDeckId(null);
+    setCancelState('idle');
+    cancelPending.current = false;
     announced.current = null;
 
     generateAbort.current?.abort();
@@ -348,26 +417,44 @@ export default function DeckBuilderPage() {
       if (controller.signal.aborted) return;
       setDeckId(response.deck_id);
       setTaskId(response.task_id);
+      // Cancel was pressed while this request was in flight: the task exists
+      // server-side now, so cancel it rather than let it run unwatched.
+      if (cancelPending.current) {
+        cancelPending.current = false;
+        void requestCancel(response.task_id);
+      }
     } catch (error) {
       if (isAbortError(error)) return;
+      cancelPending.current = false;
+      setCancelState('idle');
       const message = errorText(error, 'The forge refused the request.');
       setPageError(message);
       pushEntry('error', message);
     } finally {
       if (!controller.signal.aborted) setSubmitting(false);
     }
-  }, [config, configCollapsed, draft, generating, prompt, pushEntry]);
+  }, [config, configCollapsed, draft, generating, prompt, pushEntry, requestCancel]);
 
   const handleCancel = useCallback(() => {
-    generateAbort.current?.abort();
-    deckAbort.current?.abort();
-    setSubmitting(false);
-    setFetchingDeck(false);
-    // Dropping the task id stops the polling through the hook's own
-    // cleanup; the server keeps building, and `?deck=` still recovers it.
-    setTaskId(null);
-    setPageError('Generation stopped. The forge may still finish on the server.');
-  }, []);
+    if (cancelState === 'cancelling') return;
+    setCancelState('cancelling');
+    // The generate request is not aborted: it may already have created the
+    // task, and an aborted response would leave that task running with no id
+    // to cancel it by. Its handler sees the flag and cancels instead.
+    if (!taskId) {
+      cancelPending.current = true;
+      return;
+    }
+    void requestCancel(taskId);
+  }, [cancelState, requestCancel, taskId]);
+
+  // Cancelled elsewhere (another tab): the poll ends on `cancelled`, so the
+  // page lands in the same place its own cancel would have taken it.
+  useEffect(() => {
+    if (stream.phase !== 'cancelled') return;
+    setConfigCollapsed(false);
+    setCancelState('cancelled');
+  }, [stream.phase]);
 
   /* -------------------------------------------------------------- layout */
 
@@ -428,11 +515,6 @@ export default function DeckBuilderPage() {
   );
 
   /* ------------------------------------------------------------- actions */
-
-  const note = useCallback((text: string) => {
-    setActionNote(text);
-    window.setTimeout(() => setActionNote(''), 4000);
-  }, []);
 
   const handleSave = useCallback(async () => {
     if (!deck || deck.status !== 'completed') return;
@@ -566,7 +648,12 @@ export default function DeckBuilderPage() {
 
       <div className={styles.resultsColumn}>
         {generating ? (
-          <GenerationProgress state={stream} onCancel={handleCancel} />
+          <GenerationProgress
+            state={stream}
+            onCancel={handleCancel}
+            cancelling={cancelState === 'cancelling'}
+            note={actionNote}
+          />
         ) : stream.phase === 'failed' ? (
           <div className={styles.errorPanel} role="alert">
             <h2 className={styles.errorTitle}>
@@ -588,6 +675,14 @@ export default function DeckBuilderPage() {
                 Try again
               </Button>
             </div>
+          </div>
+        ) : cancelState === 'cancelled' ? (
+          <div className={styles.emptyPanel} role="status">
+            <h2 className={styles.emptyTitle}>Generation cancelled</h2>
+            <p className={styles.emptyBody}>
+              Nothing was saved. Adjust the colours, format or brief on the left, then press
+              Generate Deck again.
+            </p>
           </div>
         ) : fetchingDeck ? (
           <div className={styles.emptyPanel}>

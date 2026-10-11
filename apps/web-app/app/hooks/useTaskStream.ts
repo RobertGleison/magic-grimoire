@@ -20,6 +20,7 @@ export const TASK_STAGE_ORDER: Record<TaskProgress, number> = {
   enriching: 4,
   completed: 5,
   failed: 5,
+  cancelled: 5,
 };
 
 /** Number of non-terminal stages, for progress indicators. */
@@ -32,7 +33,7 @@ function isTaskProgress(value: unknown): value is TaskProgress {
 }
 
 export function isTerminalProgress(progress: TaskProgress): boolean {
-  return progress === 'completed' || progress === 'failed';
+  return progress === 'completed' || progress === 'failed' || progress === 'cancelled';
 }
 
 /** `0` before the first event, then `1..TASK_STAGE_COUNT`, then `TASK_STAGE_COUNT` once terminal. */
@@ -48,7 +49,10 @@ export function taskStageIndex(progress: TaskProgress | null): number {
  * `progress` is the stage the pipeline last wrote.
  */
 export function taskProgressEventFrom(task: TaskStatusResponse): TaskProgressEvent | null {
-  const status = task.status === 'completed' || task.status === 'failed' ? task.status : task.progress;
+  const status =
+    task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled'
+      ? task.status
+      : task.progress;
   if (!isTaskProgress(status)) return null;
   return { status, message: task.message ?? '' };
 }
@@ -80,6 +84,7 @@ export type TaskStreamState =
       message: string;
     }
   | { phase: 'completed'; taskId: string; progress: 'completed'; message: string }
+  | { phase: 'cancelled'; taskId: string; progress: 'cancelled'; message: string }
   | { phase: 'failed'; taskId: string; progress: 'failed' | null; message: string; reason: TaskStreamFailure };
 
 export type TaskStreamAction =
@@ -125,10 +130,10 @@ export function reconnectDelay(attempt: number): number {
 }
 
 /** The two states from which no further transition is possible. */
-export type TerminalTaskStreamState = Extract<TaskStreamState, { phase: 'completed' | 'failed' }>;
+export type TerminalTaskStreamState = Extract<TaskStreamState, { phase: 'completed' | 'failed' | 'cancelled' }>;
 
 function isTerminalState(state: TaskStreamState): state is TerminalTaskStreamState {
-  return state.phase === 'completed' || state.phase === 'failed';
+  return state.phase === 'completed' || state.phase === 'failed' || state.phase === 'cancelled';
 }
 
 /**
@@ -161,6 +166,10 @@ export function taskStreamReducer(state: TaskStreamState, action: TaskStreamActi
       }
       if (status === 'failed') {
         return { phase: 'failed', taskId: state.taskId, progress: 'failed', message, reason: 'task' };
+      }
+      // Cancelled server-side (by this tab or another); the poll stops like any terminal.
+      if (status === 'cancelled') {
+        return { phase: 'cancelled', taskId: state.taskId, progress: 'cancelled', message };
       }
       // Stages only ever move forward — a replay after a reconnect, or an event
       // that arrives late, must not walk the progress bar backwards.

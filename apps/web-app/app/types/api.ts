@@ -13,10 +13,10 @@
 
 /* ------------------------------------------------------------------ enums */
 
-export const DECK_STATUSES = ['pending', 'processing', 'completed', 'failed'] as const;
+export const DECK_STATUSES = ['pending', 'processing', 'completed', 'failed', 'cancelled'] as const;
 export type DeckStatus = (typeof DECK_STATUSES)[number];
 
-export const TASK_STATUSES = ['queued', 'processing', 'completed', 'failed'] as const;
+export const TASK_STATUSES = ['queued', 'processing', 'completed', 'failed', 'cancelled'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export const TASK_PROGRESS_VALUES = [
@@ -26,6 +26,7 @@ export const TASK_PROGRESS_VALUES = [
   'enriching',
   'completed',
   'failed',
+  'cancelled',
 ] as const;
 export type TaskProgress = (typeof TASK_PROGRESS_VALUES)[number];
 
