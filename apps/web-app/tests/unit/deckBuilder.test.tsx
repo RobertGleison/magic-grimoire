@@ -374,7 +374,8 @@ function setTask(reply: TaskReply | Error) {
  */
 async function routedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = String(input);
-  if (!url.startsWith('/api/v1/tasks/')) return fetchMock(input, init);
+  // `POST /tasks/:id/cancel` is a page action, not a poll, so it goes through fetchMock.
+  if (!url.startsWith('/api/v1/tasks/') || url.endsWith('/cancel')) return fetchMock(input, init);
 
   taskPolls.push(url);
   if (taskReply instanceof Error) throw taskReply;
@@ -926,6 +927,98 @@ describe('DeckBuilderPage — generation pipeline', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('DeckBuilderPage — cancel generation', () => {
+  /** fetchMock calls to a given URL, in order. */
+  const callsTo = (url: string) => fetchMock.mock.calls.filter(([called]) => String(called) === url);
+
+  it('cancels the task server-side and returns to the config state', async () => {
+    setTask({ status: 'processing', progress: 'composing_deck', message: 'Building your deck...' });
+    render(<DeckBuilderPage />);
+    await startGeneration();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument());
+    // Generating retracted the config panel.
+    expect(screen.queryByRole('heading', { name: 'Deck Configuration' })).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 'task-1', status: 'cancelled', progress: 'cancelled', message: 'Generation cancelled.' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Generation cancelled' })).toBeInTheDocument(),
+    );
+    const [[, init]] = callsTo('/api/v1/tasks/task-1/cancel') as [[string, RequestInit]];
+    expect(init.method).toBe('POST');
+    // Back to config: the panel is open again, selections intact, Generate usable.
+    expect(screen.getByRole('heading', { name: 'Deck Configuration' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Red' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /generate deck/i })).toBeEnabled();
+
+    // Polling has stopped.
+    const polls = taskPolls.length;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(taskPolls.length).toBe(polls);
+  });
+
+  it('cancels a task whose generate request was still in flight when Cancel was pressed', async () => {
+    let answerGenerate: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => {
+        answerGenerate = resolve;
+      }),
+    );
+    render(<DeckBuilderPage />);
+    pickConfig();
+    await describeADeck();
+    fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Cancelling…' })).toBeDisabled();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 'task-1', status: 'cancelled', progress: 'cancelled', message: '' }),
+    );
+    await act(async () => {
+      answerGenerate(jsonResponse({ task_id: 'task-1', deck_id: 'deck-1', status: 'pending' }, 202));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Generation cancelled' })).toBeInTheDocument(),
+    );
+    expect(callsTo('/api/v1/tasks/task-1/cancel')).toHaveLength(1);
+  });
+
+  it('keeps following the task when the forge finished before the cancel landed', async () => {
+    setTask({ status: 'processing', progress: 'enriching' });
+    render(<DeckBuilderPage />);
+    await startGeneration();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument());
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ detail: 'This generation has already finished (completed); there is nothing to cancel.' }, 409),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.getByText(/too late to cancel/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(screen.queryByRole('heading', { name: 'Generation cancelled' })).toBeNull();
+  });
+
+  it('lands in the cancelled state when the task was cancelled elsewhere', async () => {
+    setTask({ status: 'cancelled', progress: 'cancelled', message: 'Generation cancelled.' });
+    render(<DeckBuilderPage />);
+    await startGeneration();
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Generation cancelled' })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: 'Deck Configuration' })).toBeInTheDocument();
   });
 });
 

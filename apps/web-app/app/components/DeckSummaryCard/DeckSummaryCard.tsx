@@ -33,6 +33,7 @@ const STATUS_LABELS: Record<DeckStatus, string> = {
   processing: 'Conjuring',
   completed: 'Ready',
   failed: 'Fizzled',
+  cancelled: 'Dispelled',
 };
 
 const VALID_COLORS: ReadonlySet<string> = new Set(MTG_COLORS);

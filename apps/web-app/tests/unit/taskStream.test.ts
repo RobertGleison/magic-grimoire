@@ -91,9 +91,10 @@ describe('stage helpers', () => {
     expect(taskStageIndex('failed')).toBe(TASK_STAGE_COUNT);
   });
 
-  it('marks only completed and failed as terminal', () => {
+  it('marks only completed, failed and cancelled as terminal', () => {
     expect(isTerminalProgress('completed')).toBe(true);
     expect(isTerminalProgress('failed')).toBe(true);
+    expect(isTerminalProgress('cancelled')).toBe(true);
     expect(isTerminalProgress('processing')).toBe(false);
     expect(isTerminalProgress('enriching')).toBe(false);
   });
@@ -392,6 +393,29 @@ describe('transport drops', () => {
   it('treats a redundant open as a no-op', () => {
     const state = connected();
     expect(taskStreamReducer(state, { type: 'open' })).toBe(state);
+  });
+});
+
+describe('cancellation', () => {
+  it('reads a cancelled task row as a terminal cancelled event', () => {
+    const task: TaskStatusResponse = {
+      id: TASK_ID,
+      status: 'cancelled',
+      progress: 'composing_deck',
+      message: 'Generation cancelled.',
+    };
+    expect(taskProgressEventFrom(task)).toEqual({ status: 'cancelled', message: 'Generation cancelled.' });
+  });
+
+  it('ends the stream in cancelled and absorbs later traffic', () => {
+    const state = run([progress('searching_cards'), progress('cancelled', 'Generation cancelled.')], connected());
+    expect(state).toEqual({
+      phase: 'cancelled',
+      taskId: TASK_ID,
+      progress: 'cancelled',
+      message: 'Generation cancelled.',
+    });
+    expect(run([progress('completed'), { type: 'disconnect' }, { type: 'timeout' }], state)).toBe(state);
   });
 });
 

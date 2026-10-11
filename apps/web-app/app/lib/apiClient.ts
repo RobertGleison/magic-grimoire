@@ -337,6 +337,19 @@ export function sendChat(body: ChatRequest, options: RequestOptions = {}): Promi
 /* ------------------------------------------------------------------ tasks */
 
 /**
+ * `POST /api/v1/tasks/{task_id}/cancel` — stops a queued or running generation
+ * and returns the task as `cancelled`. Requires auth and ownership; a task that
+ * has already finished answers 409.
+ */
+export function cancelTask(taskId: string, options: RequestOptions = {}): Promise<TaskStatusResponse> {
+  return request<TaskStatusResponse>({
+    ...options,
+    method: 'POST',
+    path: `/tasks/${encodeURIComponent(taskId)}/cancel`,
+  });
+}
+
+/**
  * `GET /api/v1/tasks/{task_id}` — generation progress, polled by `useTaskStream`.
  * Deliberately unauthenticated server-side: the task id is the capability.
  */

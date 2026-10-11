@@ -50,6 +50,7 @@ const STATUS_LABELS: Record<DeckStatus, string> = {
   processing: 'Building',
   completed: 'Complete',
   failed: 'Failed',
+  cancelled: 'Cancelled',
 };
 
 /** Category -> the 3px rule colour of node `16:7`. */

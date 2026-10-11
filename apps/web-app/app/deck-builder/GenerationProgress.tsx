@@ -14,9 +14,10 @@ import styles from './page.module.css';
 /* ==========================================================================
    GenerationProgress
    --------------------------------------------------------------------------
-   The pipeline in `app/decks/pipeline.py` publishes six `TaskProgress` values.
-   Four are stages; `completed` and `failed` are terminal and are rendered by
-   the caller (deck, or error), never as a row here.
+   The pipeline in `app/decks/pipeline.py` publishes seven `TaskProgress`
+   values. Four are stages; `completed`, `failed` and `cancelled` are terminal
+   and are rendered by the caller (deck, error, or the cancelled panel), never
+   as a row here.
 
    The `message` on every event is the backend's own copy, so it is shown
    verbatim under the active stage rather than replaced with an invented label.
@@ -37,12 +38,17 @@ const STAGES: Stage[] = [
 
 interface GenerationProgressProps {
   state: TaskStreamState;
-  /** Cancels the stream and any in-flight request. */
+  /** Cancels the generation server-side (`POST /tasks/:id/cancel`). */
   onCancel: () => void;
+  /** A cancel is on its way to the server; the button waits for the answer. */
+  cancelling?: boolean;
+  /** A transient page note (e.g. a refused cancel), shown in the live region. */
+  note?: string;
 }
 
-export function GenerationProgress({ state, onCancel }: GenerationProgressProps) {
-  const progress = state.phase === 'idle' || state.phase === 'failed' ? null : state.progress;
+export function GenerationProgress({ state, onCancel, cancelling = false, note = '' }: GenerationProgressProps) {
+  const progress =
+    state.phase === 'idle' || state.phase === 'failed' || state.phase === 'cancelled' ? null : state.progress;
   const active = taskStageIndex(progress);
   const message = state.phase === 'idle' ? '' : state.message;
 
@@ -59,8 +65,8 @@ export function GenerationProgress({ state, onCancel }: GenerationProgressProps)
             ? `Reconnecting to the forge — attempt ${state.attempt} of ${MAX_TASK_STREAM_RETRIES}`
             : 'Compiling your deck'}
         </span>
-        <Button variant="ghost" size="xs" onClick={onCancel}>
-          Cancel
+        <Button variant="ghost" size="xs" onClick={onCancel} disabled={cancelling}>
+          {cancelling ? 'Cancelling…' : 'Cancel'}
         </Button>
       </div>
 
@@ -106,7 +112,9 @@ export function GenerationProgress({ state, onCancel }: GenerationProgressProps)
       </ol>
 
       <p className={styles.progressLive} role="status" aria-live="polite">
-        {reconnecting
+        {note
+          ? note
+          : reconnecting
           ? 'The progress stream dropped. Reconnecting — your deck keeps building on the server.'
           : message || 'Waiting for the first progress event…'}
       </p>
