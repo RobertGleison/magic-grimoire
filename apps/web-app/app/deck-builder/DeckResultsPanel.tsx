@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { Badge } from '../components/Badge/Badge';
 import { Button } from '../components/Button/Button';
+import { DeckPrice } from '../components/DeckPrice/DeckPrice';
 import {
   CardHoverPreview,
   useCardHoverPreview,
@@ -11,6 +12,7 @@ import {
 } from '../components/CardHoverPreview/CardHoverPreview';
 import { ManaCost } from '../components/ManaSymbol/ManaSymbol';
 import { ManaCurve } from '../components/ManaCurve/ManaCurve';
+import { formatEur } from '../lib/price';
 import type { CardInDeck, DeckResponse, DeckStatus } from '../types/api';
 import {
   MANA_COLOR_NAMES,
@@ -130,6 +132,7 @@ function DeckCard({ card, hoverProps }: DeckCardProps) {
           {card.name}
         </span>
       )}
+      <span className={styles.gridCardPrice}>{formatEur(card.price_eur)}</span>
     </li>
   );
 }
@@ -264,6 +267,12 @@ export function DeckResultsPanel({
             <p className={styles.deckSubtitle}>
               {deck.format} format &bull; {deck.card_count} cards compiled from live Scryfall data
             </p>
+            <DeckPrice
+              className={styles.deckTotalPrice}
+              label="Deck price"
+              total={deck.total_price_eur}
+              unpricedCount={deck.unpriced_card_count}
+            />
           </div>
           <Badge variant={deck.status} size="md">
             {STATUS_LABELS[deck.status]}
@@ -371,7 +380,11 @@ export function DeckResultsPanel({
                       <DeckCard
                         key={`${card.name}-${index}-${copy}`}
                         card={card}
-                        hoverProps={hoverProps({ name: card.name, imageUri: card.image_uri })}
+                        hoverProps={hoverProps({
+                          name: card.name,
+                          imageUri: card.image_uri,
+                          priceEur: card.price_eur ?? null,
+                        })}
                       />
                     )),
                   )}
@@ -382,12 +395,17 @@ export function DeckResultsPanel({
                     <li
                       className={styles.cardListRow}
                       key={`${card.name}-${index}`}
-                      {...hoverProps({ name: card.name, imageUri: card.image_uri })}
+                      {...hoverProps({
+                        name: card.name,
+                        imageUri: card.image_uri,
+                        priceEur: card.price_eur ?? null,
+                      })}
                     >
                       <span className={styles.cardListQty}>&times;{card.quantity}</span>
                       <span className={styles.cardListName}>{card.name}</span>
                       <span className={styles.cardListType}>{card.type_line || '—'}</span>
                       <ManaCost cost={card.mana_cost} variant="pips" size={12} />
+                      <span className={styles.cardListPrice}>{formatEur(card.price_eur)}</span>
                     </li>
                   ))}
                 </ul>

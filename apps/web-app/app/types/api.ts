@@ -61,6 +61,12 @@ export interface CardInDeck {
   mana_cost: string | null;
   type_line: string | null;
   section: string;
+  /**
+   * Scryfall's euro price as a decimal string (`"0.25"`), falling back to the
+   * foil price. `null` when Scryfall has none; absent on cards stored before
+   * prices existed.
+   */
+  price_eur?: string | null;
 }
 
 /**
@@ -99,6 +105,14 @@ export interface DeckResponse {
   colors: string[] | null;
   cards: CardInDeck[] | null;
   card_count: number;
+  /**
+   * Sum of quantity × `price_eur` as a 2-dp decimal string, computed by the
+   * server from `cards` on every read. `null` when no card is priced; absent
+   * on an older API.
+   */
+  total_price_eur?: string | null;
+  /** Copies (quantity-weighted) left out of `total_price_eur` for lack of a price. */
+  unpriced_card_count?: number;
   /** `null` on a working draft; 1-based within its lineage on a saved snapshot. */
   version_no: number | null;
   /** Public saved decks are readable by anyone; private ones by the owner only. */
@@ -166,6 +180,8 @@ export interface CardSearchResult {
   image_uri: string | null;
   mana_cost: string | null;
   type_line: string | null;
+  /** Euro price as a decimal string; `null` when Scryfall has none. */
+  price_eur?: string | null;
 }
 
 export interface CardSearchResponse {

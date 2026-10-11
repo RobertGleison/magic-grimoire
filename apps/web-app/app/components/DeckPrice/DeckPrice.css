@@ -1,0 +1,35 @@
+/* ==========================================================================
+   DeckPrice — a deck total in euros, with an optional "partial" flag.
+   ========================================================================== */
+
+.deck-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.deck-price-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.deck-price-amount {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.deck-price-partial {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--faint);
+  cursor: help;
+}
