@@ -39,16 +39,18 @@ class DeckCardEditDTO(BaseModel):
     section: str = Field(..., min_length=1, max_length=50)
     scryfall_id: str | None = Field(default=None, max_length=64)
     image_uri: str | None = Field(default=None, max_length=500)
+    # Kept through hand edits so the deck cover (MTG-18) doesn't lose its art.
+    art_crop_uri: str | None = Field(default=None, max_length=500)
     mana_cost: str | None = Field(default=None, max_length=100)
     type_line: str | None = Field(default=None, max_length=200)
     # Same shape as Scryfall's prices.eur; it only ever feeds the owner's own deck total.
     price_eur: str | None = Field(default=None, pattern=r"^\d{1,7}(\.\d{1,2})?$")
 
-    @field_validator("image_uri")
+    @field_validator("image_uri", "art_crop_uri")
     @classmethod
     def _scryfall_art_only(cls, value: str | None) -> str | None:
         if value is not None and not value.startswith(_SCRYFALL_IMAGE_PREFIX):
-            raise ValueError("image_uri must be a Scryfall card image")
+            raise ValueError("card images must come from Scryfall")
         return value
 
 

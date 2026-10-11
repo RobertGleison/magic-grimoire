@@ -324,7 +324,13 @@ async def test_save_requires_auth(client, session_factory):
 # --- PUT /decks/{id}/cards (hand edits) ---
 
 EDITED = [
-    {"name": "Shock", "quantity": 4, "section": "spells", "image_uri": "https://cards.scryfall.io/normal/s.jpg"},
+    {
+        "name": "Shock",
+        "quantity": 4,
+        "section": "spells",
+        "image_uri": "https://cards.scryfall.io/normal/s.jpg",
+        "art_crop_uri": "https://cards.scryfall.io/art_crop/s.jpg",
+    },
     {"name": "Mountain", "quantity": 20, "section": "lands"},
 ]
 
@@ -342,6 +348,7 @@ async def test_update_cards_replaces_the_draft_list(client, session_factory):
         stored = (await db.execute(select(Deck).where(Deck.id == draft.id))).scalar_one()
     assert stored.card_count == 24
     assert stored.cards[1]["name"] == "Mountain"
+    assert stored.cards[0]["art_crop_uri"] == "https://cards.scryfall.io/art_crop/s.jpg"
 
 
 async def test_update_cards_recomputes_the_deck_total(client, session_factory):
@@ -395,6 +402,7 @@ async def test_update_cards_refuses_an_unfinished_deck(client, session_factory):
         [],
         [{"name": "Shock", "quantity": 0, "section": "spells"}],
         [{"name": "Shock", "quantity": 4, "section": "spells", "image_uri": "https://evil.example/x.png"}],
+        [{"name": "Shock", "quantity": 4, "section": "spells", "art_crop_uri": "https://evil.example/x.png"}],
         [
             {"name": "Mountain", "quantity": 200, "section": "lands"},
             {"name": "Shock", "quantity": 60, "section": "spells"},
