@@ -18,6 +18,7 @@ export type BadgeVariant =
   | 'processing'
   | 'completed'
   | 'failed'
+  | 'cancelled'
   | 'creature'
   | 'spell'
   | 'land';

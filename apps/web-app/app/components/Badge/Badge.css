@@ -79,7 +79,8 @@
 
 /* ---- Deck status (addition — no source node) ------------------------------
    queued/pending → gold, processing → crimson + ember pulse,
-   completed → the design's "lands" green, failed → solid crimson.           */
+   completed → the design's "lands" green, failed → solid crimson,
+   cancelled → muted: the user stopped it, nothing went wrong.               */
 
 .badge-pending {
   background: var(--accent-deep);
@@ -104,6 +105,12 @@
   background: var(--crimson);
   border-color: var(--line-accent);
   color: var(--on-crimson);
+}
+
+.badge-cancelled {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--faint);
 }
 
 /* ---- Deck category (colours harvested from the card-grid rules 16:7 /
