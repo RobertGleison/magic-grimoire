@@ -207,6 +207,27 @@ export const MANA_COLOR_NAMES: Record<ManaColor, string> = {
   C: 'Colorless',
 };
 
+/* ------------------------------------------------------------ description */
+
+/** Same cap as `DESCRIPTION_MAX` in `app/decks/pipeline.py`. */
+export const DECK_DESCRIPTION_MAX = 280;
+
+/**
+ * The deck idea to show, or `null` to hide the block.
+ *
+ * The server already sanitizes and caps it; this is the client's own guard
+ * against an older or misbehaving API. Whitespace is collapsed and the text is
+ * cut at the cap. It is rendered as a text node, never as HTML. A deck from
+ * before descriptions existed returns `null` rather than falling back to the
+ * raw prompt, which is the long, qualifier-laden brief this block replaced.
+ */
+export function deckDescription(deck: Pick<DeckResponse, 'description'>): string | null {
+  const text = (deck.description ?? '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  if (text.length <= DECK_DESCRIPTION_MAX) return text;
+  return `${text.slice(0, DECK_DESCRIPTION_MAX - 1).trimEnd()}…`;
+}
+
 /* ----------------------------------------------------------------- export */
 
 /** Plain-text decklist, the payload behind the design's "Export TXT" action. */

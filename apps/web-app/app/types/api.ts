@@ -87,6 +87,12 @@ export interface DeckGenerateResponse {
 export interface DeckResponse {
   id: string;
   title: string | null;
+  /**
+   * One or two sentences on the deck idea, written by the composer and capped
+   * server-side. `null` (or absent, from an older API) on decks forged before
+   * the field existed.
+   */
+  description?: string | null;
   prompt: string;
   format: string;
   colors: string[] | null;

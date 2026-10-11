@@ -15,6 +15,7 @@ import type { CardInDeck, DeckResponse, DeckStatus } from '../types/api';
 import {
   MANA_COLOR_NAMES,
   deckColorDistribution,
+  deckDescription,
   deckSummaryStats,
   groupDeckCards,
   quantityOf,
@@ -243,6 +244,7 @@ export function DeckResultsPanel({
 
   const sections = useMemo(() => groupDeckCards(deck.cards), [deck.cards]);
   const stats = useMemo(() => deckSummaryStats(deck.cards), [deck.cards]);
+  const description = deckDescription(deck);
   const cards = deck.cards ?? [];
 
   return (
@@ -411,10 +413,15 @@ export function DeckResultsPanel({
           </div>
         </dl>
 
-        <div className={styles.forecast}>
-          <span className={styles.forecastLabel}>Original incantation</span>
-          <p className={styles.forecastValue}>{deck.prompt}</p>
-        </div>
+        {/* The deck idea, in the composer's words. It replaced the echo of the
+            raw prompt, which only restated what the user had just typed. Older
+            decks have no description, so the block is simply absent. */}
+        {description && (
+          <div className={styles.forecast}>
+            <span className={styles.forecastLabel}>Deck idea</span>
+            <p className={styles.forecastValue}>{description}</p>
+          </div>
+        )}
       </section>
 
       <CardHoverPreview preview={preview} />
