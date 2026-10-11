@@ -62,11 +62,14 @@ export interface CardInDeck {
   section: string;
 }
 
-/** `prompt` is 1..2000 chars, `deck_size` is 60..250 — both enforced server-side. */
+/**
+ * `prompt` is 1..2000 chars, `deck_size` is 60..250, and `format` plus at least
+ * one colour are required — all enforced server-side.
+ */
 export interface DeckGenerateRequest {
   prompt: string;
-  format?: DeckFormat;
-  colors?: MTGColor[] | null;
+  format: DeckFormat;
+  colors: MTGColor[];
   deck_size?: number;
 }
 

@@ -250,12 +250,12 @@ export const DECK_SIZE_STEP = 5;
 export const COMMANDER_DECK_SIZE = 100;
 
 /** Formats whose card count is fixed by the rules and cannot be chosen. */
-export function isFixedSizeFormat(format: DeckFormat): boolean {
+export function isFixedSizeFormat(format: DeckFormat | null): boolean {
   return format === 'commander';
 }
 
 /** The size the rules pin `format` to, or `null` when the count is free. */
-export function fixedDeckSize(format: DeckFormat): number | null {
+export function fixedDeckSize(format: DeckFormat | null): number | null {
   return format === 'commander' ? COMMANDER_DECK_SIZE : null;
 }
 /** `prompt` is `1..2000` chars in `app/decks/dtos.py`. */
@@ -272,7 +272,8 @@ export interface DeckConfig {
    * `_ManaColor` does NOT, so `chatColors` strips `C` on the way out.
    */
   colors: MTGColor[];
-  format: DeckFormat;
+  /** `null` until the user picks one — Generate stays blocked until then. */
+  format: DeckFormat | null;
   /**
    * Deck size is a range, not a number, so the generator has room to land on a
    * legal curve. `DeckGenerateRequest.deck_size` is a single `int` server-side
@@ -287,11 +288,23 @@ export interface DeckConfig {
 
 export const DEFAULT_DECK_CONFIG: DeckConfig = {
   colors: [],
-  format: 'standard',
+  format: null,
   deckSizeMin: 60,
   deckSizeMax: 75,
   budget: 150,
 };
+
+/** Shown beside a blocked Generate button until the config is complete. */
+export const GENERATE_BLOCKED_MESSAGE = 'Choose a color and a deck format to generate a deck';
+
+/**
+ * Generation needs at least one colour and an explicit format. A blank config
+ * used to mean "the forge decides", which produced vague, ambiguous decks.
+ * The server enforces the same rule (`DeckGenerateRequestDTO`).
+ */
+export function isDeckConfigReady(config: DeckConfig): config is DeckConfig & { format: DeckFormat } {
+  return config.colors.length > 0 && config.format !== null;
+}
 
 /** WUBRG+C order, so the request body is stable no matter the click order. */
 export function toggleDeckColor(colors: readonly MTGColor[], color: MTGColor): MTGColor[] {

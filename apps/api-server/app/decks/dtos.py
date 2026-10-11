@@ -21,8 +21,10 @@ class CardInDeckDTO(BaseModel):
 
 class DeckGenerateRequestDTO(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
-    format: DeckFormat = DeckFormat.STANDARD
-    colors: list[MTGColor] | None = None
+    # Both required: the builder blocks Generate until a format and at least one
+    # colour are picked, and this is the server-side half of that rule.
+    format: DeckFormat
+    colors: list[MTGColor] = Field(..., min_length=1)
     deck_size: int = Field(default=60, ge=60, le=250)
 
 

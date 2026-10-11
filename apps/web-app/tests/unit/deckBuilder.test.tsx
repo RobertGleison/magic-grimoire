@@ -387,8 +387,20 @@ async function describeADeck(text = 'A Rakdos sacrifice deck') {
   fireEvent.change(screen.getByLabelText('Describe your ideal deck'), { target: { value: text } });
 }
 
-async function startGeneration(deckBody: unknown = { task_id: 'task-1', deck_id: 'deck-1', status: 'pending' }) {
+/** Generate is blocked until a colour and a format are picked. */
+function pickConfig(format = 'Standard', color = 'Red') {
+  if (screen.getByRole('button', { name: color }).getAttribute('aria-pressed') !== 'true') {
+    fireEvent.click(screen.getByRole('button', { name: color }));
+  }
+  fireEvent.click(screen.getByRole('button', { name: format }));
+}
+
+async function startGeneration(
+  deckBody: unknown = { task_id: 'task-1', deck_id: 'deck-1', status: 'pending' },
+  format = 'Standard',
+) {
   fetchMock.mockResolvedValueOnce(jsonResponse(deckBody, 202));
+  pickConfig(format);
   await describeADeck();
   fireEvent.click(screen.getByRole('button', { name: /generate deck/i }));
 }
@@ -409,9 +421,54 @@ describe('DeckBuilderPage — shell', () => {
     // expect(screen.getByText('Describe your deck first, then forge it.')).toBeInTheDocument();
   });
 
+  it('blocks Generate until a colour and a format are both picked', () => {
+    render(<DeckBuilderPage />);
+    void describeADeck();
+    const generate = () => screen.getByRole('button', { name: /generate deck/i });
+    const message = 'Choose a color and a deck format to generate a deck';
+
+    // Neither picked.
+    expect(generate()).toBeDisabled();
+    expect(screen.getByRole('tooltip')).toHaveTextContent(message);
+    expect(generate()).toHaveAccessibleDescription(message);
+
+    // Colour only.
+    fireEvent.click(screen.getByRole('button', { name: 'Blue' }));
+    expect(generate()).toBeDisabled();
+
+    // Format only.
+    fireEvent.click(screen.getByRole('button', { name: 'Blue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Modern' }));
+    expect(generate()).toBeDisabled();
+
+    // Both: enabled at once, and the tooltip is gone.
+    fireEvent.click(screen.getByRole('button', { name: 'Blue' }));
+    expect(generate()).toBeEnabled();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(generate()).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('keeps the blocked Generate reachable by keyboard so the reason can be read', () => {
+    render(<DeckBuilderPage />);
+    const tooltip = screen.getByRole('tooltip');
+    const gate = tooltip.parentElement as HTMLElement;
+    expect(gate).toHaveAttribute('tabindex', '0');
+    expect(gate).toHaveAttribute('aria-describedby', tooltip.id);
+  });
+
+  it('cannot be bypassed with Enter: the field sends chat, never a generation', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'Noted.' }));
+    render(<DeckBuilderPage />);
+    const field = screen.getByLabelText('Describe your ideal deck');
+    fireEvent.change(field, { target: { value: 'Rakdos sacrifice' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByText('Noted.')).toBeInTheDocument());
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain('/api/v1/decks/generate');
+  });
+
   it('toggles a mana colour and reflects it back', () => {
     render(<DeckBuilderPage />);
-    expect(screen.getByText('Any colours — the forge decides.')).toBeInTheDocument();
+    expect(screen.getByText('Pick at least one colour to forge a deck.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Black' }));
     fireEvent.click(screen.getByRole('button', { name: 'Red' }));
     expect(screen.getByRole('button', { name: 'Black' })).toHaveAttribute('aria-pressed', 'true');
@@ -482,8 +539,7 @@ describe('DeckBuilderPage — shell', () => {
 
   it('sends 100 as `deck_size` for a Commander build', async () => {
     render(<DeckBuilderPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Commander' }));
-    await startGeneration();
+    await startGeneration(undefined, 'Commander');
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -541,7 +597,8 @@ describe('DeckBuilderPage — chat', () => {
     const body = JSON.parse(String(init.body)) as { messages: { role: string }[]; context: unknown };
     // The seeded intro bubble is UI, not a model turn.
     expect(body.messages).toEqual([{ role: 'user', content: 'Rakdos sacrifice please' }]);
-    expect(body.context).toEqual({ format: 'standard', colors: null });
+    // Nothing picked on the panel yet, so the context says so rather than guessing.
+    expect(body.context).toEqual({ format: null, colors: null });
   });
 
   it('surfaces an ApiError as an error bubble that is never replayed to the model', async () => {
@@ -588,7 +645,7 @@ describe('DeckBuilderPage — generation pipeline', () => {
         'A Rakdos sacrifice deck Anywhere from 60 to 75 cards is fine — use the room ' +
         'if the curve needs it. Keep the total budget under $150.',
       format: 'standard',
-      colors: null,
+      colors: ['R'],
       deck_size: 60,
     });
     // AbortSignal is threaded through so unmounting cancels the request.
@@ -679,6 +736,7 @@ describe('DeckBuilderPage — generation pipeline', () => {
     try {
       render(<DeckBuilderPage />);
       fetchMock.mockResolvedValueOnce(jsonResponse({ task_id: 'task-1', deck_id: 'deck-1', status: 'pending' }, 202));
+      pickConfig();
       fireEvent.change(screen.getByLabelText('Describe your ideal deck'), {
         target: { value: 'A Rakdos sacrifice deck' },
       });

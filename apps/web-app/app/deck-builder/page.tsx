@@ -26,10 +26,12 @@ import { DeckResultsPanel, type SaveState } from './DeckResultsPanel';
 import { GenerationProgress } from './GenerationProgress';
 import {
   DEFAULT_DECK_CONFIG,
+  GENERATE_BLOCKED_MESSAGE,
   buildGeneratePrompt,
   chatColors,
   deckFileName,
   deckListText,
+  isDeckConfigReady,
   type DeckConfig,
 } from './deckLogic';
 import styles from './page.module.css';
@@ -284,10 +286,12 @@ export default function DeckBuilderPage() {
 
   const streaming = stream.phase === 'connecting' || stream.phase === 'streaming';
   const generating = submitting || streaming;
-
+  const configReady = isDeckConfigReady(config);
 
   const handleGenerate = useCallback(async () => {
-    if (generating || prompt.length === 0) return;
+    // Re-checked here, not just on the button, so no path into this handler
+    // (a keyboard submit, the error panel's "Try again") can skip the rule.
+    if (generating || prompt.length === 0 || !isDeckConfigReady(config)) return;
 
     // The draft doubles as the last brief: fold it into the transcript so the
     // conversation and the generated deck cannot disagree about what was asked.
@@ -313,7 +317,7 @@ export default function DeckBuilderPage() {
         {
           prompt,
           format: config.format,
-          colors: config.colors.length > 0 ? config.colors : null,
+          colors: config.colors,
           // `deck_size` is one `int` server-side; the ceiling rides in `prompt`.
           deck_size: config.deckSizeMin,
         },
@@ -519,7 +523,8 @@ export default function DeckBuilderPage() {
         onGenerate={handleGenerate}
         chatBusy={chatBusy}
         generating={generating}
-        canGenerate={prompt.length > 0}
+        canGenerate={prompt.length > 0 && configReady}
+        generateBlockedReason={configReady ? null : GENERATE_BLOCKED_MESSAGE}
       />
 
       <div
