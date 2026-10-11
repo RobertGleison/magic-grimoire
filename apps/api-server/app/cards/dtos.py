@@ -7,6 +7,7 @@ class CardSearchResultDTO(BaseModel):
     image_uri: str | None = None
     mana_cost: str | None = None
     type_line: str | None = None
+    price_eur: str | None = None
 
 
 class CardSearchResponseDTO(BaseModel):
