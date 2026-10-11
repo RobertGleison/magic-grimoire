@@ -20,12 +20,14 @@ import DeckBuilderPage from '../../app/deck-builder/page';
 import {
   BUDGET_MAX,
   COMMANDER_DECK_SIZE,
+  DECK_DESCRIPTION_MAX,
   DEFAULT_DECK_CONFIG,
   buildGeneratePrompt,
   categoriseCard,
   chatColors,
   clampDeckSize,
   deckColorDistribution,
+  deckDescription,
   deckFileName,
   deckListText,
   deckSummaryStats,
@@ -203,6 +205,24 @@ describe('deckListText / deckFileName', () => {
   it('slugs the title and always ends in .txt', () => {
     expect(deckFileName(deckFixture())).toBe('rakdos-sacrifice.txt');
     expect(deckFileName(deckFixture({ title: null }))).toBe('magic-grimoire-deck.txt');
+  });
+});
+
+describe('deckDescription', () => {
+  it('returns the description with whitespace collapsed', () => {
+    expect(deckDescription({ description: '  Goblins\n go   wide. ' })).toBe('Goblins go wide.');
+  });
+
+  it('hides the block for a deck without one rather than echoing the prompt', () => {
+    expect(deckDescription({ description: null })).toBeNull();
+    expect(deckDescription({})).toBeNull();
+    expect(deckDescription({ description: '   ' })).toBeNull();
+  });
+
+  it('caps an overlong description', () => {
+    const text = deckDescription({ description: 'a'.repeat(1000) });
+    expect(text).toHaveLength(DECK_DESCRIPTION_MAX);
+    expect(text?.endsWith('…')).toBe(true);
   });
 });
 
@@ -847,6 +867,32 @@ describe('DeckBuilderPage — deck states', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent('×4');
     expect(rows[0]).toHaveTextContent('Cauldron Familiar');
+  });
+
+  it('shows the deck idea instead of echoing the original prompt', async () => {
+    await renderWithDeck({
+      prompt: 'the raw brief the user typed',
+      description: 'Sacrifice fodder feeds Mayhem Devil until the table burns.',
+    });
+    await waitFor(() => expect(screen.getByText('Deck idea')).toBeInTheDocument());
+    expect(screen.getByText('Sacrifice fodder feeds Mayhem Devil until the table burns.')).toBeInTheDocument();
+    expect(screen.queryByText(/original incantation/i)).toBeNull();
+    expect(screen.queryByText('the raw brief the user typed')).toBeNull();
+  });
+
+  it('renders a description as text, never as markup', async () => {
+    await renderWithDeck({ description: '<img src=x onerror=alert(1)> Elves go wide.' });
+    await waitFor(() =>
+      expect(screen.getByText('<img src=x onerror=alert(1)> Elves go wide.')).toBeInTheDocument(),
+    );
+    expect(document.querySelector('img[src="x"]')).toBeNull();
+  });
+
+  it('hides the block for an older deck with no description', async () => {
+    await renderWithDeck({ description: null });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument());
+    expect(screen.queryByText('Deck idea')).toBeNull();
+    expect(screen.queryByText(/original incantation/i)).toBeNull();
   });
 
   describe('save to library', () => {
