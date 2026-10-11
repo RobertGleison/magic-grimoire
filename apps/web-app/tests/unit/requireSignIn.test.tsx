@@ -33,10 +33,11 @@ describe('RequireSignIn route guards', () => {
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
-  it('renders through while the session is still being checked', () => {
+  it('holds the page back while the session is still being checked', () => {
     userStatus = 'checking';
     render(<DeckBuilderLayout>forge</DeckBuilderLayout>);
-    expect(screen.getByText('forge')).toBeTruthy();
+    expect(screen.queryByText('forge')).toBeNull();
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
