@@ -123,3 +123,66 @@ def test_create_dispatcher_rejects_bad_config():
         create_dispatcher("lambda", None)
     with pytest.raises(ValueError, match="Unknown TASK_DISPATCHER"):
         create_dispatcher("sqs", None)
+
+
+class _SlowPipeline:
+    started: list[str] = []
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    async def run(self):
+        type(self).started.append(self.kwargs["task_id"])
+        await asyncio.sleep(10)
+
+
+@pytest.fixture
+def slow_pipeline(monkeypatch):
+    _SlowPipeline.started = []
+    monkeypatch.setattr(dispatch_module, "DeckGenerationPipeline", _SlowPipeline)
+    return _SlowPipeline
+
+
+async def test_inprocess_cancel_stops_a_running_generation(slow_pipeline):
+    dispatcher = InProcessDispatcher()
+    await dispatcher.dispatch(JOB)
+    await asyncio.sleep(0)  # let it start
+    assert slow_pipeline.started == ["task-1"]
+
+    assert await dispatcher.cancel("task-1") is True
+    await asyncio.gather(*dispatcher.running, return_exceptions=True)
+    assert dispatcher.running == set()
+
+
+async def test_inprocess_cancel_stops_a_queued_generation_before_it_runs(slow_pipeline):
+    dispatcher = InProcessDispatcher()
+    second = GenerationJob(**{**JOB.__dict__, "task_id": "task-2"})
+    await dispatcher.dispatch(JOB)
+    await dispatcher.dispatch(second)  # waits on the one-at-a-time gate
+    await asyncio.sleep(0)
+
+    assert await dispatcher.cancel("task-2") is True
+    await dispatcher.cancel("task-1")
+    await asyncio.gather(*dispatcher.running, return_exceptions=True)
+    assert slow_pipeline.started == ["task-1"]
+
+
+async def test_inprocess_cancel_of_an_unknown_or_finished_task_is_a_no_op(pipeline):
+    dispatcher = InProcessDispatcher()
+    assert await dispatcher.cancel("nope") is False
+    await dispatcher.dispatch(JOB)
+    await asyncio.gather(*dispatcher.running)
+    assert await dispatcher.cancel("task-1") is False
+
+
+async def test_lambda_cancel_is_cooperative_only():
+    assert await LambdaDispatcher("worker-fn", client=object()).cancel("task-1") is False
+
+
+async def test_cancel_generation_never_raises(monkeypatch):
+    class _Broken:
+        async def cancel(self, task_id):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(dispatch_module, "_dispatcher", _Broken())
+    assert await dispatch_module.cancel_generation("task-1") is False

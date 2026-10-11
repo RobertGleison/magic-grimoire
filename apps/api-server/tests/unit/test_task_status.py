@@ -39,7 +39,7 @@ def test_unfinished_task_within_the_threshold_is_reported_as_is(status):
     assert result.message == "Building your deck..."
 
 
-@pytest.mark.parametrize("status", [TaskStatus.COMPLETED, TaskStatus.FAILED])
+@pytest.mark.parametrize("status", [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED])
 def test_finished_task_is_never_stale(status):
     result = effective_task_status(_task(status, STALE_AFTER * 10), NOW, STALE_AFTER)
 

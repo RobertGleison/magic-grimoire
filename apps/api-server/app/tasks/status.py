@@ -5,6 +5,11 @@ from app.tasks.dtos import TaskStatusResponseDTO
 from app.tasks.model import Task
 
 STALE_MESSAGE = "Deck generation stopped responding. Please try again."
+CANCELLED_MESSAGE = "Generation cancelled."
+
+# A task in one of these states never changes again: the worker skips it and
+# POST /tasks/{id}/cancel refuses it.
+TERMINAL_TASK_STATUSES = frozenset({TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED})
 
 
 def effective_task_status(task: Task, now: datetime, stale_after: int) -> TaskStatusResponseDTO:
@@ -17,7 +22,7 @@ def effective_task_status(task: Task, now: datetime, stale_after: int) -> TaskSt
     outlive the worker's 360s timeout; between Lambda's retry attempts the gap is at most
     about 360s + 120s. The 600s default therefore never fails a task that is still alive.
     """
-    unfinished = task.status not in (TaskStatus.COMPLETED, TaskStatus.FAILED)
+    unfinished = task.status not in TERMINAL_TASK_STATUSES
     if unfinished and now - task.updated_at > timedelta(seconds=stale_after):
         return TaskStatusResponseDTO(
             id=task.id, status=TaskStatus.FAILED, progress=TaskProgress.FAILED, message=STALE_MESSAGE
