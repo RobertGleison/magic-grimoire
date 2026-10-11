@@ -214,3 +214,50 @@ async def test_saving_a_new_version_keeps_tags(client, session_factory):
     draft = await _deck(session_factory, saved=False, tags=["combo"])
     res = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
     assert res.json()["tags"] == ["combo"]
+
+
+# --- author byline ---
+
+from app.profiles.model import Profile  # noqa: E402
+
+
+async def _profile(session_factory, user_id: str, display_name: str | None, avatar_url: str | None = None) -> None:
+    async with session_factory() as db:
+        db.add(Profile(user_id=user_id, display_name=display_name, avatar_url=avatar_url))
+        await db.commit()
+
+
+async def test_feed_entries_carry_their_author(client, session_factory):
+    await _profile(session_factory, TEST_USER_ID, "Chandra", "https://a.test/c.png")
+    await _deck(session_factory, minutes=1, title="with profile")
+    await _deck(session_factory, minutes=2, title="no profile", user_id="nobody-recorded")
+
+    decks = (await client.get("/api/v1/explore/decks")).json()["decks"]
+    by_title = {d["title"]: d["author"] for d in decks}
+    assert by_title == {
+        "with profile": {"display_name": "Chandra", "avatar_url": "https://a.test/c.png"},
+        "no profile": None,
+    }
+
+
+async def test_public_deck_view_carries_its_author(client, session_factory):
+    await _profile(session_factory, TEST_USER_ID, "Chandra")
+    deck = await _deck(session_factory, title="shared")
+
+    res = await client.get(f"/api/v1/decks/{deck.id}", headers=OTHER_USER_AUTH)
+    assert res.status_code == 200
+    assert res.json()["author"] == {"display_name": "Chandra", "avatar_url": None}
+
+
+async def test_saving_records_and_refreshes_the_savers_profile(client, session_factory):
+    for name in ("Old Name", "New Name"):
+        draft = await _deck(session_factory, saved=False, title=name)
+        token = make_token(user_metadata={"full_name": name, "avatar_url": "https://a.test/me.png"})
+        res = await client.post(f"/api/v1/decks/{draft.id}/save", headers={"Authorization": f"Bearer {token}"})
+        assert res.status_code == 200, res.text
+
+    async with session_factory() as db:
+        profile = await db.get(Profile, TEST_USER_ID)
+    assert (profile.display_name, profile.avatar_url) == ("New Name", "https://a.test/me.png")
+    authors = {d["author"]["display_name"] for d in (await client.get("/api/v1/explore/decks")).json()["decks"]}
+    assert authors == {"New Name"}

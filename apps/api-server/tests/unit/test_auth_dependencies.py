@@ -94,3 +94,50 @@ def test_unknown_key_id_rejected_and_logged(caplog):
         res = client.get("/required", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 401
     assert "signing key lookup failed" in caplog.text
+
+
+# --- public identity (the feed's byline) ---
+
+from app.auth.dependencies import Identity, get_current_identity, public_profile_from_claims  # noqa: E402
+
+
+@_app.get("/identity")
+def identity_route(identity: Identity = Depends(get_current_identity)):
+    return {"user_id": identity.user_id, "name": identity.display_name, "avatar": identity.avatar_url}
+
+
+def test_identity_carries_the_public_name_and_avatar():
+    token = make_token(user_metadata={"full_name": "Jace Beleren", "avatar_url": "https://a.test/j.png"})
+    res = client.get("/identity", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    assert res.json() == {"user_id": TEST_USER_ID, "name": "Jace Beleren", "avatar": "https://a.test/j.png"}
+
+
+def test_identity_requires_a_token():
+    assert client.get("/identity").status_code == 401
+
+
+def test_a_handle_is_preferred_over_a_full_name():
+    claims = {"user_metadata": {"full_name": "Jace Beleren", "user_name": "mindsculptor"}}
+    assert public_profile_from_claims(claims) == ("mindsculptor", None)
+
+
+def test_the_email_is_never_used_as_a_name():
+    claims = {"email": "jace@ravnica.test", "user_metadata": {"email": "jace@ravnica.test"}}
+    assert public_profile_from_claims(claims) == (None, None)
+
+
+def test_names_are_trimmed_and_capped():
+    name, _ = public_profile_from_claims({"user_metadata": {"name": "  " + "x" * 200 + "  "}})
+    assert name == "x" * 60
+
+
+def test_only_https_avatars_are_kept():
+    for bad in ("http://a.test/j.png", "javascript:alert(1)", "https://a.test/" + "x" * 3000):
+        assert public_profile_from_claims({"user_metadata": {"avatar_url": bad}}) == (None, None)
+
+
+def test_missing_or_malformed_metadata_yields_nothing():
+    assert public_profile_from_claims({}) == (None, None)
+    assert public_profile_from_claims({"user_metadata": "nope"}) == (None, None)
+    assert public_profile_from_claims({"user_metadata": {"name": 7}}) == (None, None)

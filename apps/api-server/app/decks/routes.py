@@ -12,13 +12,14 @@ from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, get_optional_user
+from app.auth.dependencies import Identity, get_current_identity, get_current_user, get_optional_user
 from app.core.database import get_db
 from app.core.enums import DeckFormat, DeckStatus, MTGColor, TaskStatus
 from app.core.guards import sanitize_prompt
 from app.core.rate_limit import SlidingWindowLimiter, rate_limited
 from app.decks.dispatch import GenerationJob, dispatch_generation
 from app.decks.dtos import (
+    DeckAuthorDTO,
     DeckCardsUpdateDTO,
     DeckGenerateRequestDTO,
     DeckGenerateResponseDTO,
@@ -31,6 +32,8 @@ from app.decks.dtos import (
 from app.decks.model import Deck
 from app.decks.pipeline import mark_generation_failed
 from app.decks.tags import normalize_tag
+from app.profiles.model import Profile
+from app.profiles.service import upsert_profile
 from app.tasks.model import Task
 
 _log = logging.getLogger(__name__)
@@ -172,11 +175,17 @@ def _escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _feed_item(deck: Deck) -> DeckResponseDTO:
-    """`deck` as a feed entry: cards trimmed to the cover card."""
+def _author(profile: Profile | None) -> DeckAuthorDTO | None:
+    if profile is None:
+        return None
+    return DeckAuthorDTO(display_name=profile.display_name, avatar_url=profile.avatar_url)
+
+
+def _feed_item(deck: Deck, profile: Profile | None) -> DeckResponseDTO:
+    """`deck` as a feed entry: cards trimmed to the cover card, with its author."""
     item = DeckResponseDTO.model_validate(deck)
     cover = next((card for card in item.cards or [] if card.art_crop_uri or card.image_uri), None)
-    return item.model_copy(update={"cards": [cover] if cover else []})
+    return item.model_copy(update={"cards": [cover] if cover else [], "author": _author(profile)})
 
 
 @router.get(
@@ -194,7 +203,11 @@ async def explore_decks(
     limit: int = Query(default=24, ge=1, le=50),
 ) -> ExploreDeckListResponseDTO:
     """Public saved decks, newest first. No auth. Filters combine with AND."""
-    stmt = select(Deck).where(Deck.is_public.is_(True), Deck.saved_at.is_not(None))
+    stmt = (
+        select(Deck, Profile)
+        .outerjoin(Profile, Profile.user_id == Deck.user_id)
+        .where(Deck.is_public.is_(True), Deck.saved_at.is_not(None))
+    )
 
     if q and q.strip():
         stmt = stmt.where(func.coalesce(Deck.title, Deck.prompt).ilike(f"%{_escape_like(q.strip())}%", escape="\\"))
@@ -211,12 +224,12 @@ async def explore_decks(
 
     # One extra row tells us whether another page exists without a COUNT.
     stmt = stmt.order_by(Deck.created_at.desc(), Deck.id.desc()).limit(limit + 1)
-    rows = list((await db.execute(stmt)).scalars().all())
+    rows = list((await db.execute(stmt)).tuples().all())
     page, more = rows[:limit], len(rows) > limit
 
     return ExploreDeckListResponseDTO(
-        decks=[_feed_item(deck) for deck in page],
-        next_cursor=_encode_cursor(page[-1]) if more else None,
+        decks=[_feed_item(deck, profile) for deck, profile in page],
+        next_cursor=_encode_cursor(page[-1][0]) if more else None,
     )
 
 
@@ -238,7 +251,10 @@ async def get_deck(
     if deck.user_id is not None and not is_owner and not _publicly_readable(deck):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-    return DeckResponseDTO.model_validate(deck).model_copy(update={"is_owner": is_owner})
+    profile = await db.get(Profile, deck.user_id) if deck.user_id else None
+    return DeckResponseDTO.model_validate(deck).model_copy(
+        update={"is_owner": is_owner, "author": _author(profile)}
+    )
 
 
 @router.patch("/decks/{deck_id}/visibility", response_model=DeckResponseDTO)
@@ -320,13 +336,16 @@ def _snapshot_of(source: Deck, user_id: str, version_no: int) -> Deck:
 async def save_deck(
     deck_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    user_id: Annotated[str, Depends(get_current_user)],
+    identity: Annotated[Identity, Depends(get_current_identity)],
 ) -> DeckResponseDTO:
     """Persist the working deck as an immutable version in the caller's library.
 
     This is also what adopts a deck forged while signed out: the snapshot is
     written with the caller's `user_id` regardless of the source row's null one.
+    Saving is what can publish a deck, so it also refreshes the caller's public
+    profile (the feed's byline) in the same transaction.
     """
+    user_id = identity.user_id
     source = await _readable_deck_or_error(db, deck_id, user_id)
 
     if source.saved_at is not None:
@@ -350,6 +369,7 @@ async def save_deck(
         snapshot = _snapshot_of(source, user_id, (highest.scalar() or 0) + 1)
         db.add(snapshot)
         try:
+            await upsert_profile(db, identity)
             await db.commit()
             return _owned_response(snapshot)
         except IntegrityError:

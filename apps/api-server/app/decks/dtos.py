@@ -90,6 +90,14 @@ class DeckGenerateResponseDTO(BaseModel):
     status: DeckStatus
 
 
+class DeckAuthorDTO(BaseModel):
+    """The byline on a public deck. Either field may be null (no name on the
+    account, or no profile recorded yet); the client then shows a fallback."""
+
+    display_name: str | None = None
+    avatar_url: str | None = None
+
+
 class DeckResponseDTO(BaseModel):
     id: uuid.UUID
     title: str | None
@@ -107,6 +115,9 @@ class DeckResponseDTO(BaseModel):
     # Whether the caller owns this deck: drives the Edit and visibility
     # controls. Computed per request, never stored.
     is_owner: bool = False
+    # Who made it. Filled on the community surfaces (feed, public deck view);
+    # None elsewhere, and when the owner has no recorded profile.
+    author: DeckAuthorDTO | None = None
     status: DeckStatus
     error_message: str | None
     created_at: datetime
