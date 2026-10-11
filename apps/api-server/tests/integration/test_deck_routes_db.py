@@ -318,3 +318,74 @@ async def test_save_requires_auth(client, session_factory):
     res = await client.post(f"/api/v1/decks/{draft.id}/save")
 
     assert res.status_code == 401
+
+
+# --- PUT /decks/{id}/cards (hand edits) ---
+
+EDITED = [
+    {"name": "Shock", "quantity": 4, "section": "spells", "image_uri": "https://cards.scryfall.io/normal/s.jpg"},
+    {"name": "Mountain", "quantity": 20, "section": "lands"},
+]
+
+
+async def test_update_cards_replaces_the_draft_list(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+
+    res = await client.put(f"/api/v1/decks/{draft.id}/cards", json={"cards": EDITED}, headers=AUTH)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["card_count"] == 24
+    assert [(c["name"], c["quantity"]) for c in body["cards"]] == [("Shock", 4), ("Mountain", 20)]
+    async with session_factory() as db:
+        stored = (await db.execute(select(Deck).where(Deck.id == draft.id))).scalar_one()
+    assert stored.card_count == 24
+    assert stored.cards[1]["name"] == "Mountain"
+
+
+async def test_update_cards_requires_auth(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+    assert (await client.put(f"/api/v1/decks/{draft.id}/cards", json={"cards": EDITED})).status_code == 401
+
+
+async def test_update_cards_on_someone_elses_deck_is_forbidden(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+    res = await client.put(f"/api/v1/decks/{draft.id}/cards", json={"cards": EDITED}, headers=OTHER_USER_AUTH)
+    assert res.status_code == 403
+
+
+async def test_update_cards_missing_deck_404(client, db_engine):
+    res = await client.put(f"/api/v1/decks/{uuid.uuid4()}/cards", json={"cards": EDITED}, headers=AUTH)
+    assert res.status_code == 404
+
+
+async def test_update_cards_refuses_a_saved_snapshot(client, session_factory):
+    from datetime import UTC, datetime
+
+    snapshot = await _insert_deck(session_factory, cards=CARDS, card_count=4, saved_at=datetime.now(UTC), version_no=1)
+    res = await client.put(f"/api/v1/decks/{snapshot.id}/cards", json={"cards": EDITED}, headers=AUTH)
+    assert res.status_code == 400
+
+
+async def test_update_cards_refuses_an_unfinished_deck(client, session_factory):
+    deck = await _insert_deck(session_factory, status=DeckStatus.PROCESSING)
+    res = await client.put(f"/api/v1/decks/{deck.id}/cards", json={"cards": EDITED}, headers=AUTH)
+    assert res.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "cards",
+    [
+        [],
+        [{"name": "Shock", "quantity": 0, "section": "spells"}],
+        [{"name": "Shock", "quantity": 4, "section": "spells", "image_uri": "https://evil.example/x.png"}],
+        [
+            {"name": "Mountain", "quantity": 200, "section": "lands"},
+            {"name": "Shock", "quantity": 60, "section": "spells"},
+        ],
+    ],
+)
+async def test_update_cards_validates_the_list(client, session_factory, cards):
+    draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
+    res = await client.put(f"/api/v1/decks/{draft.id}/cards", json={"cards": cards}, headers=AUTH)
+    assert res.status_code == 422
