@@ -55,8 +55,10 @@ import styles from './page.module.css';
    NOT ported: the backend has no rate limiting anywhere, so it is dead code.
 
    The workspace geometry is the page's own state, not the design's fixed
-   280 / 380 / rest: the config panel retracts to a rail and the chat/deck
-   boundary is a draggable splitter. Both feed `--config-w` / `--chat-w` on
+   280 / 380 / rest: the config panel retracts to a rail (and does so on its
+   own when a generation starts, so the chat and deck get the room), the chat
+   starts 1.5x the design's width, and the chat/deck boundary is a draggable
+   splitter. Both feed `--config-w` / `--chat-w` on
    the grid rather than an inline `grid-template-columns`, so the responsive
    rules in page.module.css still win at narrow widths.
    ========================================================================== */
@@ -76,7 +78,15 @@ const CHAT_HISTORY_MAX = 20;
    the config panel retracts to a rail and the chat/deck boundary is dragged. */
 const CONFIG_WIDTH = 280;
 const CONFIG_RAIL_WIDTH = 48;
-const CHAT_WIDTH_DEFAULT = 380;
+/** The design's chat column (node `10:23`). */
+const CHAT_WIDTH_DESIGN = 380;
+/**
+ * Default chat width: 1.5x the design's 380 = 570. The chat is where the deck
+ * is refined, and at 380 its bubbles wrapped every few words. Still clamped
+ * by `clampChatWidth`, so narrow viewports keep the deck column's floor. The
+ * `--chat-w` fallback in page.module.css mirrors this value.
+ */
+const CHAT_WIDTH_DEFAULT = CHAT_WIDTH_DESIGN * 1.5;
 /* Floors for the two resizable columns. Below these the panels stop being
    usable — the chat bubbles collapse to a word per line, and the deck's card
    grid drops to a single 118px column with the stat tiles wrapping to four
@@ -133,6 +143,8 @@ export default function DeckBuilderPage() {
 
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [chatWidth, setChatWidth] = useState(CHAT_WIDTH_DEFAULT);
+  /** The splitter is mid-drag: the column transition is off so it tracks the pointer. */
+  const [resizing, setResizing] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [fetchingDeck, setFetchingDeck] = useState(false);
@@ -300,6 +312,16 @@ export default function DeckBuilderPage() {
       setDraft('');
     }
 
+    // The config is set once and then stops mattering; hand its column to the
+    // chat and the deck, half each (the deck column is `1fr`, so it takes
+    // whatever the chat does not). It reopens from the rail with every choice
+    // intact, since `config` lives here, not in the panel.
+    if (!configCollapsed) {
+      setConfigCollapsed(true);
+      setChatWidth((width) =>
+        clampChatWidth(width + (CONFIG_WIDTH - CONFIG_RAIL_WIDTH) / 2, workspaceRef.current, CONFIG_RAIL_WIDTH),
+      );
+    }
     setSubmitting(true);
     setPageError('');
     setDeck(null);
@@ -334,7 +356,7 @@ export default function DeckBuilderPage() {
     } finally {
       if (!controller.signal.aborted) setSubmitting(false);
     }
-  }, [config, draft, generating, prompt, pushEntry]);
+  }, [config, configCollapsed, draft, generating, prompt, pushEntry]);
 
   const handleCancel = useCallback(() => {
     generateAbort.current?.abort();
@@ -374,12 +396,14 @@ export default function DeckBuilderPage() {
       const startWidth = chatWidth;
 
       handle.setPointerCapture(event.pointerId);
+      setResizing(true);
 
       const onMove = (moveEvent: globalThis.PointerEvent) => {
         setChatWidth(clamp(startWidth + (moveEvent.clientX - startX)));
       };
 
       const onEnd = () => {
+        setResizing(false);
         handle.removeEventListener('pointermove', onMove);
         handle.removeEventListener('pointerup', onEnd);
         handle.removeEventListener('pointercancel', onEnd);
@@ -499,7 +523,7 @@ export default function DeckBuilderPage() {
   return (
     <div
       ref={workspaceRef}
-      className={styles.workspace}
+      className={`${styles.workspace} ${resizing ? styles.workspaceResizing : ''}`}
       style={
         {
           '--config-w': `${configWidth}px`,
