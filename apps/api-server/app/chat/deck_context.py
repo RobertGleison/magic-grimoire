@@ -138,3 +138,40 @@ def format_deck_context(deck: DeckLike) -> str | None:
             listed += 1
 
     return "\n".join(lines)
+
+
+def resolve_selection(deck: DeckLike, names: Iterable[str]) -> list[str]:
+    """The requested names that are actually in `deck`, in the deck's own spelling.
+
+    Matching is case- and whitespace-insensitive, duplicates collapse, and names
+    not in the deck are dropped — so the selection can only ever point at cards
+    the model already sees in the deck block.
+    """
+    by_key: dict[str, str] = {}
+    for card in deck.cards or []:
+        if isinstance(card, dict) and card.get("name"):
+            by_key.setdefault(_key(card["name"]), _one_line(card["name"]))
+    resolved: list[str] = []
+    for name in names:
+        canonical = by_key.get(_key(name))
+        if canonical and canonical not in resolved:
+            resolved.append(canonical)
+    return resolved
+
+
+def format_selection(names: list[str]) -> str | None:
+    """The block that confines this turn to the cards the player selected."""
+    if not names:
+        return None
+    listed = "\n".join(f"- {name}" for name in names)
+    return (
+        "Selected cards (the player picked these in the deck view for this message):\n"
+        f"{listed}\n"
+        "Constraint: any change you suggest in this reply must target ONLY the selected cards — "
+        "replace, cut, or re-count them. Keep every other card in the deck exactly as it is. "
+        "If the request cannot be met by changing only these cards, say so instead of touching others."
+    )
+
+
+def _key(name: object) -> str:
+    return " ".join(str(name).split()).casefold()

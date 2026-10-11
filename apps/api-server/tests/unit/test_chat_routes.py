@@ -184,3 +184,19 @@ async def test_client_disconnect_cancels_the_llm_call():
 
     assert cancelled.is_set()
     assert sent[0]["status"] == 499
+
+
+def test_selected_cards_require_a_deck():
+    payload = {"messages": [{"role": "user", "content": "cheaper please"}], "selected_cards": ["Lightning Bolt"]}
+    res = client.post("/api/v1/chat", json=payload)
+    assert res.status_code == 422
+
+
+def test_selected_card_names_are_bounded():
+    payload = {
+        "messages": [{"role": "user", "content": "cheaper please"}],
+        "deck_id": "00000000-0000-0000-0000-000000000001",
+        "selected_cards": ["x" * 151],
+    }
+    res = client.post("/api/v1/chat", json=payload)
+    assert res.status_code == 422

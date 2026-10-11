@@ -36,7 +36,8 @@ async def chat(
     deck_context: str | None = None
     if request.deck_id is not None:
         try:
-            deck_context = await load_deck_context(db, request.deck_id, user_id)
+            loaded = await load_deck_context(db, request.deck_id, user_id, request.selected_cards)
+            deck_context = loaded.prompt_text()
         except ChatDeckNotFound as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
         except SQLAlchemyError:
