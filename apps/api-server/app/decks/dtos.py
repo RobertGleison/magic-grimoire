@@ -23,6 +23,11 @@ class CardInDeckDTO(BaseModel):
     # Scryfall's euro price as a decimal string (MTG-26). None when Scryfall has no
     # euro price, or on cards enriched before prices were stored.
     price_eur: str | None = None
+    # Arena printing (MTG-21). None on cards enriched before these fields existed.
+    set_code: str | None = None
+    collector_number: str | None = None
+    on_arena: bool | None = None
+    arena_name: str | None = None
 
 
 # Card art is always Scryfall's CDN; anything else in an edited list is refused

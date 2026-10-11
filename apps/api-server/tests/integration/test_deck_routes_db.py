@@ -252,6 +252,10 @@ async def test_save_creates_v1_snapshot_and_leaves_the_draft(client, session_fac
             "type_line": None,
             "section": "spells",
             "price_eur": None,
+            "set_code": None,
+            "collector_number": None,
+            "on_arena": None,
+            "arena_name": None,
         }
     ]
 

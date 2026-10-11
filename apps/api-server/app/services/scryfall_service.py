@@ -214,14 +214,52 @@ async def search_cards(intent: dict) -> list[dict]:
     return results
 
 
+# Layouts whose Arena name keeps both halves ("Fire // Ice"). Every other multi-face
+# layout (transform, modal_dfc, adventure, flip, ...) is named by its front face on Arena.
+_FULL_NAME_LAYOUTS = {"split", "aftermath"}
+
 # Fields that must be present for a cached card entry to be current. Entries cached
-# before euro prices existed are refetched rather than served unpriced.
-_REQUIRED_CACHE_FIELDS = ("price_eur",)
+# before the Arena printing data or euro prices existed are refetched rather than
+# served stale.
+_REQUIRED_CACHE_FIELDS = ("set_code", "on_arena", "price_eur")
+
+
+def _is_on_arena(card_data: dict) -> bool:
+    return "arena" in (card_data.get("games") or [])
+
+
+def _arena_name(card_data: dict) -> str:
+    """The name MTG Arena's deck importer expects for this card."""
+    name = card_data.get("name", "")
+    if card_data.get("layout") in _FULL_NAME_LAYOUTS:
+        return name
+    return name.split(" // ")[0]
+
+
+async def _find_arena_printing(client: httpx.AsyncClient, name: str) -> dict | None:
+    """Newest printing of `name` that exists on MTG Arena, or None if there is none."""
+    exact = name.replace('"', "")
+    try:
+        data = await _get(
+            client,
+            f"{SCRYFALL_BASE}/cards/search",
+            params={"q": f'!"{exact}" game:arena', "unique": "prints", "order": "released", "dir": "desc"},
+        )
+    except httpx.HTTPStatusError:
+        return None
+    # `!"name"` is an exact-name match, but guard anyway: a wrong card is worse than none.
+    return next((p for p in data.get("data") or [] if p.get("name") == name and _is_on_arena(p)), None)
 
 
 async def _fetch_card(client: httpx.AsyncClient, name: str) -> dict:
-    """Fetch a card from Scryfall and keep only the fields we store."""
+    """Fetch a card from Scryfall and keep only the fields we store.
+
+    Prefers an Arena printing so the deck can be exported in Arena's import format;
+    `on_arena` is False when the card has no Arena printing at all.
+    """
     card_data = await _get(client, f"{SCRYFALL_BASE}/cards/named", params={"exact": name})
+    if not _is_on_arena(card_data):
+        card_data = await _find_arena_printing(client, card_data.get("name") or name) or card_data
 
     return {
         "scryfall_id": card_data.get("id"),
@@ -230,14 +268,19 @@ async def _fetch_card(client: httpx.AsyncClient, name: str) -> dict:
         "mana_cost": card_data.get("mana_cost", ""),
         "type_line": card_data.get("type_line", ""),
         "price_eur": _price_eur(card_data),
+        "set_code": (card_data.get("set") or "").upper() or None,
+        "collector_number": card_data.get("collector_number"),
+        "on_arena": _is_on_arena(card_data),
+        "arena_name": _arena_name(card_data) or name,
     }
 
 
 async def enrich_cards(cards: list[dict]) -> list[dict]:
     """Enrich a list of {name, quantity, section} dicts with Scryfall data.
 
-    Fetches scryfall_id, image_uri, art_crop_uri, mana_cost, type_line and the
-    euro price (price_eur) for each card.
+    Fetches scryfall_id, image_uri, art_crop_uri, mana_cost, type_line, the euro
+    price (price_eur) and the Arena printing (set_code, collector_number, on_arena,
+    arena_name) for each card.
     Results are cached per card name for 24 hours.
     """
     enriched: list[dict] = []
@@ -251,7 +294,6 @@ async def enrich_cards(cards: list[dict]) -> list[dict]:
 
             cache_key = f"scryfall:card:{urllib.parse.quote(name)}"
             cached = await card_cache.get(cache_key)
-
             card_data: dict[str, Any] = json.loads(cached) if cached else {}
 
             if not all(field in card_data for field in _REQUIRED_CACHE_FIELDS):

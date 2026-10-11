@@ -27,6 +27,10 @@ def _card(name: str, **extra) -> dict:
             "art_crop": f"https://img/art/{name}.jpg",
         },
         "prices": {"eur": "0.25", "eur_foil": "1.10"},
+        "set": "m10",
+        "collector_number": "146",
+        "layout": "normal",
+        "games": ["paper", "arena", "mtgo"],
         **extra,
     }
 
@@ -131,7 +135,7 @@ async def test_enrich_fetches_and_caches_card_data(fake_card_cache):
 async def test_enrich_cache_hit_skips_http(fake_card_cache):
     await card_cache.set(
         f"scryfall:card:{urllib.parse.quote('Shock')}",
-        json.dumps({"scryfall_id": "cached-id", "price_eur": "0.30"}),
+        json.dumps({"scryfall_id": "cached-id", "set_code": "M10", "on_arena": True, "price_eur": "0.30"}),
     )
     route = respx.get(f"{SCRYFALL_BASE}/cards/named")
 
@@ -201,7 +205,9 @@ async def test_enrich_derives_art_crop_for_entries_cached_before_it_existed(fake
     normal = "https://cards.scryfall.io/normal/front/a/b/abc.jpg?1"
     await card_cache.set(
         f"scryfall:card:{urllib.parse.quote('Shock')}",
-        json.dumps({"scryfall_id": "cached-id", "image_uri": normal, "price_eur": None}),
+        json.dumps(
+            {"scryfall_id": "cached-id", "image_uri": normal, "price_eur": None, "set_code": "M10", "on_arena": True}
+        ),
     )
 
     enriched = await scryfall_service.enrich_cards([{"name": "Shock", "quantity": 4}])
@@ -246,7 +252,56 @@ async def test_enrich_leaves_price_null_without_eur_prices(fake_card_cache, pric
 
 
 @respx.mock
-async def test_enrich_refetches_cache_entries_without_a_price(fake_card_cache):
+
+
+# --- enrich_cards: Arena printing data (MTG-21) ---
+
+@respx.mock
+async def test_enrich_stores_arena_printing_fields(fake_card_cache):
+    respx.get(f"{SCRYFALL_BASE}/cards/named").mock(
+        return_value=httpx.Response(200, json=_card("Lightning Bolt"))
+    )
+
+    enriched = await scryfall_service.enrich_cards([{"name": "Lightning Bolt", "quantity": 4}])
+
+    assert enriched[0]["set_code"] == "M10"
+    assert enriched[0]["collector_number"] == "146"
+    assert enriched[0]["on_arena"] is True
+    assert enriched[0]["arena_name"] == "Lightning Bolt"
+
+
+@respx.mock
+async def test_enrich_swaps_to_an_arena_printing_when_default_is_paper_only(fake_card_cache):
+    paper_only = _card("Lightning Bolt", set="sld", collector_number="999", games=["paper"])
+    arena_print = _card("Lightning Bolt", set="sta", collector_number="42", games=["arena", "paper"])
+    respx.get(f"{SCRYFALL_BASE}/cards/named").mock(return_value=httpx.Response(200, json=paper_only))
+    search = respx.get(f"{SCRYFALL_BASE}/cards/search").mock(
+        return_value=httpx.Response(200, json={"data": [arena_print], "has_more": False})
+    )
+
+    enriched = await scryfall_service.enrich_cards([{"name": "Lightning Bolt", "quantity": 4}])
+
+    assert search.called
+    assert search.calls[0].request.url.params["q"] == '!"Lightning Bolt" game:arena'
+    assert enriched[0]["set_code"] == "STA"
+    assert enriched[0]["collector_number"] == "42"
+    assert enriched[0]["on_arena"] is True
+
+
+@respx.mock
+async def test_enrich_flags_cards_with_no_arena_printing(fake_card_cache):
+    paper_only = _card("Black Lotus", set="lea", collector_number="232", games=["paper"])
+    respx.get(f"{SCRYFALL_BASE}/cards/named").mock(return_value=httpx.Response(200, json=paper_only))
+    respx.get(f"{SCRYFALL_BASE}/cards/search").mock(return_value=httpx.Response(404))
+
+    enriched = await scryfall_service.enrich_cards([{"name": "Black Lotus", "quantity": 1}])
+
+    assert enriched[0]["on_arena"] is False
+    assert enriched[0]["set_code"] == "LEA"
+
+
+@respx.mock
+async def test_enrich_refetches_stale_cache_entries(fake_card_cache):
     await card_cache.set(
         f"scryfall:card:{urllib.parse.quote('Shock')}",
         json.dumps({"scryfall_id": "stale-id"}),
@@ -259,13 +314,15 @@ async def test_enrich_refetches_cache_entries_without_a_price(fake_card_cache):
 
     assert route.call_count == 1
     assert enriched[0]["price_eur"] == "0.25"
+    assert enriched[0]["scryfall_id"] == "id-Shock"
+    assert enriched[0]["set_code"] == "M10"
 
 
 @respx.mock
 async def test_enrich_keeps_a_cached_null_price(fake_card_cache):
     await card_cache.set(
         f"scryfall:card:{urllib.parse.quote('Shock')}",
-        json.dumps({"scryfall_id": "cached-id", "price_eur": None}),
+        json.dumps({"scryfall_id": "cached-id", "set_code": "M10", "on_arena": True, "price_eur": None}),
     )
     route = respx.get(f"{SCRYFALL_BASE}/cards/named")
 
@@ -273,3 +330,18 @@ async def test_enrich_keeps_a_cached_null_price(fake_card_cache):
 
     assert route.call_count == 0
     assert enriched[0]["price_eur"] is None
+
+
+@pytest.mark.parametrize(
+    ("name", "layout", "expected"),
+    [
+        ("Lightning Bolt", "normal", "Lightning Bolt"),
+        ("Fire // Ice", "split", "Fire // Ice"),
+        ("Commit // Memory", "aftermath", "Commit // Memory"),
+        ("Delver of Secrets // Insectile Aberration", "transform", "Delver of Secrets"),
+        ("Bonecrusher Giant // Stomp", "adventure", "Bonecrusher Giant"),
+        ("Agadeem's Awakening // Agadeem, the Undercrypt", "modal_dfc", "Agadeem's Awakening"),
+    ],
+)
+def test_arena_name_follows_arena_naming(name, layout, expected):
+    assert scryfall_service._arena_name({"name": name, "layout": layout}) == expected
