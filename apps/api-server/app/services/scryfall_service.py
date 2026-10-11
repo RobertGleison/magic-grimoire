@@ -93,12 +93,6 @@ def _build_scryfall_query(intent: dict) -> str:
     return " ".join(parts) if parts else "type:creature"
 
 
-def _image_uri(card: dict) -> str | None:
-    return card.get("image_uris", {}).get("normal") or (
-        card.get("card_faces", [{}])[0].get("image_uris", {}).get("normal")
-    )
-
-
 def _price_eur(card_data: dict) -> str | None:
     """Scryfall's euro price as a decimal string, falling back to the foil price."""
     prices = card_data.get("prices") or {}
@@ -158,7 +152,7 @@ async def search_cards_by_name(name: str) -> list[dict]:
         {
             "name": card.get("name", ""),
             "scryfall_id": card.get("id"),
-            "image_uri": _image_uri(card),
+            "image_uri": _image_uri(card, "normal"),
             "mana_cost": card.get("mana_cost") or (card.get("card_faces", [{}])[0].get("mana_cost") or ""),
             "type_line": card.get("type_line", ""),
             "price_eur": _price_eur(card),
