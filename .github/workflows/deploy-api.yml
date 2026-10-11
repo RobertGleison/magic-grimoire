@@ -73,6 +73,24 @@ jobs:
           docker build --provenance=false -f Dockerfile.lambda -t "$IMAGE" .
           docker push "$IMAGE"
 
+      # Before the functions update, so new code never runs against an old schema.
+      # Migrations must stay additive: the old code keeps serving until the step below.
+      - name: Migrate database
+        working-directory: apps/api-server
+        env:
+          # Session pooler (port 5432): alembic's DDL needs a session, not the transaction pooler.
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          # Required by Settings(), which alembic/env.py loads via app.models; unused by migrations.
+          ENVIRONMENT: production
+          LLM_PROVIDER: ollama
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::PROD_DATABASE_URL secret is not set (Supabase session pooler URL, postgresql+asyncpg://...:5432/postgres)"
+            exit 1
+          fi
+          uv run alembic upgrade head
+          uv run alembic current
+
       - name: Update functions
         env:
           IMAGE: ${{ steps.image.outputs.uri }}
