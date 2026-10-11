@@ -11,10 +11,12 @@ import {
   isAbortError,
   listDecks,
   saveDeck,
+  searchCards,
   sendChat,
   setAuthTokenProvider,
   setDeckTags,
   setDeckVisibility,
+  updateDeckCards,
 } from '../../app/lib/apiClient';
 import type { DeckGenerateResponse, DeckListResponse } from '../../app/types/api';
 
@@ -361,5 +363,29 @@ describe('visibility, tags and explore (MTG-24/25)', () => {
 
     await exploreDecks({ q: '', colors: [], tags: [] });
     expect(lastCall().url).toBe(`${API_BASE}/explore/decks`);
+  });
+});
+
+describe('manual card edits', () => {
+  it('searches cards by name with the query encoded', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ cards: [] }));
+
+    await expect(searchCards("will-o' wisp")).resolves.toEqual({ cards: [] });
+    expect(lastCall().url).toBe(`${API_BASE}/cards/search?q=will-o%27+wisp`);
+    expect(lastCall().init).toMatchObject({ method: 'GET' });
+  });
+
+  it('PUTs the edited card list to the deck', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'deck-9', card_count: 4 }));
+    const cards = [
+      { name: 'Shock', quantity: 4, section: 'spells', scryfall_id: null, image_uri: null, mana_cost: null, type_line: null },
+    ];
+
+    await updateDeckCards('deck-9', cards);
+
+    const { url, init } = lastCall();
+    expect(url).toBe(`${API_BASE}/decks/deck-9/cards`);
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({ cards });
   });
 });

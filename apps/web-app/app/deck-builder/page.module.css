@@ -840,6 +840,93 @@
   min-height: 1em;
 }
 
+/* ---- Add cards (MTG-17, no Figma source) -------------------------------- */
+
+.addCardsPanel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
+  padding: var(--space-16);
+  background: var(--void-2);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-lg);
+}
+
+.addCardsSearch {
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  background: var(--void-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--cream);
+  transition: var(--transition);
+}
+
+.addCardsSearch::placeholder {
+  color: var(--faint);
+}
+
+.addCardsSearch:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.addCardsBody {
+  /* Bounded so a long result set scrolls inside the panel and the deck stays
+     one scroll away, not twenty-four tiles down. */
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.addCardsResults {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--space-100), 1fr));
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.addCardsResult {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.addCardsControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.addCardsControls .numberInput {
+  min-width: 0;
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.addCardsHint,
+.addCardsWarning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--faint);
+}
+
+.addCardsWarning {
+  color: var(--crimson-fg);
+}
+
 /* ---- Card grid (16:4) ---------------------------------------------------- */
 
 /* No scroll of its own: the results column above is the scroller, so the grid

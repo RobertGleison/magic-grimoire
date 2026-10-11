@@ -18,21 +18,29 @@ import type { CardInDeck, DeckResponse, TaskProgress, TaskStatus } from '../../a
 import type { UserStatus } from '../../app/context/UserContext';
 import DeckBuilderPage from '../../app/deck-builder/page';
 import {
+  BASIC_LAND_ADD_MAX,
   BUDGET_MAX,
+  CARD_SEARCH_DEBOUNCE_MS,
   COMMANDER_DECK_SIZE,
   DECK_DESCRIPTION_MAX,
   DEFAULT_DECK_CONFIG,
+  addCardToDeck,
   buildGeneratePrompt,
   categoriseCard,
   chatColors,
   clampDeckSize,
+  copiesInDeck,
+  copyLimit,
+  deckCardTotal,
   deckColorDistribution,
   deckDescription,
   deckFileName,
   deckListText,
   deckSummaryStats,
   groupDeckCards,
+  isBasicLand,
   isFixedSizeFormat,
+  maxAddable,
   setDeckFormat,
   setDeckSizeBound,
   toggleDeckColor,
@@ -208,6 +216,48 @@ describe('deckListText / deckFileName', () => {
   it('slugs the title and always ends in .txt', () => {
     expect(deckFileName(deckFixture())).toBe('rakdos-sacrifice.txt');
     expect(deckFileName(deckFixture({ title: null }))).toBe('magic-grimoire-deck.txt');
+  });
+});
+
+describe('manual add helpers', () => {
+  const bolt = { name: 'Lightning Bolt', scryfall_id: 'b', image_uri: null, mana_cost: '{R}', type_line: 'Instant' };
+
+  it('recognises basic lands by type line or name, and nothing else', () => {
+    expect(isBasicLand({ name: 'Mountain', type_line: 'Basic Land — Mountain' })).toBe(true);
+    expect(isBasicLand({ name: 'Snow-Covered Island', type_line: null })).toBe(true);
+    expect(isBasicLand({ name: 'Blood Crypt', type_line: 'Land — Swamp Mountain' })).toBe(false);
+  });
+
+  it('allows four copies, one in Commander, and exempts basics', () => {
+    expect(copyLimit('standard')).toBe(4);
+    expect(copyLimit('commander')).toBe(1);
+    expect(maxAddable(CARDS, { name: 'Mayhem Devil', type_line: 'Creature' }, 'standard')).toBe(0);
+    expect(maxAddable(CARDS, { name: "Witch's Oven", type_line: 'Artifact' }, 'standard')).toBe(2);
+    expect(maxAddable(CARDS, { name: 'Lightning Bolt', type_line: 'Instant' }, 'commander')).toBe(1);
+    expect(maxAddable(CARDS, { name: 'Swamp', type_line: 'Basic Land — Swamp' }, 'commander')).toBe(BASIC_LAND_ADD_MAX);
+  });
+
+  it('counts main-deck copies only, case-insensitively', () => {
+    expect(copiesInDeck(CARDS, 'duress')).toBe(0); // sideboard
+    expect(copiesInDeck(CARDS, 'witch\'s oven')).toBe(2);
+  });
+
+  it('grows an existing entry and appends a new one with its Scryfall fields', () => {
+    const grown = addCardToDeck(CARDS, { ...bolt, name: "Witch's Oven", type_line: 'Artifact' }, 2);
+    expect(grown.find((c) => c.name === "Witch's Oven")?.quantity).toBe(4);
+    expect(grown).toHaveLength(CARDS.length);
+
+    const added = addCardToDeck(CARDS, bolt, 3);
+    expect(added).toHaveLength(CARDS.length + 1);
+    expect(added.at(-1)).toEqual({ ...bolt, quantity: 3, section: 'spells' });
+    expect(deckCardTotal(added)).toBe(deckCardTotal(CARDS) + 3);
+    // Never mutates the input.
+    expect(CARDS).toHaveLength(6);
+  });
+
+  it('files a land as a land and a creature as a creature', () => {
+    expect(addCardToDeck([], { ...bolt, name: 'Forest', type_line: 'Basic Land — Forest' }, 1)[0].section).toBe('lands');
+    expect(addCardToDeck([], { ...bolt, name: 'Elf', type_line: 'Creature — Elf' }, 1)[0].section).toBe('creatures');
   });
 });
 
@@ -1095,6 +1145,144 @@ describe('DeckBuilderPage — deck states', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument());
     expect(screen.queryByText('Deck idea')).toBeNull();
     expect(screen.queryByText(/original incantation/i)).toBeNull();
+  });
+
+  describe('add cards manually', () => {
+    const BOLT = {
+      name: 'Lightning Bolt',
+      scryfall_id: 'sc-bolt',
+      image_uri: 'https://cards.scryfall.io/normal/bolt.jpg',
+      mana_cost: '{R}',
+      type_line: 'Instant',
+    };
+    const searchCalls = () =>
+      fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith('/api/v1/cards/search'));
+
+    async function openPanel(overrides: Partial<DeckResponse> = {}) {
+      await renderWithDeck(overrides);
+      fireEvent.click(await screen.findByRole('button', { name: 'Add Cards' }));
+      return screen.getByRole('searchbox', { name: 'Search cards by name' });
+    }
+
+    it('debounces the search at 400ms and only sends the settled query', async () => {
+      const search = await openPanel();
+      vi.useFakeTimers({ shouldAdvanceTime: false });
+      try {
+        fetchMock.mockResolvedValue(jsonResponse({ cards: [BOLT] }));
+        fireEvent.change(search, { target: { value: 'li' } });
+        fireEvent.change(search, { target: { value: 'light' } });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(CARD_SEARCH_DEBOUNCE_MS - 1);
+        });
+        expect(searchCalls()).toHaveLength(0);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1);
+        });
+        expect(searchCalls()).toEqual(['/api/v1/cards/search?q=light']);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('aborts a superseded request so a stale answer never paints', async () => {
+      const search = await openPanel();
+      const signals: AbortSignal[] = [];
+      fetchMock.mockImplementation((url, init) => {
+        if (!String(url).startsWith('/api/v1/cards/search')) return Promise.reject(new Error('unexpected'));
+        signals.push(init?.signal as AbortSignal);
+        // The first query hangs; the second answers.
+        return signals.length === 1 ? new Promise<Response>(() => {}) : Promise.resolve(jsonResponse({ cards: [BOLT] }));
+      });
+
+      fireEvent.change(search, { target: { value: 'bol' } });
+      await waitFor(() => expect(signals).toHaveLength(1));
+      fireEvent.change(search, { target: { value: 'bolt' } });
+      await waitFor(() => expect(signals).toHaveLength(2));
+
+      expect(signals[0].aborted).toBe(true);
+      await waitFor(() => expect(screen.getByRole('list', { name: 'Matching cards' })).toBeInTheDocument());
+    });
+
+    it('adds a chosen quantity, updates the deck at once, and saves it', async () => {
+      const search = await openPanel();
+      let saved: unknown = null;
+      fetchMock.mockImplementation(async (url, init) => {
+        if (String(url).startsWith('/api/v1/cards/search')) return jsonResponse({ cards: [BOLT] });
+        if (String(url) === '/api/v1/decks/deck-1/cards') {
+          saved = JSON.parse(String(init?.body));
+          const cards = (saved as { cards: CardInDeck[] }).cards;
+          return jsonResponse(deckFixture({ cards, card_count: cards.reduce((n, c) => n + c.quantity, 0) }));
+        }
+        throw new Error(`unexpected ${String(url)}`);
+      });
+
+      fireEvent.change(search, { target: { value: 'bolt' } });
+      const results = await screen.findByRole('list', { name: 'Matching cards' });
+      // The result is the grid's CardTile.
+      expect(within(results).getByText('Lightning Bolt')).toBeInTheDocument();
+
+      fireEvent.change(within(results).getByLabelText('Qty of Lightning Bolt'), { target: { value: '3' } });
+      fireEvent.click(within(results).getByRole('button', { name: 'Add 3 Lightning Bolt' }));
+
+      // Optimistic: the header count moves before the save answers.
+      expect(screen.getByText(/23 cards compiled/)).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('Added 3 × Lightning Bolt.')).toBeInTheDocument());
+      const body = saved as { cards: CardInDeck[] };
+      expect(body.cards.at(-1)).toMatchObject({ name: 'Lightning Bolt', quantity: 3, section: 'spells' });
+    });
+
+    it('caps the quantity at the copy limit and blocks a fifth copy', async () => {
+      const search = await openPanel();
+      fetchMock.mockResolvedValue(
+        jsonResponse({ cards: [{ ...BOLT, name: 'Mayhem Devil', type_line: 'Creature — Devil' }] }),
+      );
+      fireEvent.change(search, { target: { value: 'mayhem' } });
+      const results = await screen.findByRole('list', { name: 'Matching cards' });
+      expect(within(results).getByText('4-copy limit reached.')).toBeInTheDocument();
+      expect(within(results).getByRole('button', { name: /add 1 mayhem devil/i })).toBeDisabled();
+    });
+
+    it('rolls the deck back and explains when the save is refused', async () => {
+      const search = await openPanel();
+      fetchMock.mockImplementation(async (url) => {
+        if (String(url).startsWith('/api/v1/cards/search')) return jsonResponse({ cards: [BOLT] });
+        return jsonResponse({ detail: 'Only a finished deck can be edited.' }, 400);
+      });
+      fireEvent.change(search, { target: { value: 'bolt' } });
+      const results = await screen.findByRole('list', { name: 'Matching cards' });
+      fireEvent.click(within(results).getByRole('button', { name: 'Add 1 Lightning Bolt' }));
+
+      await waitFor(() => expect(screen.getByText('Only a finished deck can be edited.')).toBeInTheDocument());
+      expect(screen.getByText(/20 cards compiled/)).toBeInTheDocument();
+    });
+
+    it('handles the empty and error states', async () => {
+      const search = await openPanel();
+      expect(screen.getByText(/type at least 2 letters/i)).toBeInTheDocument();
+
+      fetchMock.mockResolvedValueOnce(jsonResponse({ cards: [] }));
+      fireEvent.change(search, { target: { value: 'zzqx' } });
+      await waitFor(() => expect(screen.getByText('No cards match “zzqx”.')).toBeInTheDocument());
+
+      fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'Card search is unavailable right now.' }, 502));
+      fireEvent.change(search, { target: { value: 'bolt' } });
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent('Card search is unavailable right now.'),
+      );
+    });
+
+    it('closes on Escape without losing the deck', async () => {
+      const search = await openPanel();
+      fireEvent.keyDown(search, { key: 'Escape' });
+      expect(screen.queryByRole('searchbox', { name: 'Search cards by name' })).toBeNull();
+      expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument();
+    });
+
+    it('is not offered on a saved library version, which is immutable', async () => {
+      await renderWithDeck({ version_no: 2 });
+      await screen.findByRole('heading', { name: 'Rakdos Sacrifice' });
+      expect(screen.queryByRole('button', { name: 'Add Cards' })).toBeNull();
+    });
   });
 
   describe('save to library', () => {

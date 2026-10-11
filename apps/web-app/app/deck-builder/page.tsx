@@ -25,9 +25,11 @@ import {
   isAbortError,
   saveDeck,
   sendChat,
+  updateDeckCards,
 } from '../lib/apiClient';
 import { resolveNextPath } from '../login/authShared';
-import type { ChatMessage, DeckResponse } from '../types/api';
+import type { CardSearchResult, ChatMessage, DeckResponse } from '../types/api';
+import { AddCardsPanel } from './AddCardsPanel';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
 import { ConfigPanel } from './ConfigPanel';
 import { DeckResultsPanel, type SaveState } from './DeckResultsPanel';
@@ -35,9 +37,11 @@ import { GenerationProgress } from './GenerationProgress';
 import {
   DEFAULT_DECK_CONFIG,
   GENERATE_BLOCKED_MESSAGE,
+  addCardToDeck,
   buildGeneratePrompt,
   chatColors,
   deckFileName,
+  deckCardTotal,
   deckListText,
   isDeckConfigReady,
   type DeckConfig,
@@ -140,6 +144,13 @@ function clampChatWidth(width: number, workspace: HTMLElement | null, configWidt
  */
 type CancelState = 'idle' | 'cancelling' | 'cancelled';
 
+/** The last hand-added card's save: one value, so "saving" and "failed" can't overlap. */
+type AddState =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'added'; text: string }
+  | { kind: 'error'; message: string };
+
 function errorText(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
@@ -167,6 +178,8 @@ export default function DeckBuilderPage() {
   const [actionNote, setActionNote] = useState('');
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const [cancelState, setCancelState] = useState<CancelState>('idle');
+  const [addCardsOpen, setAddCardsOpen] = useState(false);
+  const [addState, setAddState] = useState<AddState>({ kind: 'idle' });
 
   const stream = useTaskStream(taskId);
 
@@ -181,6 +194,7 @@ export default function DeckBuilderPage() {
   const deckAbort = useRef<AbortController | null>(null);
   const generateAbort = useRef<AbortController | null>(null);
   const saveAbort = useRef<AbortController | null>(null);
+  const addAbort = useRef<AbortController | null>(null);
   const entrySeq = useRef(0);
   /** The user turn awaiting a reply, so Stop can take it back. */
   const pendingTurn = useRef<ChatEntry | null>(null);
@@ -196,6 +210,7 @@ export default function DeckBuilderPage() {
       deckAbort.current?.abort();
       generateAbort.current?.abort();
       saveAbort.current?.abort();
+      addAbort.current?.abort();
     },
     [],
   );
@@ -548,6 +563,47 @@ export default function DeckBuilderPage() {
     [clamp],
   );
 
+  /* ----------------------------------------------------------- add cards */
+
+  // A different deck (new generation, permalink) closes the panel: its copy
+  // counts and limits were about the deck that was open.
+  useEffect(() => {
+    setAddCardsOpen(false);
+    setAddState({ kind: 'idle' });
+  }, [deck?.id]);
+
+  /**
+   * Optimistic: the grid and counts update at once, then the list is written
+   * through `PUT /decks/:id/cards` (the working draft's save path). A refused
+   * write rolls the list back and says why. Any library version saved earlier
+   * no longer matches, so the save button is re-armed.
+   */
+  const handleAddCard = useCallback(
+    async (card: CardSearchResult, quantity: number) => {
+      if (!deck || addState.kind === 'saving') return;
+      const previous = deck;
+      const cards = addCardToDeck(deck.cards, card, quantity);
+      setDeck({ ...deck, cards, card_count: deckCardTotal(cards) });
+      setSaveState({ kind: 'idle' });
+      setAddState({ kind: 'saving' });
+
+      addAbort.current?.abort();
+      const controller = new AbortController();
+      addAbort.current = controller;
+      try {
+        const saved = await updateDeckCards(deck.id, cards, { signal: controller.signal });
+        if (controller.signal.aborted) return;
+        setDeck(saved);
+        setAddState({ kind: 'added', text: `Added ${quantity} × ${card.name}.` });
+      } catch (error) {
+        if (isAbortError(error)) return;
+        setDeck(previous);
+        setAddState({ kind: 'error', message: errorText(error, `Could not add ${card.name}.`) });
+      }
+    },
+    [addState.kind, deck],
+  );
+
   /* ------------------------------------------------------------- actions */
 
   const handleSave = useCallback(async () => {
@@ -737,15 +793,43 @@ export default function DeckBuilderPage() {
             </div>
           </div>
         ) : deck ? (
-          <DeckResultsPanel
-            deck={deck}
-            actionNote={actionNote}
-            onCopyList={() => void handleCopyList()}
-            onCopyLink={() => void handleCopyLink()}
-            onExportText={handleExportText}
-            onSave={() => void handleSave()}
-            saveState={saveState}
-          />
+          <>
+            {addCardsOpen && (
+              <AddCardsPanel
+                cards={deck.cards ?? []}
+                format={deck.format}
+                onAdd={(card, quantity) => void handleAddCard(card, quantity)}
+                onClose={() => setAddCardsOpen(false)}
+                busy={addState.kind === 'saving'}
+                note={
+                  addState.kind === 'added'
+                    ? addState.text
+                    : addState.kind === 'error'
+                      ? addState.message
+                      : addState.kind === 'saving'
+                        ? 'Saving…'
+                        : ''
+                }
+              />
+            )}
+            <DeckResultsPanel
+              deck={deck}
+              actionNote={actionNote}
+              onCopyList={() => void handleCopyList()}
+              onCopyLink={() => void handleCopyLink()}
+              onExportText={handleExportText}
+              onSave={() => void handleSave()}
+              saveState={saveState}
+              // Only the finished working draft is editable; a saved version is
+              // immutable server-side.
+              onAddCards={
+                deck.status === 'completed' && deck.version_no === null
+                  ? () => setAddCardsOpen((open) => !open)
+                  : undefined
+              }
+              addCardsOpen={addCardsOpen}
+            />
+          </>
         ) : (
           <div className={styles.emptyPanel}>
             <h2 className={styles.emptyTitle}>Nothing forged yet</h2>
