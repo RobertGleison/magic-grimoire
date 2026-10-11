@@ -101,6 +101,15 @@ export interface DeckGenerateResponse {
  * `format` and `colors` are plain strings in `DeckResponseDTO`, not the enums —
  * they are read back off the ORM model rather than re-validated.
  */
+/**
+ * The byline on a community deck (`DeckAuthorDTO`). Either field may be null:
+ * the account has no name, or the owner has no recorded profile yet.
+ */
+export interface DeckAuthor {
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 export interface DeckResponse {
   id: string;
   title: string | null;
@@ -131,6 +140,11 @@ export interface DeckResponse {
   tags: string[];
   /** Whether the caller owns this deck — gates Edit and the visibility lock. */
   is_owner: boolean;
+  /**
+   * Who made it. Present on the community surfaces (explore feed, public deck
+   * view); `null` or absent elsewhere and when no profile is recorded.
+   */
+  author?: DeckAuthor | null;
   status: DeckStatus;
   error_message: string | null;
   /** ISO-8601 timestamps. */
