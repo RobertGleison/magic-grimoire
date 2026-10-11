@@ -1,6 +1,6 @@
 import json
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -279,3 +279,126 @@ async def test_pipeline_falls_back_to_intent_strategy_for_description(session_fa
 
     deck, _ = await _load(session_factory, deck_id, task_id)
     assert deck.description == "aggro"
+
+
+# --- cancellation (POST /tasks/{id}/cancel writes the row; the pipeline obeys it) ---
+
+
+async def _cancel_row(session_factory, deck_id: str, task_id: str) -> None:
+    """What the cancel endpoint writes."""
+    async with session_factory() as db:
+        deck = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(deck_id)))).scalar_one()
+        task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one()
+        task.status = TaskStatus.CANCELLED
+        task.progress = TaskProgress.CANCELLED
+        deck.status = DeckStatus.CANCELLED
+        await db.commit()
+
+
+@pytest.fixture
+def scryfall(monkeypatch):
+    """Stub both Scryfall calls so each test can see which ones ran."""
+    search = AsyncMock(return_value=[{"name": "Lightning Bolt", "mana_cost": "{R}", "type_line": "Instant"}])
+    enrich = AsyncMock(side_effect=lambda cards: [{**c, "scryfall_id": "sc-x"} for c in cards])
+    monkeypatch.setattr(scryfall_service, "search_cards", search)
+    monkeypatch.setattr(scryfall_service, "enrich_cards", enrich)
+    return search, enrich
+
+
+async def _assert_cancelled_without_a_deck(session_factory, deck_id: str, task_id: str) -> None:
+    deck, task = await _load(session_factory, deck_id, task_id)
+    assert task.status == TaskStatus.CANCELLED
+    assert task.progress == TaskProgress.CANCELLED
+    assert deck.status == DeckStatus.CANCELLED
+    assert deck.cards is None
+    assert deck.completed_at is None
+    assert deck.failed_at is None
+
+
+async def test_cancel_while_queued_makes_no_calls(session_factory, llm, scryfall):
+    deck_id, task_id = await _seed(session_factory)
+    await _cancel_row(session_factory, deck_id, task_id)
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    llm.parse_intent.assert_not_called()
+    await _assert_cancelled_without_a_deck(session_factory, deck_id, task_id)
+
+
+async def test_cancel_just_before_processing_starts(session_factory, llm, scryfall, monkeypatch):
+    deck_id, task_id = await _seed(session_factory)
+
+    async def _skip_check_then_cancel(self):
+        # The cancel lands between the duplicate-delivery check and the first write.
+        await _cancel_row(session_factory, deck_id, task_id)
+        return False
+
+    monkeypatch.setattr(DeckGenerationPipeline, "_should_skip", _skip_check_then_cancel)
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    llm.parse_intent.assert_not_called()
+    await _assert_cancelled_without_a_deck(session_factory, deck_id, task_id)
+
+
+# Cancelling while a stage runs is seen at the next stage boundary (the _publish of
+# the following stage), so nothing after it is called.
+@pytest.mark.parametrize(
+    ("cancel_before", "expect_search", "expect_compose", "expect_enrich"),
+    [
+        (TaskProgress.SEARCHING_CARDS, False, False, False),  # cancelled while parsing intent
+        (TaskProgress.COMPOSING_DECK, True, False, False),  # cancelled while searching cards
+        (TaskProgress.ENRICHING, True, True, False),  # cancelled while composing
+    ],
+)
+async def test_cancel_mid_pipeline_stops_at_the_next_stage(
+    session_factory, llm, scryfall, monkeypatch, cancel_before, expect_search, expect_compose, expect_enrich
+):
+    search, enrich = scryfall
+    deck_id, task_id = await _seed(session_factory)
+    original = DeckGenerationPipeline._publish
+
+    async def _publish(self, progress, message):
+        if progress == cancel_before:
+            await _cancel_row(session_factory, deck_id, task_id)
+        await original(self, progress, message)
+
+    monkeypatch.setattr(DeckGenerationPipeline, "_publish", _publish)
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    assert search.await_count == int(expect_search)
+    assert llm.compose_deck.called is expect_compose
+    assert enrich.await_count == int(expect_enrich)
+    await _assert_cancelled_without_a_deck(session_factory, deck_id, task_id)
+
+
+async def test_cancel_while_enriching_saves_no_deck(session_factory, llm, scryfall):
+    _, enrich = scryfall
+    deck_id, task_id = await _seed(session_factory)
+
+    async def _enrich_then_cancel(cards):
+        await _cancel_row(session_factory, deck_id, task_id)
+        return [{**c, "scryfall_id": "sc-x"} for c in cards]
+
+    enrich.side_effect = _enrich_then_cancel
+
+    await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    await _assert_cancelled_without_a_deck(session_factory, deck_id, task_id)
+
+
+async def test_error_after_cancel_does_not_turn_it_into_a_failure(session_factory, llm, scryfall):
+    search, _ = scryfall
+    deck_id, task_id = await _seed(session_factory)
+
+    async def _cancel_then_explode(intent):
+        await _cancel_row(session_factory, deck_id, task_id)
+        raise ConnectionError("scryfall down")
+
+    search.side_effect = _cancel_then_explode
+
+    with pytest.raises(ConnectionError):
+        await _run(task_id=task_id, deck_id=deck_id, prompt="mono red burn", format="modern").run()
+
+    await _assert_cancelled_without_a_deck(session_factory, deck_id, task_id)

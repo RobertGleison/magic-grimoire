@@ -15,6 +15,7 @@ from app.llm import create_llm_service
 from app.llm.base import LLMServiceError
 from app.services import scryfall_service
 from app.tasks.model import Task
+from app.tasks.status import TERMINAL_TASK_STATUSES
 
 _log = logging.getLogger(__name__)
 
@@ -54,6 +55,15 @@ def clean_description(raw: object) -> str | None:
     if " " in cut:
         cut = cut.rsplit(" ", 1)[0]
     return cut.rstrip(" ,;:.-") + "…"
+
+
+class GenerationCancelled(Exception):
+    """The owner cancelled the task (POST /tasks/{id}/cancel) while this run was in flight.
+
+    Raised by the pipeline's own checkpoints. Not a failure: the cancel endpoint has
+    already written the terminal `cancelled` state, so nothing more is recorded and no
+    partial deck is saved.
+    """
 
 
 GENERIC_FAILURE_MESSAGE = "Something went wrong while forging your deck. Please try again."
@@ -120,6 +130,10 @@ class DeckGenerationPipeline:
             if await self._should_skip():
                 return
             await self._generate()
+        except GenerationCancelled:
+            # Cancellation is cooperative and checked at every stage boundary, so the
+            # worst case is finishing the one LLM/Scryfall call already in flight.
+            _log.info("Task %s cancelled; stopping before the next stage", self.task_id)
         except Exception as exc:
             if not await self._mark_failed(user_facing_error(exc)):
                 raise FailureNotRecorded(f"Task {self.task_id} failed and could not be marked failed") from exc
@@ -164,18 +178,36 @@ class DeckGenerationPipeline:
         )
 
     async def _publish(self, progress: TaskProgress, message: str) -> None:
-        """Record the current stage on the task row; the frontend polls GET /tasks/{id}."""
+        """Record the current stage on the task row; the frontend polls GET /tasks/{id}.
+
+        Doubles as the cancellation checkpoint between stages: a cancelled task raises
+        GenerationCancelled here, before the next LLM or Scryfall call is made.
+        """
         async with self._db.session() as db:
-            _, task = await self._fetch_deck_and_task(db)
+            _, task = await self._fetch_deck_and_task(db, lock=True)
+            self._raise_if_cancelled(task)
             if task:
                 task.progress = progress
                 task.message = message
                 task.updated_at = datetime.now(tz=UTC)
 
-    async def _fetch_deck_and_task(self, db: AsyncSession) -> tuple[Deck | None, Task | None]:
+    async def _fetch_deck_and_task(
+        self, db: AsyncSession, *, lock: bool = False
+    ) -> tuple[Deck | None, Task | None]:
+        """Load the pair. `lock` takes a row lock on the task, the same one the cancel
+        endpoint takes, so a status check and the write after it can't interleave with a
+        cancel — a deck is never marked completed after its task was cancelled."""
         deck = (await db.execute(select(Deck).where(Deck.id == self.deck_uuid))).scalar_one_or_none()
-        task = (await db.execute(select(Task).where(Task.id == self.task_id))).scalar_one_or_none()
+        task_query = select(Task).where(Task.id == self.task_id)
+        if lock:
+            task_query = task_query.with_for_update()
+        task = (await db.execute(task_query)).scalar_one_or_none()
         return deck, task
+
+    @staticmethod
+    def _raise_if_cancelled(task: Task | None) -> None:
+        if task is not None and task.status == TaskStatus.CANCELLED:
+            raise GenerationCancelled()
 
     async def _should_skip(self) -> bool:
         """True when this delivery must do no work (and so make no LLM calls)."""
@@ -186,14 +218,16 @@ class DeckGenerationPipeline:
             _log.warning("Task %s not found; skipping generation", self.task_id)
             return True
         # Lambda async invoke is at-least-once; a redelivered job must not redo work.
-        if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+        # A task cancelled while still queued lands here too, before any LLM call.
+        if task.status in TERMINAL_TASK_STATUSES:
             _log.info("Task %s already %s; skipping duplicate delivery", self.task_id, task.status)
             return True
         return False
 
     async def _mark_processing(self) -> None:
         async with self._db.session() as db:
-            deck, task = await self._fetch_deck_and_task(db)
+            deck, task = await self._fetch_deck_and_task(db, lock=True)
+            self._raise_if_cancelled(task)
             if deck:
                 deck.status = DeckStatus.PROCESSING
             if task:
@@ -207,7 +241,10 @@ class DeckGenerationPipeline:
     ) -> None:
         now = datetime.now(tz=UTC)
         async with self._db.session() as db:
-            deck, task = await self._fetch_deck_and_task(db)
+            deck, task = await self._fetch_deck_and_task(db, lock=True)
+            # The last checkpoint: a cancel that landed during enrichment still wins,
+            # and the deck keeps no cards.
+            self._raise_if_cancelled(task)
             if deck:
                 deck.title = title
                 deck.description = description
@@ -226,7 +263,11 @@ class DeckGenerationPipeline:
         """Record the failure; returns False when the database write itself failed."""
         try:
             async with self._db.session() as db:
-                deck, task = await self._fetch_deck_and_task(db)
+                deck, task = await self._fetch_deck_and_task(db, lock=True)
+                if task is not None and task.status == TaskStatus.CANCELLED:
+                    # The owner stopped it first; an error from the abandoned run
+                    # must not turn a cancellation into a failure.
+                    return True
                 mark_generation_failed(deck, task, error)
         except Exception:
             _log.exception("Could not mark deck %s / task %s as failed", self.deck_uuid, self.task_id)
