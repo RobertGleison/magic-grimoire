@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 
+import { formatEur } from '../../lib/price';
 import './CardHoverPreview.css';
 
 /* ==========================================================================
@@ -35,6 +36,11 @@ const EDGE_PAD = 8;
 export interface CardPreviewTarget {
   name: string;
   imageUri?: string | null;
+  /**
+   * The card's euro price. Pass `null` for an unpriced card to show the
+   * placeholder; omit it where prices are not shown at all.
+   */
+  priceEur?: string | null;
 }
 
 interface PreviewState extends CardPreviewTarget {
@@ -129,6 +135,9 @@ export function CardHoverPreview({ preview }: CardHoverPreviewProps) {
         height={PREVIEW_H}
         decoding="async"
       />
+      {preview.priceEur !== undefined ? (
+        <span className="card-hover-preview-price">{formatEur(preview.priceEur)}</span>
+      ) : null}
     </div>,
     document.body,
   );

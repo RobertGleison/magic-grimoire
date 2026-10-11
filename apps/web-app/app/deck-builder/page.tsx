@@ -27,6 +27,7 @@ import {
   sendChat,
   updateDeckCards,
 } from '../lib/apiClient';
+import { deckPriceFields } from '../lib/price';
 import { resolveNextPath } from '../login/authShared';
 import type { CardSearchResult, ChatMessage, DeckResponse } from '../types/api';
 import { AddCardsPanel } from './AddCardsPanel';
@@ -583,7 +584,7 @@ export default function DeckBuilderPage() {
       if (!deck || addState.kind === 'saving') return;
       const previous = deck;
       const cards = addCardToDeck(deck.cards, card, quantity);
-      setDeck({ ...deck, cards, card_count: deckCardTotal(cards) });
+      setDeck({ ...deck, cards, card_count: deckCardTotal(cards), ...deckPriceFields(cards) });
       setSaveState({ kind: 'idle' });
       setAddState({ kind: 'saving' });
 

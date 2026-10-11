@@ -7,6 +7,7 @@ import { MTG_COLORS } from '../../types/api';
 import { Badge } from '../Badge/Badge';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
+import { DeckPrice } from '../DeckPrice/DeckPrice';
 import { ManaSymbol } from '../ManaSymbol/ManaSymbol';
 import { VisibilityToggle } from '../VisibilityToggle/VisibilityToggle';
 import './DeckSummaryCard.css';
@@ -246,8 +247,17 @@ export function DeckSummaryCard({
         <Badge variant="crimson" size="sm">
           {deck.format}
         </Badge>
-        <span className="deck-summary-count">
-          {deck.card_count} {deck.card_count === 1 ? 'Spell' : 'Spells'}
+        <span className="deck-summary-meta">
+          <span className="deck-summary-count">
+            {deck.card_count} {deck.card_count === 1 ? 'Spell' : 'Spells'}
+          </span>
+          {isReady ? (
+            <DeckPrice
+              className="deck-summary-price"
+              total={deck.total_price_eur}
+              unpricedCount={deck.unpriced_card_count}
+            />
+          ) : null}
         </span>
       </div>
 

@@ -249,10 +249,14 @@ describe('manual add helpers', () => {
 
     const added = addCardToDeck(CARDS, bolt, 3);
     expect(added).toHaveLength(CARDS.length + 1);
-    expect(added.at(-1)).toEqual({ ...bolt, quantity: 3, section: 'spells' });
+    expect(added.at(-1)).toEqual({ ...bolt, quantity: 3, section: 'spells', price_eur: null });
     expect(deckCardTotal(added)).toBe(deckCardTotal(CARDS) + 3);
     // Never mutates the input.
     expect(CARDS).toHaveLength(6);
+  });
+
+  it('carries the searched card\'s euro price onto the new entry', () => {
+    expect(addCardToDeck([], { ...bolt, price_eur: '1.50' }, 2)[0].price_eur).toBe('1.50');
   });
 
   it('files a land as a land and a creature as a creature', () => {
@@ -1229,6 +1233,25 @@ describe('DeckBuilderPage — deck states', () => {
       await waitFor(() => expect(screen.getByText('Added 3 × Lightning Bolt.')).toBeInTheDocument());
       const body = saved as { cards: CardInDeck[] };
       expect(body.cards.at(-1)).toMatchObject({ name: 'Lightning Bolt', quantity: 3, section: 'spells' });
+    });
+
+    it('moves the deck total at once when a priced card is added', async () => {
+      const priced = [{ ...CARDS[0], quantity: 4, price_eur: '0.50' }];
+      const search = await openPanel({ cards: priced, card_count: 4, total_price_eur: '2.00', unpriced_card_count: 0 });
+      expect(screen.getAllByText('€2.00').length).toBeGreaterThan(0);
+      fetchMock.mockImplementation(async (url) => {
+        if (String(url).startsWith('/api/v1/cards/search')) return jsonResponse({ cards: [{ ...BOLT, price_eur: '1.50' }] });
+        return new Promise<Response>(() => {}); // the save never answers: only the optimistic total shows
+      });
+
+      fireEvent.change(search, { target: { value: 'bolt' } });
+      const results = await screen.findByRole('list', { name: 'Matching cards' });
+      expect(within(results).getByText('€1.50')).toBeInTheDocument();
+      fireEvent.change(within(results).getByLabelText('Qty of Lightning Bolt'), { target: { value: '2' } });
+      fireEvent.click(within(results).getByRole('button', { name: 'Add 2 Lightning Bolt' }));
+
+      // Header and the panel's count line both read 4 × €0.50 + 2 × €1.50.
+      expect(screen.getAllByText('€5.00')).toHaveLength(2);
     });
 
     it('caps the quantity at the copy limit and blocks a fifth copy', async () => {
