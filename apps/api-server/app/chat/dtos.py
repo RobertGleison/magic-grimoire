@@ -1,3 +1,4 @@
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -33,6 +34,10 @@ class ChatContextDTO(BaseModel):
 class ChatRequestDTO(BaseModel):
     messages: list[ChatMessageDTO] = Field(..., min_length=1, max_length=20)
     context: ChatContextDTO | None = None
+    # The deck on screen. Only the id travels: the server reads the cards from
+    # the caller's own deck row, so the model never sees client-supplied card
+    # data and a foreign id gets a 404 rather than someone else's list.
+    deck_id: uuid.UUID | None = None
 
 
 class ChatResponseDTO(BaseModel):
