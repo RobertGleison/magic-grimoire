@@ -150,6 +150,17 @@ describe('DeckSummaryCard', () => {
     expect(screen.getByText('1 Spell')).toBeInTheDocument();
   });
 
+  it('shows the deck total in euros, flagged partial when cards are unpriced', () => {
+    render(<DeckSummaryCard deck={makeDeck({ total_price_eur: '87.40', unpriced_card_count: 2 })} />);
+    expect(screen.getByText('€87.40')).toBeInTheDocument();
+    expect(screen.getByText('partial')).toHaveAttribute('title', '2 cards have no price and are not counted');
+  });
+
+  it('shows a price placeholder for a deck from before prices existed', () => {
+    render(<DeckSummaryCard deck={makeDeck({ card_count: 1 })} />);
+    expect(screen.getByText('1 Spell').nextElementSibling).toHaveTextContent('—');
+  });
+
   it('shows a status badge and disables Edit while a deck is still generating', () => {
     render(<DeckSummaryCard deck={makeDeck({ status: 'processing', completed_at: null })} />);
 

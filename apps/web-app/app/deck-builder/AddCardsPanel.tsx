@@ -4,8 +4,10 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import { Button } from '../components/Button/Button';
 import { CardTile } from '../components/CardTile/CardTile';
+import { DeckPrice } from '../components/DeckPrice/DeckPrice';
 import { Spinner } from '../components/Spinner/Spinner';
 import { ApiError, isAbortError, searchCards } from '../lib/apiClient';
+import { deckPriceFields, formatEur } from '../lib/price';
 import type { CardInDeck, CardSearchResult } from '../types/api';
 import {
   CARD_SEARCH_DEBOUNCE_MS,
@@ -63,6 +65,7 @@ function ResultRow({ card, cards, format, busy, onAdd }: ResultRowProps) {
   return (
     <li className={styles.addCardsResult}>
       <CardTile card={asTile(card, copies)} />
+      <span className={styles.addCardsPrice}>{formatEur(card.price_eur)}</span>
       <div className={styles.addCardsControls}>
         <label className={styles.numberFieldLabel} htmlFor={quantityId}>
           Qty
@@ -172,6 +175,7 @@ export function AddCardsPanel({ cards, format, onAdd, onClose, busy = false, not
       ? `${total} cards — ${format} decks need at least ${target}.`
       : `${total} cards.`;
   const sizeOff = commander ? total !== target : total < target;
+  const price = deckPriceFields(cards);
 
   return (
     <section className={styles.addCardsPanel} aria-labelledby={headingId} onKeyDown={handleKeyDown}>
@@ -195,7 +199,10 @@ export function AddCardsPanel({ cards, format, onAdd, onClose, busy = false, not
         onChange={(event) => setQuery(event.target.value)}
       />
 
-      <p className={sizeOff ? styles.addCardsWarning : styles.addCardsHint}>{sizeNote}</p>
+      <p className={sizeOff ? styles.addCardsWarning : styles.addCardsHint}>
+        {sizeNote}
+        <DeckPrice total={price.total_price_eur} unpricedCount={price.unpriced_card_count} />
+      </p>
 
       <div className={styles.addCardsBody} aria-busy={search.kind === 'loading'}>
         {search.kind === 'idle' ? (

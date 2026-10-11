@@ -299,6 +299,7 @@ export function addCardToDeck(
     image_uri: card.image_uri,
     mana_cost: card.mana_cost,
     type_line: card.type_line,
+    price_eur: card.price_eur ?? null,
   });
   return list;
 }
