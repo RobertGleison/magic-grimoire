@@ -1,4 +1,6 @@
 import type {
+  CardInDeck,
+  CardSearchResponse,
   ChatRequest,
   ChatResponse,
   DeckGenerateRequest,
@@ -109,7 +111,7 @@ export interface RequestOptions {
 }
 
 interface RequestSpec extends RequestOptions {
-  method: 'GET' | 'POST' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   path: string;
   query?: Record<string, string | number | undefined>;
   body?: unknown;
@@ -253,6 +255,36 @@ export function saveDeck(deckId: string, options: RequestOptions = {}): Promise<
     ...options,
     method: 'POST',
     path: `/decks/${encodeURIComponent(deckId)}/save`,
+  });
+}
+
+/**
+ * `PUT /api/v1/decks/{deck_id}/cards` — replaces a finished working draft's card
+ * list (hand edits) and returns the updated deck. Requires auth and ownership;
+ * a saved snapshot or an unfinished deck answers 400.
+ */
+export function updateDeckCards(
+  deckId: string,
+  cards: CardInDeck[],
+  options: RequestOptions = {},
+): Promise<DeckResponse> {
+  return request<DeckResponse>({
+    ...options,
+    method: 'PUT',
+    path: `/decks/${encodeURIComponent(deckId)}/cards`,
+    body: { cards },
+  });
+}
+
+/* ------------------------------------------------------------------ cards */
+
+/** `GET /api/v1/cards/search?q=` — real cards by name (2..100 chars). Requires auth. */
+export function searchCards(query: string, options: RequestOptions = {}): Promise<CardSearchResponse> {
+  return request<CardSearchResponse>({
+    ...options,
+    method: 'GET',
+    path: '/cards/search',
+    query: { q: query },
   });
 }
 

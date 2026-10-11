@@ -226,6 +226,10 @@ interface DeckResultsPanelProps {
   onSave: () => void;
   /** What that save is currently doing. */
   saveState: SaveState;
+  /** Opens the add-cards panel. Omit where the deck cannot be edited. */
+  onAddCards?: () => void;
+  /** The add-cards panel is open (the button reflects it). */
+  addCardsOpen?: boolean;
 }
 
 export function DeckResultsPanel({
@@ -236,6 +240,8 @@ export function DeckResultsPanel({
   actionNote = '',
   onSave,
   saveState,
+  onAddCards,
+  addCardsOpen = false,
 }: DeckResultsPanelProps) {
   const [view, setView] = useState<DeckView>('grid');
   const { preview, hoverProps } = useCardHoverPreview();
@@ -271,6 +277,17 @@ export function DeckResultsPanel({
           >
             Save to Library
           </Button>
+          {onAddCards && (
+            <Button
+              variant="subtle"
+              size="xs"
+              className={styles.goldButton}
+              aria-expanded={addCardsOpen}
+              onClick={onAddCards}
+            >
+              Add Cards
+            </Button>
+          )}
           <Button variant="subtle" size="xs" className={styles.goldButton} onClick={onCopyList}>
             Copy List
           </Button>
