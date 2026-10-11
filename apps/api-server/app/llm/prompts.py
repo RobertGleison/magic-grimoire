@@ -118,8 +118,11 @@ COMPOSE_DECK_TEMPLATE = (
     "The quantity values must sum to exactly {deck_size}. Add them up before you answer.\n\n"
     "Sections: creatures, spells, lands. Artifacts, enchantments and planeswalkers go in "
     "spells.\n\n"
+    "description: one or two plain sentences, under 200 characters, saying what the deck "
+    "is trying to do and how it wins — the theme and game plan, not a card list.\n\n"
     "Return JSON in exactly this shape and nothing else:\n"
-    '{{"title": "Two To Five Word Name", "cards": [{{"name": "Llanowar Elves", '
+    '{{"title": "Two To Five Word Name", "description": "One or two sentences on the deck idea.", '
+    '"cards": [{{"name": "Llanowar Elves", '
     '"quantity": 4, "section": "creatures"}}, {{"name": "Forest", "quantity": 10, '
     '"section": "lands"}}]}}'
 )

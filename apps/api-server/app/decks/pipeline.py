@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -26,6 +27,33 @@ class FailureNotRecorded(Exception):
     nothing in the database says the task is finished, so Lambda's retries (and then the
     DLQ) are the only way it gets another attempt or is noticed at all.
     """
+
+
+DESCRIPTION_MAX = 280
+
+# C0/C1 control characters (tab, newline and CR are folded into spaces below instead).
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+
+
+def clean_description(raw: object) -> str | None:
+    """The LLM's deck description, made safe to store and render.
+
+    LLM output is untrusted: it may be missing, not a string, multi-line, carry control
+    characters, or run long. Whitespace is collapsed to single spaces and the text is
+    capped at DESCRIPTION_MAX characters, cut at a word boundary with an ellipsis.
+    Markup is left as text — the frontend renders it as text, never as HTML.
+    """
+    if not isinstance(raw, str):
+        return None
+    text = " ".join(_CONTROL_CHARS.sub("", raw).split())
+    if not text:
+        return None
+    if len(text) <= DESCRIPTION_MAX:
+        return text
+    cut = text[: DESCRIPTION_MAX - 1]
+    if " " in cut:
+        cut = cut.rsplit(" ", 1)[0]
+    return cut.rstrip(" ,;:.-") + "…"
 
 
 GENERIC_FAILURE_MESSAGE = "Something went wrong while forging your deck. Please try again."
@@ -127,6 +155,10 @@ class DeckGenerationPipeline:
 
         await self._save_completed(
             title=deck_composition.get("title"),
+            # The composer's own summary; the parsed intent's one-line strategy is the
+            # fallback when a model leaves it out.
+            description=clean_description(deck_composition.get("description"))
+            or clean_description(intent.get("strategy")),
             cards=enriched_cards,
             colors=intent.get("colors", []),
         )
@@ -170,12 +202,15 @@ class DeckGenerationPipeline:
                 task.message = "Parsing your request..."
                 task.updated_at = datetime.now(tz=UTC)
 
-    async def _save_completed(self, title: str | None, cards: list[dict], colors: list[str]) -> None:
+    async def _save_completed(
+        self, title: str | None, description: str | None, cards: list[dict], colors: list[str]
+    ) -> None:
         now = datetime.now(tz=UTC)
         async with self._db.session() as db:
             deck, task = await self._fetch_deck_and_task(db)
             if deck:
                 deck.title = title
+                deck.description = description
                 deck.cards = cards
                 deck.card_count = sum(card.get("quantity", 1) for card in cards)
                 deck.colors = colors

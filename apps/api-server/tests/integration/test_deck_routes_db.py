@@ -118,6 +118,8 @@ async def test_get_guest_deck_is_public(client, session_factory):
     res = await client.get(f"/api/v1/decks/{deck.id}")
     assert res.status_code == 200
     assert res.json()["prompt"] == "test deck"
+    # A deck from before descriptions existed serializes it as null.
+    assert res.json()["description"] is None
 
 
 # --- DELETE /decks/{id} ---
@@ -224,7 +226,9 @@ CARDS = [{"name": "Shock", "quantity": 4, "section": "spells"}]
 
 
 async def test_save_creates_v1_snapshot_and_leaves_the_draft(client, session_factory):
-    draft = await _insert_deck(session_factory, title="Goblin Rush", cards=CARDS, card_count=4)
+    draft = await _insert_deck(
+        session_factory, title="Goblin Rush", description="Goblins, fast.", cards=CARDS, card_count=4
+    )
 
     res = await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)
 
@@ -233,6 +237,7 @@ async def test_save_creates_v1_snapshot_and_leaves_the_draft(client, session_fac
     assert body["version_no"] == 1
     assert body["id"] != str(draft.id)
     assert body["title"] == "Goblin Rush"
+    assert body["description"] == "Goblins, fast."
     # DeckResponseDTO serializes CardInDeckDTO's optional scryfall fields as
     # explicit nulls, so the response has more keys than the minimal CARDS
     # fixture used to seed the row — compare against the full shape instead.
