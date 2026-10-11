@@ -28,15 +28,19 @@ export function RequireSignIn({ path, children }: { path: string; children: Reac
     router.replace(`/login?next=${encodeURIComponent(next)}`);
   }, [status, router, path]);
 
-  if (status === 'signed-out') {
-    return (
-      <div className={styles.centered} role="status">
-        <Spinner size="lg" label="Taking you to sign in" />
-      </div>
-    );
-  }
+  if (status === 'signed-in') return <>{children}</>;
 
-  // `checking` renders through: the page shows its own spinner, and the
-  // prerendered HTML stays identical to the first client paint.
-  return <>{children}</>;
+  // `checking` and `signed-out` share one placeholder, so a signed-out visit
+  // goes straight from it to `/login` without flashing the guarded page. The
+  // spinner fades in late, so the usual sub-second check shows nothing at all.
+  return (
+    <div className={styles.centered} role="status">
+      <div className={styles.delayed}>
+        <Spinner
+          size="lg"
+          label={status === 'signed-out' ? 'Taking you to sign in' : 'Checking your session'}
+        />
+      </div>
+    </div>
+  );
 }
