@@ -33,7 +33,8 @@ router = APIRouter()
 async def generate_deck(
     request: DeckGenerateRequestDTO,
     db: Annotated[AsyncSession, Depends(get_db)],
-    user_id: Annotated[str | None, Depends(get_optional_user)],
+    # Generation spends LLM tokens, so it needs an account.
+    user_id: Annotated[str, Depends(get_current_user)],
 ) -> DeckGenerateResponseDTO:
     valid, rejection = sanitize_prompt(request.prompt)
     if not valid:

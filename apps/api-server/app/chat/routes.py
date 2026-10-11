@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.auth.dependencies import get_optional_user
+from app.auth.dependencies import get_current_user
 from app.chat.dtos import ChatRequestDTO, ChatResponseDTO
 from app.chat.service import ChatProviderUnavailable, ChatValidationError, chat_with_grimoire
 
@@ -12,7 +12,8 @@ router = APIRouter()
 @router.post("/chat", response_model=ChatResponseDTO)
 async def chat(
     request: ChatRequestDTO,
-    user_id: Annotated[str | None, Depends(get_optional_user)],
+    # Every turn is an LLM call, so chat needs an account.
+    user_id: Annotated[str, Depends(get_current_user)],
 ) -> ChatResponseDTO:
     try:
         reply = await chat_with_grimoire(request.messages, request.context)
