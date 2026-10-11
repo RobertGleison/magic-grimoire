@@ -263,20 +263,20 @@ describe('DeckSummaryCard cover art (MTG-18)', () => {
     expect(coverArt(deck)).toEqual({ src: 'https://elsewhere/card.jpg', kind: 'card' });
 
     const { container } = render(<DeckSummaryCard deck={deck} />);
-    expect(container.querySelector('img')).toHaveClass('deck-summary-art-img-card');
+    expect(container.querySelector('.deck-summary-art img')).toHaveClass('deck-summary-art-img-card');
   });
 
   it('renders a single cover image, or the sigil fallback when no card has one', () => {
     const { container, rerender } = render(
       <DeckSummaryCard deck={makeDeck({ cards: [card({ image_uri: NORMAL }), card({ image_uri: NORMAL })] })} />,
     );
-    const images = container.querySelectorAll('img');
+    const images = container.querySelectorAll('.deck-summary-art img');
     expect(images).toHaveLength(1);
     expect(images[0]).toHaveAttribute('src', ART);
     expect(images[0]).toHaveClass('deck-summary-art-img-art');
 
     rerender(<DeckSummaryCard deck={makeDeck({ cards: null })} />);
-    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.deck-summary-art img')).toBeNull();
     expect(container.querySelector('.deck-summary-art-fallback')).not.toBeNull();
   });
 });

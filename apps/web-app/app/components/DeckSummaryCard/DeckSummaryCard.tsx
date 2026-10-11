@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 
-import type { DeckResponse, DeckStatus } from '../../types/api';
+import { MANA_COLOR_NAMES } from '../../deck-builder/deckLogic';
+import type { DeckAuthor, DeckResponse, DeckStatus, MTGColor } from '../../types/api';
 import { MTG_COLORS } from '../../types/api';
 import { Badge } from '../Badge/Badge';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
 import { DeckPrice } from '../DeckPrice/DeckPrice';
-import { ManaSymbol } from '../ManaSymbol/ManaSymbol';
+import { ManaIcon } from '../ManaIcon/ManaIcon';
 import { VisibilityToggle } from '../VisibilityToggle/VisibilityToggle';
 import './DeckSummaryCard.css';
 
@@ -81,7 +82,7 @@ export function deckTitle(deck: DeckResponse): string {
 }
 
 /** Colour identity, de-duplicated and forced into WUBRG order. */
-export function deckColors(deck: DeckResponse): string[] {
+export function deckColors(deck: DeckResponse): MTGColor[] {
   const present = new Set((deck.colors ?? []).map((color) => color.trim().toUpperCase()));
   return MTG_COLORS.filter((color) => present.has(color));
 }
@@ -118,6 +119,40 @@ export function coverArt(deck: DeckResponse): CoverArt | null {
   const art = card.art_crop_uri || artCropFromNormal(card.image_uri);
   if (art) return { src: art, kind: 'art' };
   return card.image_uri ? { src: card.image_uri, kind: 'card' } : null;
+}
+
+/** The byline's name. A deck with no recorded profile, or an account with no
+ *  name, still gets a byline rather than a blank. */
+export function authorName(author: DeckAuthor | null | undefined): string {
+  return author?.display_name?.trim() || 'Anonymous planeswalker';
+}
+
+/** Feed byline: who made the deck. The avatar is decorative — the name is the text. */
+function DeckAuthorLine({ author }: { author: DeckAuthor | null | undefined }) {
+  const name = authorName(author);
+  return (
+    <p className="deck-summary-author">
+      {author?.avatar_url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- avatar hosts are not in next.config images.remotePatterns
+        <img
+          className="deck-summary-author-avatar"
+          src={author.avatar_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span className="deck-summary-author-avatar" aria-hidden="true">
+          {name[0].toUpperCase()}
+        </span>
+      )}
+      <span className="deck-summary-author-name">
+        <span className="visually-hidden">By </span>
+        {name}
+      </span>
+    </p>
+  );
 }
 
 function unknownColorCount(deck: DeckResponse): number {
@@ -198,22 +233,30 @@ export function DeckSummaryCard({
       aria-busy={busy || undefined}
     >
       <header className="deck-summary-head">
-        <h3 className="deck-summary-title" title={deck.prompt}>
-          {viewHref ? (
-            <Link href={viewHref} className="deck-summary-link">
-              {title}
-            </Link>
-          ) : (
-            title
-          )}
-        </h3>
+        <div className="deck-summary-heading">
+          <h3 className="deck-summary-title" title={deck.prompt}>
+            {viewHref ? (
+              <Link href={viewHref} className="deck-summary-link">
+                {title}
+              </Link>
+            ) : (
+              title
+            )}
+          </h3>
+          {variant === 'feed' ? <DeckAuthorLine author={deck.author} /> : null}
+        </div>
         <span className="deck-summary-pips">
           {colorless ? (
             <span className="deck-summary-colorless">Colourless</span>
           ) : (
-            colors.map((color) => (
-              <ManaSymbol key={color} symbol={color} size={8} className="deck-summary-pip" />
-            ))
+            <>
+              {colors.map((color) => (
+                <ManaIcon key={color} color={color} size={18} className="deck-summary-pip" />
+              ))}
+              <span className="visually-hidden">
+                {colors.map((color) => MANA_COLOR_NAMES[color]).join(', ')}
+              </span>
+            </>
           )}
           {unknownColorCount(deck) > 0 ? (
             <span className="visually-hidden">

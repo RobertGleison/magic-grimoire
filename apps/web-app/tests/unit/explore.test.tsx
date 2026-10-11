@@ -92,6 +92,35 @@ describe('/explore feed', () => {
     expect(lastFilters()).toMatchObject({ q: undefined, colors: [], tags: [], format: undefined });
   });
 
+  it('bylines each tile with its author, falling back when none is recorded', async () => {
+    mocks.exploreDecks.mockResolvedValue(
+      page([
+        makeDeck({ author: { display_name: 'Chandra', avatar_url: 'https://a.test/c.png' } }),
+        makeDeck({ id: 'deck-2', title: 'Mono Green', author: { display_name: null, avatar_url: null } }),
+        makeDeck({ id: 'deck-3', title: 'Old Deck', author: undefined }),
+      ]),
+    );
+    const { container } = render(<ExplorePage />);
+    await screen.findByRole('link', { name: 'Rakdos Sacrifice' });
+
+    const bylines = [...container.querySelectorAll('.deck-summary-author')].map((el) => el.textContent);
+    expect(bylines).toEqual(['By Chandra', 'ABy Anonymous planeswalker', 'ABy Anonymous planeswalker']);
+    expect(container.querySelector('img.deck-summary-author-avatar')).toHaveAttribute('src', 'https://a.test/c.png');
+  });
+
+  it('shows colour identity as mana symbols, named for screen readers', async () => {
+    mocks.exploreDecks.mockResolvedValue(page([makeDeck({ colors: ['R', 'B'] })]));
+    const { container } = render(<ExplorePage />);
+    await screen.findByRole('link', { name: 'Rakdos Sacrifice' });
+
+    const icons = [...container.querySelectorAll('.deck-summary-pips img')].map((img) => img.getAttribute('src'));
+    expect(icons.map((src) => decodeURIComponent(src ?? ''))).toEqual([
+      expect.stringContaining('mana-black.png'),
+      expect.stringContaining('mana-red.png'),
+    ]);
+    expect(screen.getByText('Black, Red')).toHaveClass('visually-hidden');
+  });
+
   it('debounces typed search by ~400ms and combines it with clicked filters', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mocks.exploreDecks.mockResolvedValue(page([makeDeck()]));
