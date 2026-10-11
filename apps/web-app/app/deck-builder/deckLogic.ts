@@ -12,6 +12,7 @@ import { manaColorsOf, manaValue, MANA_COLORS, type ManaColor } from '../compone
 import {
   MTG_COLORS,
   type CardInDeck,
+  type CardSearchResult,
   type ChatColor,
   type DeckFormat,
   type DeckResponse,
@@ -206,6 +207,106 @@ export const MANA_COLOR_NAMES: Record<ManaColor, string> = {
   G: 'Green',
   C: 'Colorless',
 };
+
+/* ------------------------------------------------------------ manual adds */
+
+/** Typing settles for this long before `GET /cards/search` is sent. */
+export const CARD_SEARCH_DEBOUNCE_MS = 400;
+/** `q` is 2..100 chars server-side; shorter input never leaves the client. */
+export const CARD_SEARCH_MIN_CHARS = 2;
+export const CARD_SEARCH_MAX_CHARS = 100;
+/** Ceiling on one add of a basic land, which has no copy limit. */
+export const BASIC_LAND_ADD_MAX = 60;
+
+const BASIC_LAND_NAMES: ReadonlySet<string> = new Set(
+  ['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes'].flatMap((name) => [
+    name,
+    `snow-covered ${name}`,
+  ]),
+);
+
+/** Basic lands are the one exemption from the copy limit, in every format. */
+export function isBasicLand(card: Pick<CardInDeck, 'name' | 'type_line'>): boolean {
+  const line = lower(card.type_line);
+  if (line.includes('basic') && line.includes('land')) return true;
+  return BASIC_LAND_NAMES.has(lower(card.name).trim());
+}
+
+/** Copies of one non-basic card a format allows: singleton Commander, four otherwise. */
+export function copyLimit(format: string): number {
+  return lower(format) === 'commander' ? 1 : 4;
+}
+
+/** The deck size a format asks for: exactly 100 in Commander, at least 60 elsewhere. */
+export function deckSizeTarget(format: string): number {
+  return lower(format) === 'commander' ? COMMANDER_DECK_SIZE : DECK_SIZE_MIN;
+}
+
+/** Main-deck copies of `name` already in the list (the sideboard is counted apart). */
+export function copiesInDeck(cards: readonly CardInDeck[] | null | undefined, name: string): number {
+  const key = lower(name);
+  return (cards ?? [])
+    .filter((card) => lower(card.name) === key && categoriseCard(card) !== 'sideboard')
+    .reduce((sum, card) => sum + quantityOf(card), 0);
+}
+
+/**
+ * How many more copies of `card` the format allows. Basic lands are exempt and
+ * get a generous per-add ceiling instead of a rule.
+ */
+export function maxAddable(
+  cards: readonly CardInDeck[] | null | undefined,
+  card: Pick<CardInDeck, 'name' | 'type_line'>,
+  format: string,
+): number {
+  if (isBasicLand(card)) return BASIC_LAND_ADD_MAX;
+  return Math.max(0, copyLimit(format) - copiesInDeck(cards, card.name));
+}
+
+/** The composer's three sections, picked from the type line. */
+function sectionFor(typeLine: string | null): 'lands' | 'creatures' | 'spells' {
+  const line = lower(typeLine);
+  if (line.includes('land')) return 'lands';
+  if (line.includes('creature')) return 'creatures';
+  return 'spells';
+}
+
+/**
+ * Adds `quantity` copies of a searched card to the main deck: an existing
+ * main-deck entry of the same name grows, otherwise a new entry is appended
+ * with the Scryfall fields the grid needs. Never mutates `cards`.
+ */
+export function addCardToDeck(
+  cards: readonly CardInDeck[] | null | undefined,
+  card: CardSearchResult,
+  quantity: number,
+): CardInDeck[] {
+  const list = [...(cards ?? [])];
+  const copies = Math.max(1, Math.trunc(quantity));
+  const key = lower(card.name);
+  const index = list.findIndex(
+    (entry) => lower(entry.name) === key && categoriseCard(entry) !== 'sideboard',
+  );
+  if (index >= 0) {
+    list[index] = { ...list[index], quantity: quantityOf(list[index]) + copies };
+    return list;
+  }
+  list.push({
+    name: card.name,
+    quantity: copies,
+    section: sectionFor(card.type_line),
+    scryfall_id: card.scryfall_id,
+    image_uri: card.image_uri,
+    mana_cost: card.mana_cost,
+    type_line: card.type_line,
+  });
+  return list;
+}
+
+/** Quantity-weighted size of a card list, matching the server's `card_count`. */
+export function deckCardTotal(cards: readonly CardInDeck[] | null | undefined): number {
+  return (cards ?? []).reduce((sum, card) => sum + quantityOf(card), 0);
+}
 
 /* ------------------------------------------------------------ description */
 

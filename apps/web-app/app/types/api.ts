@@ -151,6 +151,27 @@ export interface ExploreParams {
   limit?: number;
 }
 
+/** `PUT /decks/{deck_id}/cards` — the hand-edited list replacing a draft's cards. */
+export interface DeckCardsUpdateRequest {
+  /** 1..250 entries, each quantity >= 1, at most 250 cards in total. */
+  cards: CardInDeck[];
+}
+
+/* ------------------------------------------------------------------ cards */
+
+/** One hit from `GET /cards/search` (`app/cards/dtos.py`). */
+export interface CardSearchResult {
+  name: string;
+  scryfall_id: string | null;
+  image_uri: string | null;
+  mana_cost: string | null;
+  type_line: string | null;
+}
+
+export interface CardSearchResponse {
+  cards: CardSearchResult[];
+}
+
 /* ------------------------------------------------------------------ tasks */
 
 /** `GET /api/v1/tasks/{task_id}` — the task row the deck pipeline writes progress to. */
