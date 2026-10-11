@@ -19,6 +19,7 @@ from app.decks.dtos import (
     DeckGenerateResponseDTO,
     DeckListResponseDTO,
     DeckResponseDTO,
+    DeckVisibilityRequestDTO,
 )
 from app.decks.model import Deck
 from app.decks.pipeline import mark_generation_failed
@@ -122,11 +123,22 @@ async def list_decks(
     pages = math.ceil(total / limit) if total > 0 else 1
 
     return DeckListResponseDTO(
-        decks=[DeckResponseDTO.model_validate(d) for d in decks],
+        decks=[_owned_response(d) for d in decks],
         total=total,
         page=page,
         pages=pages,
     )
+
+
+def _owned_response(deck: Deck) -> DeckResponseDTO:
+    """`deck` as seen by its owner."""
+    return DeckResponseDTO.model_validate(deck).model_copy(update={"is_owner": True})
+
+
+def _publicly_readable(deck: Deck) -> bool:
+    """A saved deck its owner marked public. Drafts are never public: they are
+    the owner's working copy, overwritten by every refine."""
+    return deck.is_public and deck.saved_at is not None
 
 
 @router.get("/decks/{deck_id}", response_model=DeckResponseDTO)
@@ -135,16 +147,48 @@ async def get_deck(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[str | None, Depends(get_optional_user)],
 ) -> DeckResponseDTO:
+    """Read-only. Owners see anything they own; anyone, signed in or not, sees
+    a public saved deck. Everything else is the same 404/403 as before."""
     result = await db.execute(select(Deck).where(Deck.id == deck_id))
     deck = result.scalar_one_or_none()
 
     if deck is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
 
-    if deck.user_id is not None and deck.user_id != user_id:
+    is_owner = deck.user_id is not None and deck.user_id == user_id
+    if deck.user_id is not None and not is_owner and not _publicly_readable(deck):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-    return DeckResponseDTO.model_validate(deck)
+    return DeckResponseDTO.model_validate(deck).model_copy(update={"is_owner": is_owner})
+
+
+@router.patch("/decks/{deck_id}/visibility", response_model=DeckResponseDTO)
+async def set_deck_visibility(
+    deck_id: uuid.UUID,
+    request: DeckVisibilityRequestDTO,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+) -> DeckResponseDTO:
+    """Make a deck public or private. Owner only — an anonymous deck has no
+    owner, so nobody can change it."""
+    deck = (await db.execute(select(Deck).where(Deck.id == deck_id))).scalar_one_or_none()
+    if deck is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
+    if deck.user_id is None or deck.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    deck.is_public = request.is_public
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        _log.exception("Database error changing visibility of deck %s", deck_id)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Deck storage is temporarily unavailable. Please try again shortly.",
+        )
+    await db.refresh(deck)
+    return _owned_response(deck)
 
 
 async def _readable_deck_or_error(db: AsyncSession, deck_id: uuid.UUID, user_id: str | None) -> Deck:
@@ -187,6 +231,7 @@ def _snapshot_of(source: Deck, user_id: str, version_no: int) -> Deck:
         saved_at=datetime.now(tz=UTC),
         lineage_id=source.lineage_id,
         version_no=version_no,
+        is_public=source.is_public,
     )
 
 
@@ -225,7 +270,7 @@ async def save_deck(
         db.add(snapshot)
         try:
             await db.commit()
-            return DeckResponseDTO.model_validate(snapshot)
+            return _owned_response(snapshot)
         except IntegrityError:
             await db.rollback()
             if attempt == 1:

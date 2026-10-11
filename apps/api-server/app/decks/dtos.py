@@ -42,6 +42,10 @@ class DeckResponseDTO(BaseModel):
     card_count: int
     # None on a working draft; 1-based within its lineage on a saved snapshot.
     version_no: int | None = None
+    is_public: bool = True
+    # Whether the caller owns this deck: drives the Edit and visibility
+    # controls. Computed per request, never stored.
+    is_owner: bool = False
     status: DeckStatus
     error_message: str | None
     created_at: datetime
@@ -56,3 +60,7 @@ class DeckListResponseDTO(BaseModel):
     total: int
     page: int
     pages: int
+
+
+class DeckVisibilityRequestDTO(BaseModel):
+    is_public: bool

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -118,4 +118,15 @@ class Deck(Base):
     version_no: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
+    )
+
+    # Public saved decks are readable by anyone (and listed by the community
+    # feed); private ones stay owner-only. Drafts are owner-only regardless.
+    # New decks default to public; rows that existed before the column was
+    # added were migrated as private so nothing is published by surprise.
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
     )
