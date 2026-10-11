@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.enums import DeckFormat, DeckStatus, MTGColor
 from app.decks.pricing import deck_price
@@ -103,19 +103,20 @@ class DeckResponseDTO(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    # Derived from `cards` at serialization time, so they always match the card list.
-    @computed_field
-    @property
-    def total_price_eur(self) -> Decimal | None:
-        return deck_price(self._card_dicts()).total_eur
+    # Euro prices (MTG-26), derived from `cards` whenever the DTO is built — never
+    # stored, so they always match the card list, including right after a hand
+    # edit. Set at validation rather than serialization so a copy with a trimmed
+    # card list (e.g. a feed entry showing only its cover card) keeps the totals
+    # of the whole deck.
+    total_price_eur: Decimal | None = None
+    unpriced_card_count: int = 0
 
-    @computed_field
-    @property
-    def unpriced_card_count(self) -> int:
-        return deck_price(self._card_dicts()).unpriced_card_count
-
-    def _card_dicts(self) -> list[dict]:
-        return [card.model_dump(include={"quantity", "price_eur"}) for card in self.cards or []]
+    @model_validator(mode="after")
+    def _price_from_cards(self) -> "DeckResponseDTO":
+        price = deck_price(card.model_dump(include={"quantity", "price_eur"}) for card in self.cards or [])
+        self.total_price_eur = price.total_eur
+        self.unpriced_card_count = price.unpriced_card_count
+        return self
 
 
 class DeckListResponseDTO(BaseModel):
