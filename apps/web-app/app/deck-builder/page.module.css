@@ -430,14 +430,20 @@
   color: var(--accent);
 }
 
+/* The scrollbar gets its own lane: `scrollbar-gutter: stable` reserves it
+   whether or not the transcript overflows yet, so the first long reply does not
+   shift every bubble sideways, and the end padding keeps the bubbles off the
+   thumb instead of flush against it. */
 .messages {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-10);
   min-height: 120px;
+  padding-inline-end: var(--space-8);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 /* ---- Bubbles (10:29 user / 10:36 oracle) -------------------------------- */
@@ -565,7 +571,10 @@
   border: none;
   outline: none;
   resize: none;
+  /* Only the inline end: the field's own scrollbar (past four lines) sits
+     against the text otherwise. The block axis stays 0 — see above. */
   padding: 0;
+  padding-inline-end: var(--space-8);
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: var(--chat-line-h);
