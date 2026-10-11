@@ -29,6 +29,8 @@ export interface ChatEntry {
    * on both sides of hydration would mismatch on any non-UTC client.
    */
   at: number | null;
+  /** Card names the turn was about (grid selection), shown under a user turn. */
+  cards?: readonly string[];
 }
 
 const AUTHOR_LABELS: Record<ChatEntryKind, string> = {
@@ -76,6 +78,12 @@ interface ChatPanelProps {
    * and focus of the disabled button. `null` when the config is complete.
    */
   generateBlockedReason?: string | null;
+  /** Card names selected in the deck grid; they ride along with the next message. */
+  selectedCards?: readonly string[];
+  /** Drops one name from that selection (and so deselects it in the grid). */
+  onRemoveCard?: (name: string) => void;
+  /** Drops the whole selection. */
+  onClearCards?: () => void;
 }
 
 export function ChatPanel({
@@ -89,6 +97,9 @@ export function ChatPanel({
   generating,
   canGenerate,
   generateBlockedReason = null,
+  selectedCards = [],
+  onRemoveCard,
+  onClearCards,
 }: ChatPanelProps) {
   const hintId = useId();
   const listRef = useRef<HTMLOListElement>(null);
@@ -177,6 +188,9 @@ export function ChatPanel({
               )}
             </span>
             <p className={styles.bubbleBody}>{entry.content}</p>
+            {entry.cards && entry.cards.length > 0 && (
+              <p className={styles.bubbleCards}>About: {entry.cards.join(', ')}</p>
+            )}
           </li>
         ))}
 
@@ -196,6 +210,35 @@ export function ChatPanel({
       </ol>
 
       <form className={styles.chatControls} onSubmit={handleSubmit}>
+        {/* The grid selection, as chips: the next message is about these
+            cards only. Removing a chip deselects the card in the grid. */}
+        {selectedCards.length > 0 && (
+          <div className={styles.chatChips}>
+            <ul className={styles.chatChipList} aria-label="Cards selected for the next message">
+              {selectedCards.map((name) => (
+                <li key={name} className={styles.chatChip}>
+                  <span className={styles.chatChipName} title={name}>
+                    {name}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.chatChipRemove}
+                    aria-label={`Remove ${name} from the selection`}
+                    onClick={() => onRemoveCard?.(name)}
+                  >
+                    <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                      <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className={styles.chatChipsClear} onClick={onClearCards}>
+              Clear
+            </button>
+          </div>
+        )}
+
         <div className={styles.chatInputBox}>
           <textarea
             ref={inputRef}
