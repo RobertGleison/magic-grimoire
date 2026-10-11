@@ -164,6 +164,8 @@ export default function DeckBuilderPage() {
   const [entries, setEntries] = useState<ChatEntry[]>([WELCOME]);
   const [draft, setDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+  /** Card names picked in the deck grid for the next chat message. */
+  const [selectedCards, setSelectedCards] = useState<string[]>([]);
 
   const [taskId, setTaskId] = useState<string | null>(null);
   const [deckId, setDeckId] = useState<string | null>(null);
@@ -217,9 +219,15 @@ export default function DeckBuilderPage() {
     [],
   );
 
-  const pushEntry = useCallback((kind: ChatEntry['kind'], content: string) => {
+  const pushEntry = useCallback((kind: ChatEntry['kind'], content: string, cards?: readonly string[]) => {
     entrySeq.current += 1;
-    const entry: ChatEntry = { id: `e${entrySeq.current}`, kind, content, at: Date.now() };
+    const entry: ChatEntry = {
+      id: `e${entrySeq.current}`,
+      kind,
+      content,
+      at: Date.now(),
+      ...(cards && cards.length > 0 ? { cards } : {}),
+    };
     setEntries((previous) => [...previous, entry]);
     return entry;
   }, []);
@@ -280,7 +288,11 @@ export default function DeckBuilderPage() {
     const content = draft.trim();
     if (!content || chatBusy) return;
 
-    const sent = pushEntry('user', content);
+    // A selection only means something against the deck it was made on.
+    const chatDeckId = deck && deck.status === 'completed' ? deck.id : null;
+    const cards = chatDeckId ? selectedCards : [];
+
+    const sent = pushEntry('user', content, cards);
     pendingTurn.current = sent;
     setDraft('');
     setChatBusy(true);
@@ -301,7 +313,6 @@ export default function DeckBuilderPage() {
     const contextColors = chatColors(config.colors);
     // A finished deck rides along by id; the server loads its cards fresh on
     // every turn, so the model always sees the current list, not a copy.
-    const chatDeckId = deck && deck.status === 'completed' ? deck.id : null;
 
     try {
       const response = await sendChat(
@@ -313,11 +324,17 @@ export default function DeckBuilderPage() {
             colors: contextColors.length > 0 ? contextColors : null,
           },
           ...(chatDeckId ? { deck_id: chatDeckId } : {}),
+          ...(cards.length > 0 ? { selected_cards: [...cards] } : {}),
         },
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
       pushEntry('assistant', response.message);
+      // The selection was spent on this turn. Only the names that went out are
+      // dropped — anything picked while the reply was pending stays.
+      if (cards.length > 0) {
+        setSelectedCards((current) => current.filter((name) => !cards.includes(name)));
+      }
     } catch (error) {
       if (isAbortError(error)) return;
       pushEntry('error', errorText(error, 'The alchemist did not answer. Try again.'));
@@ -327,7 +344,7 @@ export default function DeckBuilderPage() {
         setChatBusy(false);
       }
     }
-  }, [chatBusy, config, deck, draft, entries, pushEntry]);
+  }, [chatBusy, config, deck, draft, entries, pushEntry, selectedCards]);
 
   /* Stopping a reply. The abort closes the connection, which is what cancels
      the LLM call server-side (the route races it against the disconnect).
@@ -394,6 +411,34 @@ export default function DeckBuilderPage() {
     },
     [note],
   );
+
+  /* ----------------------------------------------------- card selection */
+
+  const handleToggleCard = useCallback((name: string) => {
+    setSelectedCards((current) =>
+      current.includes(name) ? current.filter((picked) => picked !== name) : [...current, name],
+    );
+  }, []);
+
+  const handleRemoveCard = useCallback((name: string) => {
+    setSelectedCards((current) => current.filter((picked) => picked !== name));
+  }, []);
+
+  const handleClearCards = useCallback(() => setSelectedCards([]), []);
+
+  // A selection only ever names cards on screen: a new forge or permalink
+  // starts it clean, and a card edited out of the deck drops out of it.
+  const selectionDeck = useRef<string | null>(null);
+  useEffect(() => {
+    const id = deck?.id ?? null;
+    const names = new Set((deck?.cards ?? []).map((card) => card.name));
+    const sameDeck = selectionDeck.current === id;
+    selectionDeck.current = id;
+    setSelectedCards((current) => {
+      const kept = sameDeck ? current.filter((name) => names.has(name)) : [];
+      return kept.length === current.length ? current : kept;
+    });
+  }, [deck]);
 
   /* ------------------------------------------------------------ generate */
 
@@ -725,6 +770,9 @@ export default function DeckBuilderPage() {
         generating={generating}
         canGenerate={prompt.length > 0 && configReady}
         generateBlockedReason={configReady ? null : GENERATE_BLOCKED_MESSAGE}
+        selectedCards={selectedCards}
+        onRemoveCard={handleRemoveCard}
+        onClearCards={handleClearCards}
       />
 
       <div
@@ -831,6 +879,8 @@ export default function DeckBuilderPage() {
                   : undefined
               }
               addCardsOpen={addCardsOpen}
+              selectedCards={selectedCards}
+              onToggleCard={handleToggleCard}
             />
           </>
         ) : (

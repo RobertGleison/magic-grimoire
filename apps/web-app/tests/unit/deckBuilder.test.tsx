@@ -790,6 +790,118 @@ describe('DeckBuilderPage — chat deck context', () => {
   });
 });
 
+describe('DeckBuilderPage — selecting cards for the chat', () => {
+  async function openDeck() {
+    window.history.replaceState({}, '', '/deck-builder?deck=deck-1');
+    fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture()));
+    render(<DeckBuilderPage />);
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument(),
+    );
+  }
+
+  const chips = () => screen.queryByRole('list', { name: 'Cards selected for the next message' });
+
+  afterEach(() => window.history.replaceState({}, '', '/'));
+
+  it('toggles a card from the grid and selects every copy of it', async () => {
+    await openDeck();
+    const copies = screen.getAllByRole('button', { name: /^Mayhem Devil/ });
+    expect(copies).toHaveLength(4);
+
+    fireEvent.click(copies[1]);
+    for (const copy of screen.getAllByRole('button', { name: /^Mayhem Devil/ })) {
+      expect(copy).toHaveAttribute('aria-pressed', 'true');
+    }
+    expect(within(chips()!).getByText('Mayhem Devil')).toBeInTheDocument();
+
+    fireEvent.click(copies[0]);
+    expect(copies[0]).toHaveAttribute('aria-pressed', 'false');
+    expect(chips()).toBeNull();
+  });
+
+  it('removing a chip deselects the card in the grid', async () => {
+    await openDeck();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Deadly Dispute/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Deadly Dispute from the selection' }));
+
+    expect(chips()).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^Deadly Dispute/ })[0]).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('Clear drops the whole selection', async () => {
+    await openDeck();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Deadly Dispute/ })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /^Mayhem Devil/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(chips()).toBeNull();
+  });
+
+  it('sends the selection with the message, then clears it once answered', async () => {
+    await openDeck();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Mayhem Devil/ })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /^Deadly Dispute/ })[0]);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'Swap them for Fireblast.' }));
+    await describeADeck('replace these with cheaper options');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+    await waitFor(() => expect(screen.getByText('Swap them for Fireblast.')).toBeInTheDocument());
+
+    const body = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)) as Record<
+      string,
+      unknown
+    >;
+    expect(body.deck_id).toBe('deck-1');
+    expect(body.selected_cards).toEqual(['Mayhem Devil', 'Deadly Dispute']);
+
+    expect(chips()).toBeNull();
+    expect(screen.getByText('About: Mayhem Devil, Deadly Dispute')).toBeInTheDocument();
+  });
+
+  it('keeps the selection when the reply fails, so the user can retry', async () => {
+    await openDeck();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Mayhem Devil/ })[0]);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'Provider down' }, 503));
+    await describeADeck('cheaper please');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+    await waitFor(() => expect(screen.getByText('Provider down')).toBeInTheDocument());
+
+    expect(within(chips()!).getByText('Mayhem Devil')).toBeInTheDocument();
+  });
+
+  it('list view offers no selection, and switching back keeps it intact', async () => {
+    await openDeck();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Mayhem Devil/ })[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'List view' }));
+    expect(screen.queryAllByRole('button', { name: /^Mayhem Devil/ })).toHaveLength(0);
+    expect(within(chips()!).getByText('Mayhem Devil')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Grid view' }));
+    expect(screen.getAllByRole('button', { name: /^Mayhem Devil/ })[0]).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('sends no selection when nothing is picked', async () => {
+    await openDeck();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'ok' }));
+    await describeADeck('how is the curve?');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const body = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)) as Record<
+      string,
+      unknown
+    >;
+    expect(body).not.toHaveProperty('selected_cards');
+  });
+});
+
 describe('DeckBuilderPage — stopping a chat reply', () => {
   /** A fetch that never settles on its own, but rejects like the browser when aborted. */
   function pendingChat() {

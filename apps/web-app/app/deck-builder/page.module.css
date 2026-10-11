@@ -632,6 +632,91 @@
   color: var(--cream);
 }
 
+/* ---- Selected-card chips (grid selection -> next message) --------------- */
+
+.chatChips {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+/* Capped and scrolled rather than pushing the transcript out of the panel when
+   a whole section is selected. */
+.chatChipList {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  min-width: 0;
+  max-height: var(--space-64);
+  overflow-y: auto;
+}
+
+.chatChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-10);
+  background: var(--void-3);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--cream);
+}
+
+.chatChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chatChipRemove {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-16);
+  height: var(--space-16);
+  padding: var(--space-2);
+  border-radius: var(--radius-full);
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.chatChipRemove svg {
+  width: 100%;
+  height: 100%;
+}
+
+.chatChipRemove:hover,
+.chatChipRemove:focus-visible {
+  color: var(--accent);
+}
+
+.chatChipsClear {
+  flex-shrink: 0;
+  padding: var(--space-2) 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  transition: var(--transition);
+}
+
+.chatChipsClear:hover,
+.chatChipsClear:focus-visible {
+  color: var(--accent);
+}
+
+/* Under a user turn: which cards it was about. */
+.bubbleCards {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* One button, sitting on the input box's right edge under the send arrow. It
    sizes to its label rather than stretching, so the row never overflows the
    300px chat floor. */
@@ -1033,6 +1118,33 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Selected for the chat: the accent ring the hover borrows, held. The ring
+   is a box-shadow, not a border, so selecting never reflows the grid. */
+.gridCardSelected,
+.gridCardSelected:hover {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--glow-accent);
+}
+
+/* The whole face is the toggle; the reset keeps it pixel-identical to the
+   static tile it replaces. */
+.gridCardToggle {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.gridCardToggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* Enrichment missed this card: hold the slot at card shape and name it. */

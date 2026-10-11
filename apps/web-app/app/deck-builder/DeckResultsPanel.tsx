@@ -102,35 +102,59 @@ interface DeckCardProps {
   card: CardInDeck;
   /** From `useCardHoverPreview` — mounts the zoom on this tile. */
   hoverProps: CardHoverBindings;
+  /** Selected for the chat. Selection is by card name, so every copy agrees. */
+  selected?: boolean;
+  /** Makes the tile a toggle. Omit for a static tile. */
+  onToggle?: (name: string) => void;
 }
 
 /** One physical copy, as its full Scryfall render. */
-function DeckCard({ card, hoverProps }: DeckCardProps) {
+function DeckCard({ card, hoverProps, selected = false, onToggle }: DeckCardProps) {
   const [artFailed, setArtFailed] = useState(false);
 
-  return (
-    <li className={styles.gridCard} style={{ aspectRatio: CARD_ASPECT }} {...hoverProps}>
-      {card.image_uri && !artFailed ? (
-        /* Remote Scryfall art; `next/image` would need a `remotePatterns`
-           entry in next.config.ts. Same call as CardTile makes. */
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className={styles.gridCardImg}
-          src={card.image_uri}
-          alt={card.name}
-          loading="lazy"
-          decoding="async"
-          onError={() => setArtFailed(true)}
-        />
-      ) : (
-        /* No enriched render: keep the slot at card shape and name it, rather
-           than leaving a hole in the grid. */
-        <span className={styles.gridCardFallback}>
-          <span className={styles.gridCardFallbackMark} aria-hidden="true">
-            &#x25C8;
-          </span>
-          {card.name}
+  const face =
+    card.image_uri && !artFailed ? (
+      /* Remote Scryfall art; `next/image` would need a `remotePatterns`
+         entry in next.config.ts. Same call as CardTile makes. */
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        className={styles.gridCardImg}
+        src={card.image_uri}
+        alt={card.name}
+        loading="lazy"
+        decoding="async"
+        onError={() => setArtFailed(true)}
+      />
+    ) : (
+      /* No enriched render: keep the slot at card shape and name it, rather
+         than leaving a hole in the grid. */
+      <span className={styles.gridCardFallback}>
+        <span className={styles.gridCardFallbackMark} aria-hidden="true">
+          &#x25C8;
         </span>
+        {card.name}
+      </span>
+    );
+
+  return (
+    <li
+      className={`${styles.gridCard} ${selected ? styles.gridCardSelected : ''}`}
+      style={{ aspectRatio: CARD_ASPECT }}
+      {...hoverProps}
+    >
+      {onToggle ? (
+        /* A real button, so selection is reachable by Tab and Space/Enter. */
+        <button
+          type="button"
+          className={styles.gridCardToggle}
+          aria-pressed={selected}
+          aria-label={`${card.name}${selected ? ', selected for chat' : ''}`}
+          onClick={() => onToggle(card.name)}
+        >
+          {face}
+        </button>
+      ) : (
+        face
       )}
       <span className={styles.gridCardPrice}>{formatEur(card.price_eur)}</span>
     </li>
@@ -236,6 +260,10 @@ interface DeckResultsPanelProps {
   onAddCards?: () => void;
   /** The add-cards panel is open (the button reflects it). */
   addCardsOpen?: boolean;
+  /** Card names selected for the chat. Grid view only — see the grid below. */
+  selectedCards?: readonly string[];
+  /** Toggles a card name in that selection. Omit to make the grid static. */
+  onToggleCard?: (name: string) => void;
 }
 
 export function DeckResultsPanel({
@@ -248,6 +276,8 @@ export function DeckResultsPanel({
   saveState = { kind: 'idle' },
   onAddCards,
   addCardsOpen = false,
+  selectedCards = [],
+  onToggleCard,
 }: DeckResultsPanelProps) {
   const [view, setView] = useState<DeckView>('grid');
   const { preview, hoverProps } = useCardHoverPreview();
@@ -385,11 +415,16 @@ export function DeckResultsPanel({
                           imageUri: card.image_uri,
                           priceEur: card.price_eur ?? null,
                         })}
+                        selected={selectedCards.includes(card.name)}
+                        onToggle={onToggleCard}
                       />
                     )),
                   )}
                 </ul>
               ) : (
+                /* No selection here: a row is every copy of a name at once,
+                   so a per-card pick has nothing to point at. The selection
+                   itself survives the switch and stays editable in the chat. */
                 <ul className={styles.cardList}>
                   {section.cards.map((card, index) => (
                     <li

@@ -239,6 +239,11 @@ export interface ChatRequest {
    * deck row (404 for anyone else's), so the chat sees the saved cards.
    */
   deck_id?: string | null;
+  /**
+   * Card names picked in the grid view; requires `deck_id`. The server keeps
+   * only names that are in that deck and confines the reply to them.
+   */
+  selected_cards?: string[];
 }
 
 export interface ChatResponse {
