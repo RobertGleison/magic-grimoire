@@ -35,7 +35,7 @@ async def _insert_deck(session_factory, user_id=TEST_USER_ID, status=DeckStatus.
 async def test_generate_persists_deck_and_task(client, session_factory, dispatch):
     res = await client.post(
         "/api/v1/decks/generate",
-        json={"prompt": "mono red burn", "format": "modern"},
+        json={"prompt": "mono red burn", "format": "modern", "colors": ["R"]},
         headers=AUTH,
     )
     assert res.status_code == 202
@@ -62,7 +62,11 @@ async def test_generate_persists_deck_and_task(client, session_factory, dispatch
 async def test_generate_dispatch_failure_returns_503_and_marks_failed(client, session_factory, dispatch):
     dispatch.side_effect = ConnectionError("lambda unreachable")
 
-    res = await client.post("/api/v1/decks/generate", json={"prompt": "elf tribal"}, headers=AUTH)
+    res = await client.post(
+        "/api/v1/decks/generate",
+        json={"prompt": "elf tribal", "format": "standard", "colors": ["G"]},
+        headers=AUTH,
+    )
     assert res.status_code == 503
 
     async with session_factory() as db:
@@ -163,7 +167,7 @@ async def test_generate_forwards_colors_to_worker(client, session_factory, dispa
 async def test_generate_forwards_deck_size_to_worker(client, session_factory, dispatch):
     res = await client.post(
         "/api/v1/decks/generate",
-        json={"prompt": "commander deck", "format": "commander", "deck_size": 100},
+        json={"prompt": "commander deck", "format": "commander", "colors": ["B"], "deck_size": 100},
         headers=AUTH,
     )
     assert res.status_code == 202
@@ -172,7 +176,7 @@ async def test_generate_forwards_deck_size_to_worker(client, session_factory, di
     dispatch.assert_awaited_once()
     job = dispatch.call_args.args[0]
     assert (job.deck_id, job.prompt, job.format, job.colors, job.deck_size) == (
-        body["deck_id"], "commander deck", "commander", None, 100,
+        body["deck_id"], "commander deck", "commander", ["B"], 100,
     )
 
 

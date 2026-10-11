@@ -70,7 +70,7 @@ async def generate_deck(
         deck_id=str(deck.id),
         prompt=request.prompt,
         format=request.format,
-        colors=[c.value for c in request.colors] if request.colors else None,
+        colors=[c.value for c in request.colors],
         deck_size=request.deck_size,
     )
     try:
