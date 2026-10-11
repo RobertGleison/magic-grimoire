@@ -260,6 +260,8 @@ interface DeckResultsPanelProps {
   onAddCards?: () => void;
   /** The add-cards panel is open (the button reflects it). */
   addCardsOpen?: boolean;
+  /** A saved version is being reopened as a draft for the panel. */
+  addCardsBusy?: boolean;
   /** Card names selected for the chat. Grid view only — see the grid below. */
   selectedCards?: readonly string[];
   /** Toggles a card name in that selection. Omit to make the grid static. */
@@ -276,6 +278,7 @@ export function DeckResultsPanel({
   saveState = { kind: 'idle' },
   onAddCards,
   addCardsOpen = false,
+  addCardsBusy = false,
   selectedCards = [],
   onToggleCard,
 }: DeckResultsPanelProps) {
@@ -327,6 +330,8 @@ export function DeckResultsPanel({
               size="xs"
               className={styles.goldButton}
               aria-expanded={addCardsOpen}
+              loading={addCardsBusy}
+              disabled={addCardsBusy}
               onClick={onAddCards}
             >
               Add Cards

@@ -1413,10 +1413,59 @@ describe('DeckBuilderPage — deck states', () => {
       expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument();
     });
 
-    it('is not offered on a saved library version, which is immutable', async () => {
-      await renderWithDeck({ version_no: 2 });
+    it("is not offered on someone else's saved version", async () => {
+      await renderWithDeck({ version_no: 2, is_owner: false });
       await screen.findByRole('heading', { name: 'Rakdos Sacrifice' });
       expect(screen.queryByRole('button', { name: 'Add Cards' })).toBeNull();
+    });
+
+    it("reopens the owner's saved version as a draft, then adds to that draft", async () => {
+      try {
+        await renderWithDeck({ version_no: 2, is_owner: true });
+        await screen.findByRole('heading', { name: 'Rakdos Sacrifice' });
+        const calls: string[] = [];
+        fetchMock.mockImplementation(async (url, init) => {
+          calls.push(`${init?.method ?? 'GET'} ${String(url)}`);
+          if (String(url) === '/api/v1/decks/deck-1/draft') {
+            return jsonResponse(deckFixture({ id: 'draft-id', version_no: null, is_owner: true }), 201);
+          }
+          if (String(url).startsWith('/api/v1/cards/search')) return jsonResponse({ cards: [BOLT] });
+          if (String(url) === '/api/v1/decks/draft-id/cards') {
+            const cards = (JSON.parse(String(init?.body)) as { cards: CardInDeck[] }).cards;
+            return jsonResponse(deckFixture({ id: 'draft-id', version_no: null, cards }));
+          }
+          throw new Error(`unexpected ${String(url)}`);
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Add Cards' }));
+
+        const search = await screen.findByRole('searchbox', { name: 'Search cards by name' });
+        expect(screen.getByText(/Editing a copy of v2\. Save to Library/)).toBeInTheDocument();
+        expect(new URLSearchParams(window.location.search).get('deck')).toBe('draft-id');
+
+        fireEvent.change(search, { target: { value: 'bolt' } });
+        const results = await screen.findByRole('list', { name: 'Matching cards' });
+        fireEvent.click(within(results).getByRole('button', { name: /Add 1 Lightning Bolt/ }));
+        await waitFor(() => expect(screen.getByText('Added 1 × Lightning Bolt.')).toBeInTheDocument());
+
+        // The edit went to the new draft; the saved version was never written.
+        expect(calls).toContain('POST /api/v1/decks/deck-1/draft');
+        expect(calls).toContain('PUT /api/v1/decks/draft-id/cards');
+        expect(calls.some((call) => call.startsWith('PUT /api/v1/decks/deck-1'))).toBe(false);
+      } finally {
+        window.history.replaceState({}, '', '/');
+      }
+    });
+
+    it('says why when a saved version cannot be reopened', async () => {
+      await renderWithDeck({ version_no: 2, is_owner: true });
+      await screen.findByRole('heading', { name: 'Rakdos Sacrifice' });
+      fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'Access denied' }, 403));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Cards' }));
+
+      await waitFor(() => expect(screen.getByText('Access denied')).toBeInTheDocument());
+      expect(screen.queryByRole('searchbox', { name: 'Search cards by name' })).toBeNull();
     });
   });
 
