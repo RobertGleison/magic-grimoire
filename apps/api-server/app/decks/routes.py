@@ -15,6 +15,7 @@ from app.core.enums import DeckStatus, TaskStatus
 from app.core.guards import sanitize_prompt
 from app.decks.dispatch import GenerationJob, dispatch_generation
 from app.decks.dtos import (
+    DeckCardsUpdateDTO,
     DeckGenerateRequestDTO,
     DeckGenerateResponseDTO,
     DeckListResponseDTO,
@@ -244,6 +245,51 @@ async def save_deck(
             )
 
     raise AssertionError("unreachable")  # pragma: no cover
+
+
+@router.put("/decks/{deck_id}/cards", response_model=DeckResponseDTO)
+async def update_deck_cards(
+    deck_id: uuid.UUID,
+    request: DeckCardsUpdateDTO,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+) -> DeckResponseDTO:
+    """Replace the working draft's card list — the save path for hand edits.
+
+    Only the owner's finished working draft can be edited. A saved snapshot is
+    immutable (save again to version the edit), and an unfinished deck still
+    belongs to the forge. Format legality (copy limits, deck size) is advisory and
+    surfaced by the builder; the server enforces only sane bounds.
+    """
+    deck = (await db.execute(select(Deck).where(Deck.id == deck_id))).scalar_one_or_none()
+    if deck is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
+    if deck.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    if deck.saved_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A saved version can't be edited. Open the working copy instead.",
+        )
+    if deck.status != DeckStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only a finished deck can be edited.",
+        )
+
+    deck.cards = [card.model_dump() for card in request.cards]
+    deck.card_count = sum(card.quantity for card in request.cards)
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        _log.exception("Database error updating cards of deck %s", deck_id)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Deck storage is temporarily unavailable. Please try again shortly.",
+        )
+    await db.refresh(deck)
+    return DeckResponseDTO.model_validate(deck)
 
 
 @router.delete("/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
