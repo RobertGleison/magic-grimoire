@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.enums import DeckFormat, DeckStatus, MTGColor
+from app.decks.tags import normalize_tags
 
 
 class CardInDeckDTO(BaseModel):
@@ -43,6 +44,7 @@ class DeckResponseDTO(BaseModel):
     # None on a working draft; 1-based within its lineage on a saved snapshot.
     version_no: int | None = None
     is_public: bool = True
+    tags: list[str] = Field(default_factory=list)
     # Whether the caller owns this deck: drives the Edit and visibility
     # controls. Computed per request, never stored.
     is_owner: bool = False
@@ -64,3 +66,26 @@ class DeckListResponseDTO(BaseModel):
 
 class DeckVisibilityRequestDTO(BaseModel):
     is_public: bool
+
+
+class DeckTagsRequestDTO(BaseModel):
+    # Bounded before normalisation too, so a huge payload is rejected cheaply.
+    tags: list[str] = Field(..., max_length=50)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalise(cls, value: list[str]) -> list[str]:
+        return normalize_tags(value)
+
+
+class ExploreDeckListResponseDTO(BaseModel):
+    """One page of the community feed.
+
+    Each deck's `cards` is trimmed to its cover card (the first with an image),
+    so a page stays small; `card_count` still reports the real size. Fetch
+    GET /decks/{id} for the full list.
+    """
+
+    decks: list[DeckResponseDTO]
+    # Opaque; pass back as `cursor` for the next page. None on the last page.
+    next_cursor: str | None
