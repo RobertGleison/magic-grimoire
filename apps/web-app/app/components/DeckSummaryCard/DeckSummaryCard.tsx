@@ -8,6 +8,7 @@ import { Badge } from '../Badge/Badge';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
 import { ManaSymbol } from '../ManaSymbol/ManaSymbol';
+import { VisibilityToggle } from '../VisibilityToggle/VisibilityToggle';
 import './DeckSummaryCard.css';
 
 /* ==========================================================================
@@ -136,6 +137,8 @@ interface DeckSummaryCardProps {
   editHref?: string;
   /** Omit to render the card read-only — the destructive action disappears. */
   onDelete?: (deck: DeckResponse) => void;
+  /** Present ⇒ the footer shows the public/private lock, which calls this. */
+  onToggleVisibility?: (deck: DeckResponse) => void;
   /** Blocks this card's actions while a mutation for it is in flight. */
   busy?: boolean;
   /** `Date.now()` override, so relative timestamps are deterministic in tests. */
@@ -148,6 +151,7 @@ export function DeckSummaryCard({
   viewHref,
   editHref,
   onDelete,
+  onToggleVisibility,
   busy = false,
   now,
   className = '',
@@ -268,6 +272,14 @@ export function DeckSummaryCard({
         >
           Edit
         </Button>
+        {onToggleVisibility ? (
+          <VisibilityToggle
+            isPublic={deck.is_public}
+            onToggle={() => onToggleVisibility(deck)}
+            disabled={busy}
+            deckName={title}
+          />
+        ) : null}
         {onDelete ? (
           <Button
             variant="danger"

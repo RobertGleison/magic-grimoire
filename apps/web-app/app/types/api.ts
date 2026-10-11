@@ -91,6 +91,10 @@ export interface DeckResponse {
   card_count: number;
   /** `null` on a working draft; 1-based within its lineage on a saved snapshot. */
   version_no: number | null;
+  /** Public saved decks are readable by anyone; private ones by the owner only. */
+  is_public: boolean;
+  /** Whether the caller owns this deck — gates Edit and the visibility lock. */
+  is_owner: boolean;
   status: DeckStatus;
   error_message: string | null;
   /** ISO-8601 timestamps. */

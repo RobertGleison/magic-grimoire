@@ -84,6 +84,8 @@ function deckFixture(overrides: Partial<DeckResponse> = {}): DeckResponse {
     cards: CARDS,
     card_count: 20,
     version_no: null,
+    is_public: true,
+    is_owner: true,
     status: 'completed',
     error_message: null,
     created_at: '2026-01-01T00:00:00Z',

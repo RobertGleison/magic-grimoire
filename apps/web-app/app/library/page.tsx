@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal/Modal';
 import { Select } from '../components/Select/Select';
 import { Spinner } from '../components/Spinner/Spinner';
 import { useUser } from '../context/UserContext';
-import { ApiError, deleteDeck, isAbortError, listDecks } from '../lib/apiClient';
+import { ApiError, deleteDeck, isAbortError, listDecks, setDeckVisibility } from '../lib/apiClient';
 import { DECK_FORMATS, type DeckListResponse, type DeckResponse } from '../types/api';
 import styles from './page.module.css';
 
@@ -131,6 +131,15 @@ function sortDecks(decks: DeckResponse[], sort: SortKey): DeckResponse[] {
   }
 }
 
+/** `state` with one deck's visibility replaced — the optimistic lock flip. */
+function withVisibility(state: LibraryState, deckId: string, isPublic: boolean): LibraryState {
+  if (state.kind === 'signed-out' || !state.data) return state;
+  const decks = state.data.decks.map((deck) =>
+    deck.id === deckId ? { ...deck, is_public: isPublic } : deck,
+  );
+  return { ...state, data: { ...state.data, decks } } as LibraryState;
+}
+
 function messageOf(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return 'Something went wrong reading your grimoire.';
@@ -152,7 +161,24 @@ export default function LibraryPage() {
   const [pendingDelete, setPendingDelete] = useState<DeckResponse | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>({ kind: 'idle' });
 
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
+
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+
+  // Optimistic: the lock flips at once and flips back if the server refuses.
+  const toggleVisibility = useCallback(async (deck: DeckResponse) => {
+    const next = !deck.is_public;
+    setVisibilityError(null);
+    setState((previous) => withVisibility(previous, deck.id, next));
+    try {
+      await setDeckVisibility(deck.id, next);
+    } catch (error: unknown) {
+      setState((previous) => withVisibility(previous, deck.id, deck.is_public));
+      setVisibilityError(
+        error instanceof ApiError ? error.message : 'Could not change who can see that deck.',
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (session === 'checking') return;
@@ -283,6 +309,15 @@ export default function LibraryPage() {
               </div>
             ) : null}
 
+            {visibilityError ? (
+              <div className={styles.inlineError} role="alert">
+                <span>{visibilityError}</span>
+                <Button variant="ghost" size="xs" onClick={() => setVisibilityError(null)}>
+                  Dismiss
+                </Button>
+              </div>
+            ) : null}
+
             {total === 0 ? (
               <EmptyPanel />
             ) : (
@@ -352,6 +387,7 @@ export default function LibraryPage() {
                           viewHref={`/library/deck?id=${encodeURIComponent(deck.id)}`}
                           busy={pendingDelete?.id === deck.id && deleteState.kind === 'deleting'}
                           onDelete={setPendingDelete}
+                          onToggleVisibility={(target) => void toggleVisibility(target)}
                         />
                       </li>
                     ))}

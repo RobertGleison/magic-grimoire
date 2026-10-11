@@ -1,10 +1,11 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DeckResponse } from '../../app/types/api';
 
 const mocks = vi.hoisted(() => ({
   getDeck: vi.fn(),
+  setDeckVisibility: vi.fn(),
   sendChat: vi.fn(),
 }));
 
@@ -20,7 +21,7 @@ vi.mock('../../app/lib/supabase', () => ({
 
 vi.mock('../../app/lib/apiClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../app/lib/apiClient')>();
-  return { ...actual, getDeck: mocks.getDeck, sendChat: mocks.sendChat };
+  return { ...actual, getDeck: mocks.getDeck, setDeckVisibility: mocks.setDeckVisibility, sendChat: mocks.sendChat };
 });
 
 import { ApiError } from '../../app/lib/apiClient';
@@ -47,6 +48,8 @@ function makeDeck(overrides: Partial<DeckResponse> = {}): DeckResponse {
     ],
     card_count: 4,
     version_no: 1,
+    is_public: true,
+    is_owner: true,
     status: 'completed',
     error_message: null,
     created_at: '2026-08-23T10:00:00.000Z',
@@ -62,6 +65,7 @@ function visit(search: string) {
 
 beforeEach(() => {
   mocks.getDeck.mockReset();
+  mocks.setDeckVisibility.mockReset();
   mocks.sendChat.mockReset();
 });
 
@@ -129,5 +133,31 @@ describe('/library/deck read-only view (MTG-15)', () => {
     render(<LibraryDeckPage />);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/no deck chosen/i));
     expect(mocks.getDeck).not.toHaveBeenCalled();
+  });
+
+  it('gives the owner a lock that toggles optimistically and rolls back on error (MTG-24)', async () => {
+    mocks.getDeck.mockResolvedValue(makeDeck());
+    mocks.setDeckVisibility.mockRejectedValue(new ApiError('Deck storage is temporarily unavailable.', 503));
+    visit('?id=deck-1');
+    render(<LibraryDeckPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Make private: Rakdos Sacrifice' }));
+    expect(mocks.setDeckVisibility).toHaveBeenCalledWith('deck-1', false);
+
+    expect(await screen.findByText('Deck storage is temporarily unavailable.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Make private: Rakdos Sacrifice' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('shows someone else\'s public deck without Edit or the lock (MTG-24)', async () => {
+    mocks.getDeck.mockResolvedValue(makeDeck({ is_owner: false }));
+    visit('?id=deck-1');
+    render(<LibraryDeckPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /make (public|private)/i })).toBeNull();
   });
 });

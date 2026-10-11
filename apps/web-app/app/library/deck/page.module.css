@@ -25,6 +25,12 @@
   flex-wrap: wrap;
 }
 
+.ownerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
 .centered {
   display: flex;
   justify-content: center;

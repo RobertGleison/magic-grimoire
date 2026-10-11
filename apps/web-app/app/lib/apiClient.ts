@@ -109,7 +109,7 @@ export interface RequestOptions {
 }
 
 interface RequestSpec extends RequestOptions {
-  method: 'GET' | 'POST' | 'DELETE';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   query?: Record<string, string | number | undefined>;
   body?: unknown;
@@ -253,6 +253,23 @@ export function saveDeck(deckId: string, options: RequestOptions = {}): Promise<
     ...options,
     method: 'POST',
     path: `/decks/${encodeURIComponent(deckId)}/save`,
+  });
+}
+
+/**
+ * `PATCH /api/v1/decks/{deck_id}/visibility` — make a deck public or private.
+ * Requires auth and ownership; returns the updated deck.
+ */
+export function setDeckVisibility(
+  deckId: string,
+  isPublic: boolean,
+  options: RequestOptions = {},
+): Promise<DeckResponse> {
+  return request<DeckResponse>({
+    ...options,
+    method: 'PATCH',
+    path: `/decks/${encodeURIComponent(deckId)}/visibility`,
+    body: { is_public: isPublic },
   });
 }
 
