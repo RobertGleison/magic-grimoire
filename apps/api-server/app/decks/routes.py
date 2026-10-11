@@ -391,6 +391,60 @@ async def save_deck(
     raise AssertionError("unreachable")  # pragma: no cover
 
 
+@router.post("/decks/{deck_id}/draft", response_model=DeckResponseDTO, status_code=status.HTTP_201_CREATED)
+async def draft_from_version(
+    deck_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+) -> DeckResponseDTO:
+    """Open a saved version for editing: a new working draft with its cards.
+
+    The version itself stays immutable. The draft carries the version's
+    `lineage_id`, so saving it becomes the next version of the same deck rather
+    than v1 of a new one. Always a fresh row: another draft in the lineage may
+    hold unsaved edits, and this must start from exactly the version opened.
+    """
+    source = (await db.execute(select(Deck).where(Deck.id == deck_id))).scalar_one_or_none()
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found")
+    if source.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    if source.saved_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This is already a working draft. Edit it directly.",
+        )
+
+    draft = Deck(
+        id=uuid.uuid4(),
+        title=source.title,
+        description=source.description,
+        prompt=source.prompt,
+        user_id=user_id,
+        format=source.format,
+        colors=source.colors,
+        cards=source.cards,
+        card_count=source.card_count,
+        status=source.status,
+        completed_at=source.completed_at,
+        lineage_id=source.lineage_id,
+        is_public=source.is_public,
+        tags=list(source.tags or []),
+    )
+    db.add(draft)
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        _log.exception("Database error opening a draft of deck %s", deck_id)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Deck storage is temporarily unavailable. Please try again shortly.",
+        )
+    await db.refresh(draft)
+    return _owned_response(draft)
+
+
 @router.put("/decks/{deck_id}/tags", response_model=DeckResponseDTO)
 async def set_deck_tags(
     deck_id: uuid.UUID,

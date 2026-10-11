@@ -423,3 +423,46 @@ async def test_update_cards_validates_the_list(client, session_factory, cards):
     draft = await _insert_deck(session_factory, cards=CARDS, card_count=4)
     res = await client.put(f"/api/v1/decks/{draft.id}/cards", json={"cards": cards}, headers=AUTH)
     assert res.status_code == 422
+
+
+# --- POST /decks/{id}/draft (edit a saved version) ---
+
+async def test_draft_from_version_then_edit_and_save_makes_the_next_version(client, session_factory):
+    draft = await _insert_deck(session_factory, title="Goblin Rush", cards=CARDS, card_count=4, tags=["aggro"])
+    v1 = (await client.post(f"/api/v1/decks/{draft.id}/save", headers=AUTH)).json()
+
+    res = await client.post(f"/api/v1/decks/{v1['id']}/draft", headers=AUTH)
+    assert res.status_code == 201, res.text
+    reopened = res.json()
+    assert reopened["id"] not in (v1["id"], str(draft.id))
+    assert reopened["version_no"] is None
+    assert (reopened["title"], reopened["card_count"], reopened["tags"]) == ("Goblin Rush", 4, ["aggro"])
+    assert reopened["is_owner"] is True
+
+    edited = await client.put(f"/api/v1/decks/{reopened['id']}/cards", json={"cards": EDITED}, headers=AUTH)
+    assert edited.status_code == 200
+    v2 = (await client.post(f"/api/v1/decks/{reopened['id']}/save", headers=AUTH)).json()
+    assert v2["version_no"] == 2
+    assert v2["card_count"] == 24
+
+    # The version that was opened is untouched.
+    async with session_factory() as db:
+        stored_v1 = (await db.execute(select(Deck).where(Deck.id == uuid.UUID(v1["id"])))).scalar_one()
+    assert stored_v1.card_count == 4
+
+
+async def test_draft_from_version_is_owner_only(client, session_factory):
+    from datetime import UTC, datetime
+
+    version = await _insert_deck(session_factory, cards=CARDS, saved_at=datetime(2026, 1, 1, tzinfo=UTC), version_no=1)
+
+    assert (await client.post(f"/api/v1/decks/{version.id}/draft", headers=OTHER_USER_AUTH)).status_code == 403
+    assert (await client.post(f"/api/v1/decks/{version.id}/draft")).status_code == 401
+    assert (await client.post(f"/api/v1/decks/{uuid.uuid4()}/draft", headers=AUTH)).status_code == 404
+
+
+async def test_draft_from_a_draft_is_refused(client, session_factory):
+    draft = await _insert_deck(session_factory, cards=CARDS)
+
+    res = await client.post(f"/api/v1/decks/{draft.id}/draft", headers=AUTH)
+    assert res.status_code == 400
