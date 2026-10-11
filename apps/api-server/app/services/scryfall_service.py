@@ -72,6 +72,12 @@ def _image_uri(card: dict) -> str | None:
     )
 
 
+def _price_eur(card_data: dict) -> str | None:
+    """Scryfall's euro price as a decimal string, falling back to the foil price."""
+    prices = card_data.get("prices") or {}
+    return prices.get("eur") or prices.get("eur_foil")
+
+
 # Card names are letters, digits, spaces, apostrophes, commas, hyphens and the odd
 # punctuation; everything else (`:`, `<`, `(`, quotes, `!`) is Scryfall query syntax.
 _NAME_UNSAFE = re.compile(r"[^\w\s',.-]", re.UNICODE)
@@ -104,7 +110,10 @@ async def search_cards_by_name(name: str) -> list[dict]:
 
     cached = await card_cache.get(cache_key)
     if cached:
-        return json.loads(cached)
+        cached_results: list[dict] = json.loads(cached)
+        # Results cached before prices were stored are refetched rather than served unpriced.
+        if all("price_eur" in card for card in cached_results):
+            return cached_results
 
     async with httpx.AsyncClient() as client:
         try:
@@ -125,6 +134,7 @@ async def search_cards_by_name(name: str) -> list[dict]:
             "image_uri": _image_uri(card),
             "mana_cost": card.get("mana_cost") or (card.get("card_faces", [{}])[0].get("mana_cost") or ""),
             "type_line": card.get("type_line", ""),
+            "price_eur": _price_eur(card),
         }
         for card in data.get("data", [])
         if card.get("name")
@@ -186,10 +196,29 @@ async def search_cards(intent: dict) -> list[dict]:
     return results
 
 
+# Fields that must be present for a cached card entry to be current. Entries cached
+# before euro prices existed are refetched rather than served unpriced.
+_REQUIRED_CACHE_FIELDS = ("price_eur",)
+
+
+async def _fetch_card(client: httpx.AsyncClient, name: str) -> dict:
+    """Fetch a card from Scryfall and keep only the fields we store."""
+    card_data = await _get(client, f"{SCRYFALL_BASE}/cards/named", params={"exact": name})
+
+    return {
+        "scryfall_id": card_data.get("id"),
+        "image_uri": _image_uri(card_data),
+        "mana_cost": card_data.get("mana_cost", ""),
+        "type_line": card_data.get("type_line", ""),
+        "price_eur": _price_eur(card_data),
+    }
+
+
 async def enrich_cards(cards: list[dict]) -> list[dict]:
     """Enrich a list of {name, quantity, section} dicts with Scryfall data.
 
-    Fetches scryfall_id, image_uri, mana_cost, type_line for each card.
+    Fetches scryfall_id, image_uri, mana_cost, type_line and the euro price
+    (price_eur) for each card.
     Results are cached per card name for 24 hours.
     """
     enriched: list[dict] = []
@@ -204,25 +233,11 @@ async def enrich_cards(cards: list[dict]) -> list[dict]:
             cache_key = f"scryfall:card:{urllib.parse.quote(name)}"
             cached = await card_cache.get(cache_key)
 
-            if cached:
-                card_data: dict[str, Any] = json.loads(cached)
-            else:
+            card_data: dict[str, Any] = json.loads(cached) if cached else {}
+
+            if not all(field in card_data for field in _REQUIRED_CACHE_FIELDS):
                 try:
-                    card_data = await _get(
-                        client,
-                        f"{SCRYFALL_BASE}/cards/named",
-                        params={"exact": name},
-                    )
-                    # Cache only the fields we need
-                    card_data = {
-                        "scryfall_id": card_data.get("id"),
-                        "image_uri": (
-                            card_data.get("image_uris", {}).get("normal")
-                            or (card_data.get("card_faces", [{}])[0].get("image_uris", {}).get("normal"))
-                        ),
-                        "mana_cost": card_data.get("mana_cost", ""),
-                        "type_line": card_data.get("type_line", ""),
-                    }
+                    card_data = await _fetch_card(client, name)
                     await card_cache.set(cache_key, json.dumps(card_data), ttl=CACHE_TTL)
                 except httpx.HTTPStatusError:
                     card_data = {}

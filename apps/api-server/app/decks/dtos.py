@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.enums import DeckFormat, DeckStatus, MTGColor
+from app.decks.pricing import deck_price
 
 
 class CardInDeckDTO(BaseModel):
@@ -14,6 +16,9 @@ class CardInDeckDTO(BaseModel):
     mana_cost: str | None = None
     type_line: str | None = None
     section: str
+    # Scryfall's euro price as a decimal string (MTG-26). None when Scryfall has no
+    # euro price, or on cards enriched before prices were stored.
+    price_eur: str | None = None
 
 
 # Card art is always Scryfall's CDN; anything else in an edited list is refused
@@ -32,6 +37,8 @@ class DeckCardEditDTO(BaseModel):
     image_uri: str | None = Field(default=None, max_length=500)
     mana_cost: str | None = Field(default=None, max_length=100)
     type_line: str | None = Field(default=None, max_length=200)
+    # Same shape as Scryfall's prices.eur; it only ever feeds the owner's own deck total.
+    price_eur: str | None = Field(default=None, pattern=r"^\d{1,7}(\.\d{1,2})?$")
 
     @field_validator("image_uri")
     @classmethod
@@ -86,6 +93,21 @@ class DeckResponseDTO(BaseModel):
     failed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+    # Euro prices (MTG-26), derived from `cards` whenever the DTO is built — never
+    # stored, so they always match the card list, including right after a hand
+    # edit. Set at validation rather than serialization so a copy with a trimmed
+    # card list (e.g. a feed entry showing only its cover card) keeps the totals
+    # of the whole deck.
+    total_price_eur: Decimal | None = None
+    unpriced_card_count: int = 0
+
+    @model_validator(mode="after")
+    def _price_from_cards(self) -> "DeckResponseDTO":
+        price = deck_price(card.model_dump(include={"quantity", "price_eur"}) for card in self.cards or [])
+        self.total_price_eur = price.total_eur
+        self.unpriced_card_count = price.unpriced_card_count
+        return self
 
 
 class DeckListResponseDTO(BaseModel):

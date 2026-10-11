@@ -752,6 +752,10 @@
   color: var(--cream);
 }
 
+.deckTotalPrice {
+  font-size: var(--text-lg);
+}
+
 .deckSubtitle {
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -893,6 +897,12 @@
   font-size: var(--text-sm);
 }
 
+.addCardsPrice {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
 .addCardsHint,
 .addCardsWarning {
   display: flex;
@@ -1022,6 +1032,21 @@
   text-align: center;
 }
 
+/* Per-copy euro price, a small pill over the card's bottom border. */
+.gridCardPrice {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--scrim);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+}
+
 .gridCardFallbackMark {
   font-family: var(--font-display);
   font-size: var(--text-4xl);
@@ -1039,7 +1064,7 @@
 
 .cardListRow {
   display: grid;
-  grid-template-columns: var(--space-32) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: var(--space-32) minmax(0, 1fr) minmax(0, 1fr) auto var(--space-64);
   align-items: center;
   gap: var(--space-8);
   padding: var(--space-6) var(--space-8);
@@ -1075,6 +1100,14 @@
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardListPrice {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  text-align: right;
   white-space: nowrap;
 }
 

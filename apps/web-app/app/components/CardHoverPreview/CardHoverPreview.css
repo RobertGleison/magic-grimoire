@@ -28,3 +28,20 @@
     0 0 0 1px rgba(var(--accent-glow), 0.35);
   animation: hoverIn var(--dur-fast) var(--ease) both;
 }
+
+/* The card's euro price, pinned under the render's bottom edge. */
+.card-hover-preview-price {
+  display: block;
+  width: var(--preview-w);
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-sm);
+  background: var(--void-1);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: center;
+  color: var(--accent);
+  animation: hoverIn var(--dur-fast) var(--ease) both;
+}

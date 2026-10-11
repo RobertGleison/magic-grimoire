@@ -132,12 +132,22 @@
   border-bottom: 1px solid var(--line-strong);
 }
 
+.deck-summary-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+
 .deck-summary-count {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.deck-summary-price {
+  font-size: var(--text-sm);
 }
 
 /* ---- Stat block (9:64) --------------------------------------------------- */
