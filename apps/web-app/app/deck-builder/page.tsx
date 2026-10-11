@@ -20,6 +20,7 @@ import { useTaskStream } from '../hooks/useTaskStream';
 import {
   ApiError,
   cancelTask,
+  draftFromVersion,
   generateDeck,
   getDeck,
   isAbortError,
@@ -151,6 +152,8 @@ type AddState =
   | { kind: 'idle' }
   | { kind: 'saving' }
   | { kind: 'added'; text: string }
+  /** A saved version was just reopened as a draft; says what saving will do. */
+  | { kind: 'reopened'; text: string }
   | { kind: 'error'; message: string };
 
 function errorText(error: unknown, fallback: string): string {
@@ -184,6 +187,7 @@ export default function DeckBuilderPage() {
   const [cancelState, setCancelState] = useState<CancelState>('idle');
   const [addCardsOpen, setAddCardsOpen] = useState(false);
   const [addState, setAddState] = useState<AddState>({ kind: 'idle' });
+  const [reopening, setReopening] = useState(false);
 
   const stream = useTaskStream(taskId);
 
@@ -613,11 +617,54 @@ export default function DeckBuilderPage() {
   /* ----------------------------------------------------------- add cards */
 
   // A different deck (new generation, permalink) closes the panel: its copy
-  // counts and limits were about the deck that was open.
+  // counts and limits were about the deck that was open. The one exception is
+  // the draft just reopened from a saved version, which opens straight into it.
+  const reopenedDraft = useRef<{ id: string; text: string } | null>(null);
   useEffect(() => {
+    const reopened = reopenedDraft.current;
+    if (reopened && reopened.id === deck?.id) {
+      reopenedDraft.current = null;
+      setAddCardsOpen(true);
+      setAddState({ kind: 'reopened', text: reopened.text });
+      return;
+    }
     setAddCardsOpen(false);
     setAddState({ kind: 'idle' });
   }, [deck?.id]);
+
+  /**
+   * "Add Cards". A working draft toggles the panel. A saved version (opened
+   * from My Decks -> Edit) is immutable, so it is first reopened as a new draft
+   * of the same deck (`POST /decks/:id/draft`); the page switches to that draft,
+   * the permalink follows, and saving it becomes the next version.
+   */
+  const handleAddCardsToggle = useCallback(async () => {
+    if (!deck || reopening) return;
+    if (deck.version_no === null) {
+      setAddCardsOpen((open) => !open);
+      return;
+    }
+
+    setReopening(true);
+    try {
+      const draft = await draftFromVersion(deck.id);
+      reopenedDraft.current = {
+        id: draft.id,
+        text: `Editing a copy of v${deck.version_no}. Save to Library to keep your changes as a new version.`,
+      };
+      // Same deck, already announced in the transcript: don't announce it again.
+      announced.current = draft.id;
+      setDeck(draft);
+      setSaveState({ kind: 'idle' });
+      const params = new URLSearchParams(window.location.search);
+      params.set('deck', draft.id);
+      window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    } catch (error) {
+      note(errorText(error, 'Could not open this version for editing.'));
+    } finally {
+      setReopening(false);
+    }
+  }, [deck, reopening, note]);
 
   /**
    * Optimistic: the grid and counts update at once, then the list is written
@@ -853,7 +900,7 @@ export default function DeckBuilderPage() {
                 onClose={() => setAddCardsOpen(false)}
                 busy={addState.kind === 'saving'}
                 note={
-                  addState.kind === 'added'
+                  addState.kind === 'added' || addState.kind === 'reopened'
                     ? addState.text
                     : addState.kind === 'error'
                       ? addState.message
@@ -871,14 +918,15 @@ export default function DeckBuilderPage() {
               onExportText={handleExportText}
               onSave={() => void handleSave()}
               saveState={saveState}
-              // Only the finished working draft is editable; a saved version is
-              // immutable server-side.
+              // A finished working draft is edited in place; the owner's saved
+              // version is reopened as a new draft first (handleAddCardsToggle).
               onAddCards={
-                deck.status === 'completed' && deck.version_no === null
-                  ? () => setAddCardsOpen((open) => !open)
+                deck.status === 'completed' && (deck.version_no === null || deck.is_owner)
+                  ? () => void handleAddCardsToggle()
                   : undefined
               }
               addCardsOpen={addCardsOpen}
+              addCardsBusy={reopening}
               selectedCards={selectedCards}
               onToggleCard={handleToggleCard}
             />
