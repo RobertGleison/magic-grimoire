@@ -62,6 +62,8 @@ interface ChatPanelProps {
   draft: string;
   onDraftChange: (value: string) => void;
   onSend: () => void;
+  /** Abandons the in-flight `POST /chat`. Only reachable while `chatBusy`. */
+  onStop: () => void;
   onGenerate: () => void;
   /** A `POST /chat` is in flight. */
   chatBusy: boolean;
@@ -81,6 +83,7 @@ export function ChatPanel({
   draft,
   onDraftChange,
   onSend,
+  onStop,
   onGenerate,
   chatBusy,
   generating,
@@ -206,22 +209,39 @@ export function ChatPanel({
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <button
-            type="submit"
-            className={styles.chatSendIcon}
-            disabled={!canSend}
-            aria-label="Send message"
-          >
-            <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
-              <path
-                d="M1 13L13 7 1 1l2 6z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+          {/* One slot, two buttons: Send while idle, Stop while a reply is
+              pending. Swapping in place keeps the control under the caret
+              rather than adding a second button the narrow column must fit. */}
+          {chatBusy ? (
+            <button
+              type="button"
+              className={`${styles.chatSendIcon} ${styles.chatStopIcon}`}
+              onClick={onStop}
+              aria-label="Stop response"
+              title="Stop response"
+            >
+              <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+                <rect x="2.5" y="2.5" width="9" height="9" rx="1.5" fill="currentColor" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className={styles.chatSendIcon}
+              disabled={!canSend}
+              aria-label="Send message"
+            >
+              <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+                <path
+                  d="M1 13L13 7 1 1l2 6z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Only Generate lives here. The transcript is sent with Enter or the

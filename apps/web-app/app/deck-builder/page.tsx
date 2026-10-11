@@ -166,6 +166,8 @@ export default function DeckBuilderPage() {
   const generateAbort = useRef<AbortController | null>(null);
   const saveAbort = useRef<AbortController | null>(null);
   const entrySeq = useRef(0);
+  /** The user turn awaiting a reply, so Stop can take it back. */
+  const pendingTurn = useRef<ChatEntry | null>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   /** One save per `?save=1` arrival, however many times the effect re-runs. */
   const autoSaved = useRef(false);
@@ -244,6 +246,7 @@ export default function DeckBuilderPage() {
     if (!content || chatBusy) return;
 
     const sent = pushEntry('user', content);
+    pendingTurn.current = sent;
     setDraft('');
     setChatBusy(true);
 
@@ -280,9 +283,36 @@ export default function DeckBuilderPage() {
       if (isAbortError(error)) return;
       pushEntry('error', errorText(error, 'The alchemist did not answer. Try again.'));
     } finally {
-      if (!controller.signal.aborted) setChatBusy(false);
+      if (!controller.signal.aborted) {
+        pendingTurn.current = null;
+        setChatBusy(false);
+      }
     }
   }, [chatBusy, config, draft, entries, pushEntry]);
+
+  /* Stopping a reply. The abort closes the connection, which is what cancels
+     the LLM call server-side (the route races it against the disconnect).
+
+     Partial responses: the chat endpoint answers in one body, never streamed,
+     so there is no partial reply to keep — whatever the server would have said
+     is discarded. The unanswered turn is taken back out of the transcript and
+     returned to the field: left in, it would be replayed to the model as a
+     question that was never answered, and the user's next message would read
+     as a second, consecutive user turn. */
+  const handleStop = useCallback(() => {
+    const controller = chatAbort.current;
+    if (!controller || !chatBusy) return;
+    controller.abort();
+    chatAbort.current = null;
+    setChatBusy(false);
+
+    const pending = pendingTurn.current;
+    pendingTurn.current = null;
+    if (!pending) return;
+    setEntries((previous) => previous.filter((entry) => entry.id !== pending.id));
+    // Never clobber something typed while the reply was pending.
+    setDraft((current) => (current.trim() ? current : pending.content));
+  }, [chatBusy]);
 
   /* ------------------------------------------------------------ generate */
 
@@ -544,6 +574,7 @@ export default function DeckBuilderPage() {
         draft={draft}
         onDraftChange={setDraft}
         onSend={handleSend}
+        onStop={handleStop}
         onGenerate={handleGenerate}
         chatBusy={chatBusy}
         generating={generating}
