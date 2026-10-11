@@ -1,6 +1,7 @@
+import asyncio
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
 from app.llm.prompts import (
@@ -27,13 +28,27 @@ class LLMService(ABC):
 
     Owns prompt formatting, JSON parsing, error normalization, and retries.
     Adapters implement only ``_complete()`` — the raw provider request — and must
-    raise :class:`LLMServiceError` for transport/provider failures.
+    raise :class:`LLMServiceError` for transport/provider failures. Adapters that
+    can be cancelled mid-request also override ``_acomplete()``.
     """
 
     @abstractmethod
     def _complete(self, system: str, messages: list[dict], *, max_tokens: int, json_mode: bool) -> str:
         """Send one completion request to the provider and return the raw text reply."""
         ...
+
+    async def _acomplete(self, system: str, messages: list[dict], *, max_tokens: int, json_mode: bool) -> str:
+        """Async twin of ``_complete()``, used by the chat path so it can be cancelled.
+
+        Cancelling the awaiting task must close the provider connection, which is
+        what stops the provider generating (and billing). This fallback runs the
+        sync call on a thread: cancelling it frees the request, but the thread
+        finishes its call — so every real adapter overrides it with a native
+        async client.
+        """
+        return await asyncio.to_thread(
+            self._complete, system, messages, max_tokens=max_tokens, json_mode=json_mode
+        )
 
     def parse_intent(self, prompt: str) -> dict:
         """Parse a deck description into structured intent JSON."""
@@ -65,7 +80,7 @@ class LLMService(ABC):
             lambda: self._complete(system, messages, max_tokens=512, json_mode=False)
         )
 
-    def chat_with_context(
+    async def chat_with_context(
         self,
         messages: list[dict],
         *,
@@ -75,7 +90,9 @@ class LLMService(ABC):
     ) -> str:
         """Chat as the Grimoire, folding optional deck context into the system prompt.
 
-        Unwraps the off-topic guard JSON (see prompts) to a plain string reply.
+        Async and cancellable: cancelling the awaiting task aborts the in-flight
+        provider request (see ``_acomplete``). Unwraps the off-topic guard JSON
+        (see prompts) to a plain string reply.
         """
         system = CHAT_SYSTEM
         parts: list[str] = []
@@ -88,7 +105,9 @@ class LLMService(ABC):
         if parts:
             system += f"\n\nCurrent deck context — {'; '.join(parts)}."
 
-        reply = self.chat(messages, system)
+        reply = await self._awith_retry(
+            lambda: self._acomplete(system, messages, max_tokens=512, json_mode=False)
+        )
 
         try:
             parsed = json.loads(reply)
@@ -118,6 +137,15 @@ class LLMService(ABC):
         for _ in range(_MAX_ATTEMPTS):
             try:
                 return attempt()
+            except LLMServiceError as exc:
+                last_error = exc
+        raise last_error
+
+    async def _awith_retry(self, attempt: Callable[[], Awaitable[_T]]) -> _T:
+        last_error: LLMServiceError | None = None
+        for _ in range(_MAX_ATTEMPTS):
+            try:
+                return await attempt()
             except LLMServiceError as exc:
                 last_error = exc
         raise last_error

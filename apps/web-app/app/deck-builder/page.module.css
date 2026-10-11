@@ -622,6 +622,16 @@
   cursor: not-allowed;
 }
 
+/* Stop reads as live, not as a dimmed Send: it is the one control that works
+   while the field is locked. */
+.chatStopIcon {
+  color: var(--accent);
+}
+
+.chatStopIcon:hover {
+  color: var(--cream);
+}
+
 /* One button, sitting on the input box's right edge under the send arrow. It
    sizes to its label rather than stretching, so the row never overflows the
    300px chat floor. */

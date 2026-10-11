@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -66,3 +66,37 @@ def test_compose_deck_uses_requested_deck_size():
     assert "100-card" in sent
     assert "sum to exactly 100" in sent
     assert "100-card" in system
+
+
+async def test_async_chat_with_context_awaits_async_client():
+    async_client = MagicMock()
+    async_client.messages.create = AsyncMock(
+        return_value=SimpleNamespace(content=[SimpleNamespace(text="Try mono-red.")])
+    )
+    with (
+        patch("app.llm.claude.anthropic.Anthropic"),
+        patch("app.llm.claude.anthropic.AsyncAnthropic", return_value=async_client),
+    ):
+        service = ClaudeService(api_key="test-key", model="claude-test")
+
+    reply = await service.chat_with_context([{"role": "user", "content": "hi"}], format="modern")
+
+    assert reply == "Try mono-red."
+    kwargs = async_client.messages.create.call_args.kwargs
+    assert kwargs["model"] == "claude-test"
+    assert "format: modern" in kwargs["system"]
+
+
+async def test_async_anthropic_error_normalized_to_llm_error():
+    import anthropic
+
+    async_client = MagicMock()
+    async_client.messages.create = AsyncMock(side_effect=anthropic.AnthropicError("boom"))
+    with (
+        patch("app.llm.claude.anthropic.Anthropic"),
+        patch("app.llm.claude.anthropic.AsyncAnthropic", return_value=async_client),
+    ):
+        service = ClaudeService(api_key="test-key", model="claude-test")
+
+    with pytest.raises(LLMServiceError, match="Claude API error"):
+        await service.chat_with_context([{"role": "user", "content": "hi"}])

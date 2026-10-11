@@ -46,9 +46,9 @@ def test_transport_error_exhausts_retries():
         service.parse_intent("x")
 
 
-def test_chat_with_context_appends_deck_context_to_system_prompt():
+async def test_chat_with_context_appends_deck_context_to_system_prompt():
     service = StubService(["Noted."])
-    service.chat_with_context(
+    await service.chat_with_context(
         [{"role": "user", "content": "hi"}],
         format="modern",
         colors=["R", "G"],
@@ -61,20 +61,26 @@ def test_chat_with_context_appends_deck_context_to_system_prompt():
     assert "strategy: Aggressive" in system
 
 
-def test_chat_with_context_without_context_uses_base_prompt():
+async def test_chat_with_context_without_context_uses_base_prompt():
     service = StubService(["A fine quest."])
-    assert service.chat_with_context([{"role": "user", "content": "hi"}]) == "A fine quest."
+    assert await service.chat_with_context([{"role": "user", "content": "hi"}]) == "A fine quest."
     assert service.calls[0]["system"] == CHAT_SYSTEM
     assert service.calls[0]["json_mode"] is False
 
 
-def test_chat_with_context_unwraps_off_topic_json():
+async def test_chat_with_context_unwraps_off_topic_json():
     service = StubService([json.dumps({"error": "off_topic", "message": "Only Magic, friend."})])
-    reply = service.chat_with_context([{"role": "user", "content": "write a poem"}])
+    reply = await service.chat_with_context([{"role": "user", "content": "write a poem"}])
     assert reply == "Only Magic, friend."
 
 
-def test_chat_with_context_passes_plain_reply_through():
+async def test_chat_with_context_passes_plain_reply_through():
     service = StubService(["Consider red for aggression."])
-    reply = service.chat_with_context([{"role": "user", "content": "hi"}])
+    reply = await service.chat_with_context([{"role": "user", "content": "hi"}])
     assert reply == "Consider red for aggression."
+
+
+async def test_chat_with_context_retries_transport_error_once():
+    service = StubService([LLMServiceError("transient"), "Back again."])
+    assert await service.chat_with_context([{"role": "user", "content": "hi"}]) == "Back again."
+    assert len(service.calls) == 2

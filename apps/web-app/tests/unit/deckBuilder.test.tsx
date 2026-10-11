@@ -695,6 +695,72 @@ describe('DeckBuilderPage — chat', () => {
   });
 });
 
+describe('DeckBuilderPage — stopping a chat reply', () => {
+  /** A fetch that never settles on its own, but rejects like the browser when aborted. */
+  function pendingChat() {
+    fetchMock.mockImplementationOnce(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          );
+        }),
+    );
+  }
+
+  it('shows Stop only while a reply is pending', async () => {
+    pendingChat();
+    render(<DeckBuilderPage />);
+    expect(screen.queryByRole('button', { name: /stop response/i })).toBeNull();
+
+    await describeADeck('Rakdos sacrifice please');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(await screen.findByRole('button', { name: /stop response/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /send message/i })).toBeNull();
+  });
+
+  it('aborts the request and returns to idle with the turn back in the field', async () => {
+    pendingChat();
+    render(<DeckBuilderPage />);
+    await describeADeck('Rakdos sacrifice please');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /stop response/i }));
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal?.aborted).toBe(true);
+
+    // Idle again: no spinner bubble, Send is back, the field is editable.
+    expect(screen.queryByText(/Consulting the archives/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /stop response/i })).toBeNull();
+    const field = screen.getByLabelText('Describe your ideal deck');
+    expect(field).toBeEnabled();
+    // The unanswered turn left the transcript and came back to the draft.
+    expect(field).toHaveValue('Rakdos sacrifice please');
+    expect(screen.queryByText('You')).toBeNull();
+    expect(screen.queryByText('Forge Error')).toBeNull();
+  });
+
+  it('lets the next message go straight out, without the cancelled turn', async () => {
+    pendingChat();
+    render(<DeckBuilderPage />);
+    await describeADeck('first idea');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /stop response/i }));
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'Go wide with tokens.' }));
+    await describeADeck('second idea');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    await waitFor(() => expect(screen.getByText('Go wide with tokens.')).toBeInTheDocument());
+    const body = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(body.messages).toEqual([{ role: 'user', content: 'second idea' }]);
+    expect(screen.getAllByText('second idea')).toHaveLength(1);
+  });
+});
+
 describe('DeckBuilderPage — generation pipeline', () => {
   it('POSTs the composed prompt and subscribes to the returned task', async () => {
     render(<DeckBuilderPage />);

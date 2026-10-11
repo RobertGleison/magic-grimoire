@@ -28,6 +28,34 @@ class OpenAICompatService(LLMService):
         self.disable_thinking = disable_thinking
 
     def _complete(self, system: str, messages: list[dict], *, max_tokens: int, json_mode: bool) -> str:
+        try:
+            response = httpx.post(
+                f"{self.base_url}/chat/completions",
+                json=self._payload(system, messages, max_tokens, json_mode),
+                headers=self._headers(),
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise self._normalize(exc) from exc
+        return self._content(response)
+
+    async def _acomplete(self, system: str, messages: list[dict], *, max_tokens: int, json_mode: bool) -> str:
+        # Cancelling this coroutine closes the connection, which is how an
+        # OpenAI-style provider learns to stop generating a chat reply.
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    json=self._payload(system, messages, max_tokens, json_mode),
+                    headers=self._headers(),
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise self._normalize(exc) from exc
+        return self._content(response)
+
+    def _payload(self, system: str, messages: list[dict], max_tokens: int, json_mode: bool) -> dict:
         payload: dict = {
             "model": self.model,
             "messages": [{"role": "system", "content": system}, *messages],
@@ -37,23 +65,21 @@ class OpenAICompatService(LLMService):
             payload["response_format"] = {"type": "json_object"}
         if self.disable_thinking:
             payload["thinking"] = {"type": "disabled"}
+        return payload
 
-        try:
-            response = httpx.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _normalize(self, exc: httpx.HTTPError) -> LLMServiceError:
+        if isinstance(exc, httpx.HTTPStatusError):
             # The body says why (e.g. DeepSeek's 402 "Insufficient Balance"); keep it out of
             # the raised message, which ends up on the task row the user sees.
             _log.warning("LLM provider returned %s: %s", exc.response.status_code, exc.response.text[:500])
-            raise LLMServiceError(f"LLM provider error: {exc.response.status_code}") from exc
-        except httpx.HTTPError as exc:
-            raise LLMServiceError(f"Cannot reach LLM provider at {self.base_url}: {exc}") from exc
+            return LLMServiceError(f"LLM provider error: {exc.response.status_code}")
+        return LLMServiceError(f"Cannot reach LLM provider at {self.base_url}: {exc}")
 
+    @staticmethod
+    def _content(response: httpx.Response) -> str:
         try:
             choice = response.json()["choices"][0]
             content = choice["message"]["content"]

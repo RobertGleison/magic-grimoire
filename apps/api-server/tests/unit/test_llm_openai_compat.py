@@ -120,3 +120,24 @@ def test_budget_spent_on_reasoning_reports_out_of_tokens():
     )
     with pytest.raises(LLMServiceError, match="ran out of tokens"):
         _service().parse_intent("elf tribal")
+
+
+@respx.mock
+async def test_async_chat_with_context_posts_with_auth_and_returns_reply():
+    route = respx.post(f"{BASE}/chat/completions").mock(return_value=_reply("Play more removal."))
+
+    reply = await _service().chat_with_context([{"role": "user", "content": "hi"}], colors=["B"])
+
+    assert reply == "Play more removal."
+    request = route.calls.last.request
+    assert request.headers["Authorization"] == "Bearer sk-test"
+    body = json.loads(request.content)
+    assert "response_format" not in body
+    assert "colors: B" in body["messages"][0]["content"]
+
+
+@respx.mock
+async def test_async_http_error_normalized_to_llm_error():
+    respx.post(f"{BASE}/chat/completions").mock(return_value=httpx.Response(402, text="Insufficient Balance"))
+    with pytest.raises(LLMServiceError, match="LLM provider error: 402"):
+        await _service().chat_with_context([{"role": "user", "content": "hi"}])
