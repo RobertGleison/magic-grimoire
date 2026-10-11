@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import type { DeckResponse, DeckStatus } from '../../types/api';
 import { MTG_COLORS } from '../../types/api';
 import { Badge } from '../Badge/Badge';
@@ -122,6 +124,12 @@ function unknownColorCount(deck: DeckResponse): number {
 interface DeckSummaryCardProps {
   deck: DeckResponse;
   /**
+   * Where clicking the tile goes — the read-only deck view. Present ⇒ the
+   * whole tile is a link (the title's anchor is stretched over the card), and
+   * the footer actions sit above it so they never trigger it.
+   */
+  viewHref?: string;
+  /**
    * Where the "Edit" action points. There is no deck-detail route in this app,
    * so the default is the deck builder carrying the deck id as a query param.
    */
@@ -137,6 +145,7 @@ interface DeckSummaryCardProps {
 
 export function DeckSummaryCard({
   deck,
+  viewHref,
   editHref,
   onDelete,
   busy = false,
@@ -169,12 +178,18 @@ export function DeckSummaryCard({
       radius="lg"
       padding="none"
       elevation={1}
-      className={`deck-summary ${className}`.trim()}
+      className={`deck-summary${viewHref ? ' deck-summary-clickable' : ''} ${className}`.trim()}
       aria-busy={busy || undefined}
     >
       <header className="deck-summary-head">
         <h3 className="deck-summary-title" title={deck.prompt}>
-          {title}
+          {viewHref ? (
+            <Link href={viewHref} className="deck-summary-link">
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
         </h3>
         <span className="deck-summary-pips">
           {colorless ? (
