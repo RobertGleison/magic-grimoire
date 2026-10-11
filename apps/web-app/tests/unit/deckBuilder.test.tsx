@@ -695,6 +695,46 @@ describe('DeckBuilderPage — chat', () => {
   });
 });
 
+describe('DeckBuilderPage — chat deck context', () => {
+  it('sends no deck id before a deck exists', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'ok' }));
+    render(<DeckBuilderPage />);
+    await describeADeck('Rakdos please');
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)) as Record<
+      string,
+      unknown
+    >;
+    expect(body).not.toHaveProperty('deck_id');
+  });
+
+  it('sends the on-screen deck by id, never its cards', async () => {
+    window.history.replaceState({}, '', '/deck-builder?deck=deck-1');
+    fetchMock.mockResolvedValueOnce(jsonResponse(deckFixture()));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'Four removal spells.' }));
+    try {
+      render(<DeckBuilderPage />);
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument(),
+      );
+
+      await describeADeck('which cards are removal?');
+      fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+      await waitFor(() => expect(screen.getByText('Four removal spells.')).toBeInTheDocument());
+
+      const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+      expect(url).toBe('/api/v1/chat');
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+      expect(body.deck_id).toBe('deck-1');
+      expect(body).not.toHaveProperty('cards');
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+});
+
 describe('DeckBuilderPage — stopping a chat reply', () => {
   /** A fetch that never settles on its own, but rejects like the browser when aborted. */
   function pendingChat() {
