@@ -6,6 +6,7 @@ class DeckStatus(StrEnum):
     PROCESSING = "processing"
     COMPLETED  = "completed"
     FAILED     = "failed"
+    CANCELLED  = "cancelled"
 
 
 class TaskStatus(StrEnum):
@@ -13,6 +14,7 @@ class TaskStatus(StrEnum):
     PROCESSING = "processing"
     COMPLETED  = "completed"
     FAILED     = "failed"
+    CANCELLED  = "cancelled"
 
 
 class TaskProgress(StrEnum):
@@ -22,6 +24,7 @@ class TaskProgress(StrEnum):
     ENRICHING       = "enriching"
     COMPLETED       = "completed"
     FAILED          = "failed"
+    CANCELLED       = "cancelled"
 
 
 class DeckFormat(StrEnum):
