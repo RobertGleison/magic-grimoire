@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import urllib.parse
 from typing import Any
 
@@ -63,6 +64,74 @@ def _build_scryfall_query(intent: dict) -> str:
             parts.append(f"o:{theme}")
 
     return " ".join(parts) if parts else "type:creature"
+
+
+def _image_uri(card: dict) -> str | None:
+    return card.get("image_uris", {}).get("normal") or (
+        card.get("card_faces", [{}])[0].get("image_uris", {}).get("normal")
+    )
+
+
+# Card names are letters, digits, spaces, apostrophes, commas, hyphens and the odd
+# punctuation; everything else (`:`, `<`, `(`, quotes, `!`) is Scryfall query syntax.
+_NAME_UNSAFE = re.compile(r"[^\w\s',.-]", re.UNICODE)
+
+NAME_SEARCH_LIMIT = 24
+
+
+def _build_name_query(name: str) -> str | None:
+    """A Scryfall query that matches card names containing every word of `name`.
+
+    Each word becomes a `name:` term so user input can never reach Scryfall as query
+    syntax: an operator like `c:r` or a leading `-` (negation) is neutralized.
+    """
+    words = [w.strip("-.,'") for w in _NAME_UNSAFE.sub(" ", name).split()]
+    terms = [f'name:"{w}"' for w in words if w]
+    return " ".join(terms[:8]) or None
+
+
+async def search_cards_by_name(name: str) -> list[dict]:
+    """Cards whose name contains every word of `name`, most-played first.
+
+    One Scryfall page, capped at NAME_SEARCH_LIMIT, cached in Postgres for 24 hours
+    under the same `scryfall:search:{query}` key scheme as `search_cards`. The two
+    can't collide: name queries are always `name:` terms, intent queries never are.
+    """
+    query = _build_name_query(name)
+    if query is None:
+        return []
+    cache_key = f"scryfall:search:{urllib.parse.quote(query)}"
+
+    cached = await card_cache.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
+    async with httpx.AsyncClient() as client:
+        try:
+            data = await _get(
+                client,
+                f"{SCRYFALL_BASE}/cards/search",
+                params={"q": f"{query} game:paper", "order": "edhrec"},
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 404:
+                raise
+            data = {"data": []}  # Scryfall answers "no matches" with a 404
+
+    results = [
+        {
+            "name": card.get("name", ""),
+            "scryfall_id": card.get("id"),
+            "image_uri": _image_uri(card),
+            "mana_cost": card.get("mana_cost") or (card.get("card_faces", [{}])[0].get("mana_cost") or ""),
+            "type_line": card.get("type_line", ""),
+        }
+        for card in data.get("data", [])
+        if card.get("name")
+    ][:NAME_SEARCH_LIMIT]
+
+    await card_cache.set(cache_key, json.dumps(results), ttl=CACHE_TTL)
+    return results
 
 
 async def search_cards(intent: dict) -> list[dict]:
