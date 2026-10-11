@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { DeckListResponse, DeckResponse } from '../../app/types/api';
+import type { CardInDeck, DeckListResponse, DeckResponse } from '../../app/types/api';
 
 /* ==========================================================================
    Mocks
@@ -44,6 +44,8 @@ vi.mock('../../app/lib/apiClient', async (importOriginal) => {
 import { ApiError } from '../../app/lib/apiClient';
 import {
   DeckSummaryCard,
+  artCropFromNormal,
+  coverArt,
   deckColors,
   deckTitle,
   formatRelativeTime,
@@ -193,6 +195,70 @@ describe('DeckSummaryCard', () => {
     rerender(<DeckSummaryCard deck={makeDeck()} onDelete={onDelete} />);
     fireEvent.click(screen.getByRole('button', { name: 'Dissolve Rakdos Sacrifice' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DeckSummaryCard cover art (MTG-18)', () => {
+  const NORMAL = 'https://cards.scryfall.io/normal/front/a/b/abc.jpg?1700000000';
+  const ART = 'https://cards.scryfall.io/art_crop/front/a/b/abc.jpg?1700000000';
+
+  function card(overrides: Partial<CardInDeck> = {}): CardInDeck {
+    return {
+      name: 'Shock',
+      quantity: 4,
+      scryfall_id: 'id',
+      image_uri: null,
+      mana_cost: '{R}',
+      type_line: 'Instant',
+      section: 'spells',
+      ...overrides,
+    };
+  }
+
+  it('derives the art crop from a Scryfall normal image URL', () => {
+    expect(artCropFromNormal(NORMAL)).toBe(ART);
+    expect(artCropFromNormal('https://example.com/normal/x.jpg')).toBeNull();
+    expect(artCropFromNormal(null)).toBeNull();
+  });
+
+  it('prefers the stored art crop of the first card with an image', () => {
+    const deck = makeDeck({
+      cards: [
+        card({ name: 'No Image' }),
+        card({ image_uri: NORMAL, art_crop_uri: 'https://stored/art.jpg' }),
+        card({ name: 'Later', image_uri: 'https://other/normal.jpg' }),
+      ],
+    });
+    expect(coverArt(deck)).toEqual({ src: 'https://stored/art.jpg', kind: 'art' });
+  });
+
+  it('derives the crop for decks saved before art_crop_uri existed', () => {
+    expect(coverArt(makeDeck({ cards: [card({ image_uri: NORMAL })] }))).toEqual({
+      src: ART,
+      kind: 'art',
+    });
+  });
+
+  it('falls back to the whole card face, letterboxed, when no crop is available', () => {
+    const deck = makeDeck({ cards: [card({ image_uri: 'https://elsewhere/card.jpg' })] });
+    expect(coverArt(deck)).toEqual({ src: 'https://elsewhere/card.jpg', kind: 'card' });
+
+    const { container } = render(<DeckSummaryCard deck={deck} />);
+    expect(container.querySelector('img')).toHaveClass('deck-summary-art-img-card');
+  });
+
+  it('renders a single cover image, or the sigil fallback when no card has one', () => {
+    const { container, rerender } = render(
+      <DeckSummaryCard deck={makeDeck({ cards: [card({ image_uri: NORMAL }), card({ image_uri: NORMAL })] })} />,
+    );
+    const images = container.querySelectorAll('img');
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute('src', ART);
+    expect(images[0]).toHaveClass('deck-summary-art-img-art');
+
+    rerender(<DeckSummaryCard deck={makeDeck({ cards: null })} />);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.deck-summary-art-fallback')).not.toBeNull();
   });
 });
 

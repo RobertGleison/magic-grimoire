@@ -22,7 +22,10 @@ def _card(name: str, **extra) -> dict:
         "type_line": "Instant",
         "oracle_text": "Deal 3 damage.",
         "colors": ["R"],
-        "image_uris": {"normal": f"https://img/{name}.jpg"},
+        "image_uris": {
+            "normal": f"https://img/{name}.jpg",
+            "art_crop": f"https://img/art/{name}.jpg",
+        },
         **extra,
     }
 
@@ -149,3 +152,57 @@ async def test_enrich_keeps_card_on_http_error(fake_card_cache):
 async def test_enrich_passes_through_nameless_cards(fake_card_cache):
     enriched = await scryfall_service.enrich_cards([{"quantity": 2}])
     assert enriched == [{"quantity": 2}]
+
+
+# --- art crop (MTG-18) ---
+
+def test_art_crop_from_normal_rewrites_scryfall_cdn_url():
+    normal = "https://cards.scryfall.io/normal/front/a/b/abc.jpg?1700000000"
+    assert scryfall_service.art_crop_from_normal(normal) == (
+        "https://cards.scryfall.io/art_crop/front/a/b/abc.jpg?1700000000"
+    )
+
+
+def test_art_crop_from_normal_ignores_foreign_urls():
+    assert scryfall_service.art_crop_from_normal("https://img/Shock.jpg") is None
+    assert scryfall_service.art_crop_from_normal(None) is None
+
+
+@respx.mock
+async def test_enrich_stores_art_crop_uri(fake_card_cache):
+    respx.get(f"{SCRYFALL_BASE}/cards/named").mock(
+        return_value=httpx.Response(200, json=_card("Shock"))
+    )
+
+    enriched = await scryfall_service.enrich_cards([{"name": "Shock", "quantity": 4}])
+
+    assert enriched[0]["art_crop_uri"] == "https://img/art/Shock.jpg"
+    cached = await card_cache.get(f"scryfall:card:{urllib.parse.quote('Shock')}")
+    assert json.loads(cached)["art_crop_uri"] == "https://img/art/Shock.jpg"
+
+
+@respx.mock
+async def test_enrich_uses_first_face_art_crop_for_double_faced_cards(fake_card_cache):
+    faced = _card("Delver of Secrets")
+    del faced["image_uris"]
+    faced["card_faces"] = [
+        {"image_uris": {"normal": "https://img/front.jpg", "art_crop": "https://img/front-art.jpg"}}
+    ]
+    respx.get(f"{SCRYFALL_BASE}/cards/named").mock(return_value=httpx.Response(200, json=faced))
+
+    enriched = await scryfall_service.enrich_cards([{"name": "Delver of Secrets", "quantity": 1}])
+
+    assert enriched[0]["art_crop_uri"] == "https://img/front-art.jpg"
+
+
+@respx.mock
+async def test_enrich_derives_art_crop_for_entries_cached_before_it_existed(fake_card_cache):
+    normal = "https://cards.scryfall.io/normal/front/a/b/abc.jpg?1"
+    await card_cache.set(
+        f"scryfall:card:{urllib.parse.quote('Shock')}",
+        json.dumps({"scryfall_id": "cached-id", "image_uri": normal}),
+    )
+
+    enriched = await scryfall_service.enrich_cards([{"name": "Shock", "quantity": 4}])
+
+    assert enriched[0]["art_crop_uri"] == "https://cards.scryfall.io/art_crop/front/a/b/abc.jpg?1"

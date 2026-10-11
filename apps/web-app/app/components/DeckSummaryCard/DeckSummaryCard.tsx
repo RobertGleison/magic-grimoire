@@ -81,13 +81,38 @@ export function deckColors(deck: DeckResponse): string[] {
   return MTG_COLORS.filter((color) => present.has(color));
 }
 
+const SCRYFALL_CDN = 'https://cards.scryfall.io/';
+
 /**
- * The deck's cover art: the first card that actually came back with one.
- * `cards` is populated on `GET /decks` (the route returns the full
- * `DeckResponseDTO`), but it is null until the pipeline finishes.
+ * Scryfall serves every size of a printing under one path that differs only
+ * in the size segment, so a stored `normal` URL yields its `art_crop` sibling.
+ * Returns `null` for anything that is not a Scryfall `normal` image.
  */
-function coverArt(deck: DeckResponse): string | null {
-  return deck.cards?.find((card) => card.image_uri)?.image_uri ?? null;
+export function artCropFromNormal(imageUri: string | null | undefined): string | null {
+  if (!imageUri?.startsWith(`${SCRYFALL_CDN}normal/`)) return null;
+  return `${SCRYFALL_CDN}art_crop/${imageUri.slice(`${SCRYFALL_CDN}normal/`.length)}`;
+}
+
+export interface CoverArt {
+  src: string;
+  /**
+   * `art` is the artwork alone and may fill the plate. `card` is a full card
+   * face — cropping it to fill shows frame and rules text, so it is letterboxed.
+   */
+  kind: 'art' | 'card';
+}
+
+/**
+ * The deck's cover: the first card that came back with any image, shown as
+ * its art crop when one is stored or derivable, else as the whole card face.
+ * `cards` is null until the pipeline finishes.
+ */
+export function coverArt(deck: DeckResponse): CoverArt | null {
+  const card = deck.cards?.find((entry) => entry.art_crop_uri || entry.image_uri);
+  if (!card) return null;
+  const art = card.art_crop_uri || artCropFromNormal(card.image_uri);
+  if (art) return { src: art, kind: 'art' };
+  return card.image_uri ? { src: card.image_uri, kind: 'card' } : null;
 }
 
 function unknownColorCount(deck: DeckResponse): number {
@@ -173,7 +198,13 @@ export function DeckSummaryCard({
              yet (Wave 4b left that open), so this matches CardTile's plain
              <img>. */
           // eslint-disable-next-line @next/next/no-img-element
-          <img className="deck-summary-art-img" src={art} alt="" loading="lazy" decoding="async" />
+          <img
+            className={`deck-summary-art-img deck-summary-art-img-${art.kind}`}
+            src={art.src}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <span className="deck-summary-art-fallback" aria-hidden="true">
             ◈

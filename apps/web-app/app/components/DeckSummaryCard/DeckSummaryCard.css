@@ -12,7 +12,7 @@
      padding+gap 12px               → --space-12
      dividers    1px #6b5837        → --line-strong
      title       18px DM Serif Text → --text-3xl / --font-display / --cream
-     art         160px, radius 4px  → --radius-sm
+     art         16:10 plate, r4px  → --radius-sm (was 160px fixed — MTG-18)
      count       11px SemiBold      → --text-sm / --muted
      stat block  #1d2520, r6, p10   → --void-3 / --radius-md / --space-10
      stat rows   12px + 11px        → --text-md / --text-sm
@@ -20,8 +20,11 @@
 
 .deck-summary {
   /* Component-local geometry, the pattern CardTile/ManaCurve already use for
-     one-off design measurements that no global rung matches. */
-  --deck-art-h: 160px;
+     one-off design measurements that no global rung matches. The plate is a
+     ratio rather than the design's fixed 160px so the art keeps the same
+     framing at every column width instead of being sliced thinner as the
+     tile widens. Scryfall art crops are ~4:3; 16:10 trims only sky/ground. */
+  --deck-art-ratio: 16 / 10;
 
   display: flex;
   flex-direction: column;
@@ -88,7 +91,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--deck-art-h);
+  aspect-ratio: var(--deck-art-ratio);
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -98,7 +101,18 @@
 .deck-summary-art-img {
   width: 100%;
   height: 100%;
+}
+
+/* Artwork alone: fill the plate. The crop never contains frame or text. */
+.deck-summary-art-img-art {
   object-fit: cover;
+  object-position: center 30%;
+}
+
+/* A full card face (no art crop available): show it whole, never stretched
+   or cropped into its rules text. */
+.deck-summary-art-img-card {
+  object-fit: contain;
 }
 
 .deck-summary-art-fallback {
@@ -214,9 +228,5 @@
 @media (max-width: 640px) {
   .deck-summary-title {
     font-size: var(--text-2xl);
-  }
-
-  .deck-summary {
-    --deck-art-h: 140px;
   }
 }
