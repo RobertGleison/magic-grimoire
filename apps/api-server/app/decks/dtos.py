@@ -50,6 +50,11 @@ class DeckCardEditDTO(BaseModel):
     type_line: str | None = Field(default=None, max_length=200)
     # Same shape as Scryfall's prices.eur; it only ever feeds the owner's own deck total.
     price_eur: str | None = Field(default=None, pattern=r"^\d{1,7}(\.\d{1,2})?$")
+    # Arena printing (MTG-21), kept through hand edits so Export TXT stays exact.
+    set_code: str | None = Field(default=None, max_length=10)
+    collector_number: str | None = Field(default=None, max_length=20)
+    on_arena: bool | None = None
+    arena_name: str | None = Field(default=None, max_length=200)
 
     @field_validator("image_uri", "art_crop_uri")
     @classmethod

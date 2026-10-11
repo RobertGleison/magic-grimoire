@@ -334,6 +334,10 @@ EDITED = [
         "section": "spells",
         "image_uri": "https://cards.scryfall.io/normal/s.jpg",
         "art_crop_uri": "https://cards.scryfall.io/art_crop/s.jpg",
+        "set_code": "M10",
+        "collector_number": "146",
+        "on_arena": True,
+        "arena_name": "Shock",
     },
     {"name": "Mountain", "quantity": 20, "section": "lands"},
 ]
@@ -353,6 +357,8 @@ async def test_update_cards_replaces_the_draft_list(client, session_factory):
     assert stored.card_count == 24
     assert stored.cards[1]["name"] == "Mountain"
     assert stored.cards[0]["art_crop_uri"] == "https://cards.scryfall.io/art_crop/s.jpg"
+    assert (stored.cards[0]["set_code"], stored.cards[0]["collector_number"]) == ("M10", "146")
+    assert stored.cards[0]["on_arena"] is True
 
 
 async def test_update_cards_recomputes_the_deck_total(client, session_factory):
