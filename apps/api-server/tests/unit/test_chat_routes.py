@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -16,6 +16,7 @@ _VALID_PAYLOAD = {
 def test_chat_returns_200():
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
+        mock_llm.chat_with_context = AsyncMock()
         mock_llm.chat_with_context.return_value = "Tell me more about your preferred win condition."
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json=_VALID_PAYLOAD)
@@ -29,6 +30,7 @@ def test_chat_maps_provider_failure_to_503():
 
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
+        mock_llm.chat_with_context = AsyncMock()
         mock_llm.chat_with_context.side_effect = LLMServiceError("Ollama model not found. Run: ollama pull llama3.2:3b")
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json=_VALID_PAYLOAD)
@@ -70,6 +72,7 @@ def test_chat_rejects_too_many_messages():
 def test_chat_accepts_no_auth():
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
+        mock_llm.chat_with_context = AsyncMock()
         mock_llm.chat_with_context.return_value = "Which colors call to you?"
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json=_VALID_PAYLOAD)
@@ -107,6 +110,7 @@ def test_chat_rejects_invalid_strategy():
 def test_chat_context_is_optional():
     with patch("app.chat.service.create_llm_service") as mock_factory:
         mock_llm = MagicMock()
+        mock_llm.chat_with_context = AsyncMock()
         mock_llm.chat_with_context.return_value = "Describe your ideal strategy."
         mock_factory.return_value = mock_llm
         res = client.post("/api/v1/chat", json={"messages": [{"role": "user", "content": "build something fun"}]})
@@ -120,3 +124,63 @@ def test_chat_requires_auth():
 
     assert res.status_code == 401
     mock_factory.assert_not_called()
+
+
+async def test_client_disconnect_cancels_the_llm_call():
+    """Driving the ASGI app directly: the client hangs up mid-reply and the LLM call is cancelled."""
+    import asyncio
+    import json as _json
+
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def slow_reply(*args, **kwargs):
+        started.set()
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+        return "never"
+
+    body = _json.dumps(_VALID_PAYLOAD).encode()
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/api/v1/chat",
+        "raw_path": b"/api/v1/chat",
+        "query_string": b"",
+        "root_path": "",
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"authorization", f"Bearer {make_token()}".encode()),
+        ],
+        "client": ("test", 1),
+        "server": ("test", 80),
+    }
+    request_sent = False
+
+    async def receive():
+        nonlocal request_sent
+        if not request_sent:
+            request_sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+        await started.wait()  # the client hangs up once the model is working
+        return {"type": "http.disconnect"}
+
+    sent: list[dict] = []
+
+    async def send(message):
+        sent.append(message)
+
+    with patch("app.chat.service.create_llm_service") as mock_factory:
+        mock_llm = MagicMock()
+        mock_llm.chat_with_context = slow_reply
+        mock_factory.return_value = mock_llm
+        await asyncio.wait_for(app(scope, receive, send), timeout=5)
+
+    assert cancelled.is_set()
+    assert sent[0]["status"] == 499

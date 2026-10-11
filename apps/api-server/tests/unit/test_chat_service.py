@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -12,6 +12,7 @@ _MESSAGES = [ChatMessageDTO(role="user", content="help me build a deck")]
 
 def _mock_llm(reply: str) -> MagicMock:
     llm = MagicMock()
+    llm.chat_with_context = AsyncMock()
     llm.chat_with_context.return_value = reply
     return llm
 
@@ -54,6 +55,7 @@ async def test_injection_in_any_user_message_raises_validation_error():
 
 async def test_provider_failure_raises_typed_error():
     llm = MagicMock()
+    llm.chat_with_context = AsyncMock()
     llm.chat_with_context.side_effect = LLMServiceError("Cannot connect to Ollama at http://x. Is it running?")
     with patch("app.chat.service.create_llm_service", return_value=llm):
         with pytest.raises(ChatProviderUnavailable, match="Cannot connect to Ollama"):

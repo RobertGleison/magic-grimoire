@@ -74,3 +74,24 @@ def test_connect_error_normalized_to_llm_error():
     respx.post(f"{BASE}/api/chat").mock(side_effect=httpx.ConnectError("refused"))
     with pytest.raises(LLMServiceError, match="Cannot connect to Ollama"):
         _service().chat([{"role": "user", "content": "hi"}], system="s")
+
+
+@respx.mock
+async def test_async_chat_with_context_uses_async_transport():
+    route = respx.post(f"{BASE}/api/chat").mock(
+        return_value=httpx.Response(200, json={"message": {"content": "Try green ramp."}})
+    )
+    reply = await _service().chat_with_context([{"role": "user", "content": "hi"}], format="modern")
+
+    assert reply == "Try green ramp."
+    body = json.loads(route.calls.last.request.content)
+    assert body["messages"][0]["role"] == "system"
+    assert "format: modern" in body["messages"][0]["content"]
+    assert "format" not in body
+
+
+@respx.mock
+async def test_async_connect_error_normalized_to_llm_error():
+    respx.post(f"{BASE}/api/chat").mock(side_effect=httpx.ConnectError("refused"))
+    with pytest.raises(LLMServiceError, match="Cannot connect to Ollama"):
+        await _service().chat_with_context([{"role": "user", "content": "hi"}])
