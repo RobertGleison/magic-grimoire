@@ -67,6 +67,16 @@ export interface CardInDeck {
    * prices existed.
    */
   price_eur?: string | null;
+  /**
+   * Arena printing, picked by `enrich_cards()`. Optional because decks enriched
+   * before these fields existed don't carry them.
+   */
+  set_code?: string | null;
+  collector_number?: string | null;
+  /** `false` when the card has no MTG Arena printing at all. */
+  on_arena?: boolean | null;
+  /** Name as Arena's importer expects it (front face, or both halves for split cards). */
+  arena_name?: string | null;
 }
 
 /**

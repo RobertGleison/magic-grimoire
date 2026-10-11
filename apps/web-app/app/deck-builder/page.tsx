@@ -31,6 +31,7 @@ import { deckPriceFields } from '../lib/price';
 import { resolveNextPath } from '../login/authShared';
 import type { CardSearchResult, ChatMessage, DeckResponse } from '../types/api';
 import { AddCardsPanel } from './AddCardsPanel';
+import { arenaDeckList, arenaExportNote } from './arenaExport';
 import { ChatPanel, type ChatEntry } from './ChatPanel';
 import { ConfigPanel } from './ConfigPanel';
 import { DeckResultsPanel, type SaveState } from './DeckResultsPanel';
@@ -681,14 +682,15 @@ export default function DeckBuilderPage() {
     if (!deck) return;
     saveAbort.current?.abort();
     setSaveState({ kind: 'idle' });
-    const blob = new Blob([deckListText(deck)], { type: 'text/plain;charset=utf-8' });
+    const arena = arenaDeckList(deck.cards);
+    const blob = new Blob([arena.text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = deckFileName(deck);
     anchor.click();
     URL.revokeObjectURL(url);
-    note('Decklist downloaded.');
+    note(arenaExportNote(arena));
   }, [deck, note]);
 
   /* -------------------------------------------------------------- render */
