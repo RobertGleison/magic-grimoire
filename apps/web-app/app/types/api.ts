@@ -100,6 +100,12 @@ export interface DeckResponse {
   card_count: number;
   /** `null` on a working draft; 1-based within its lineage on a saved snapshot. */
   version_no: number | null;
+  /** Public saved decks are readable by anyone; private ones by the owner only. */
+  is_public: boolean;
+  /** Owner-chosen, normalised (lowercase, trimmed, unique). Empty by default. */
+  tags: string[];
+  /** Whether the caller owns this deck — gates Edit and the visibility lock. */
+  is_owner: boolean;
   status: DeckStatus;
   error_message: string | null;
   /** ISO-8601 timestamps. */
@@ -118,6 +124,29 @@ export interface DeckListResponse {
 /** Query params for `GET /decks`. `page >= 1`, `1 <= limit <= 100` (default 20). */
 export interface DeckListParams {
   page?: number;
+  limit?: number;
+}
+
+/**
+ * `GET /explore/decks` — one page of the community feed. Each deck's `cards`
+ * is trimmed to its cover card; `card_count` still has the real size.
+ */
+export interface ExploreDeckListResponse {
+  decks: DeckResponse[];
+  /** Pass back as `cursor` for the next page; `null` on the last page. */
+  next_cursor: string | null;
+}
+
+/** Query for `GET /explore/decks`. Every filter is optional; they combine (AND). */
+export interface ExploreParams {
+  q?: string;
+  /** The deck must include every one of these colours. */
+  colors?: MTGColor[];
+  /** The deck must carry every one of these tags. */
+  tags?: string[];
+  format?: DeckFormat;
+  cursor?: string;
+  /** 1..50, default 24. */
   limit?: number;
 }
 

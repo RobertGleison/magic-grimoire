@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,18 @@ class Deck(Base):
         # Postgres allows many NULLs in a unique index, so this constrains
         # snapshots only.
         UniqueConstraint("lineage_id", "version_no", name="uq_decks_lineage_version"),
+        # The community feed (GET /explore/decks): newest public saved decks
+        # first, keyset-paginated on (created_at, id). Partial, so it only
+        # holds the rows the feed can ever return.
+        Index(
+            "ix_decks_public_feed",
+            text("created_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("is_public AND saved_at IS NOT NULL"),
+        ),
+        # Containment filters (`tags @> ...`, `colors @> ...`) in the feed.
+        Index("ix_decks_tags_gin", "tags", postgresql_using="gin"),
+        Index("ix_decks_colors_gin", "colors", postgresql_using="gin"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -125,4 +137,24 @@ class Deck(Base):
     version_no: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
+    )
+
+    # Public saved decks are readable by anyone (and listed by the community
+    # feed); private ones stay owner-only. Drafts are owner-only regardless.
+    # New decks default to public; rows that existed before the column was
+    # added were migrated as private so nothing is published by surprise.
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
+    )
+
+    # Owner-chosen labels for the community feed. Always stored normalised
+    # (see `app.decks.tags.normalize_tags`); a new deck has none.
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String),
+        default=list,
+        server_default=text("'{}'"),
+        nullable=False,
     )

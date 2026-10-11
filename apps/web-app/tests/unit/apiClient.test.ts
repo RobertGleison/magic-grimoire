@@ -4,6 +4,7 @@ import {
   ApiError,
   API_BASE,
   deleteDeck,
+  exploreDecks,
   generateDeck,
   getDeck,
   getTask,
@@ -12,6 +13,8 @@ import {
   saveDeck,
   sendChat,
   setAuthTokenProvider,
+  setDeckTags,
+  setDeckVisibility,
 } from '../../app/lib/apiClient';
 import type { DeckGenerateResponse, DeckListResponse } from '../../app/types/api';
 
@@ -322,5 +325,41 @@ describe('getTask', () => {
 
     await getTask('t', { signal: controller.signal });
     expect(lastCall().init.signal).toBe(controller.signal);
+  });
+});
+
+describe('visibility, tags and explore (MTG-24/25)', () => {
+  it('PATCHes visibility with the flag in the body', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'd' }));
+    await setDeckVisibility('d', false);
+    const { url, init } = lastCall();
+    expect(url).toBe(`${API_BASE}/decks/d/visibility`);
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({ is_public: false });
+  });
+
+  it('PUTs the full tag list', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'd' }));
+    await setDeckTags('d', ['aggro', 'budget']);
+    const { url, init } = lastCall();
+    expect(url).toBe(`${API_BASE}/decks/d/tags`);
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({ tags: ['aggro', 'budget'] });
+  });
+
+  it('repeats array filters as query keys and drops empty ones', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ decks: [], next_cursor: null }));
+
+    await exploreDecks({ q: 'goblin', colors: ['B', 'R'], tags: ['aggro'], format: 'modern', cursor: 'c1', limit: 24 });
+    const url = new URL(lastCall().url, 'http://x');
+    expect(url.pathname.endsWith('/explore/decks')).toBe(true);
+    expect(url.searchParams.get('q')).toBe('goblin');
+    expect(url.searchParams.getAll('colors')).toEqual(['B', 'R']);
+    expect(url.searchParams.getAll('tags')).toEqual(['aggro']);
+    expect(url.searchParams.get('format')).toBe('modern');
+    expect(url.searchParams.get('cursor')).toBe('c1');
+
+    await exploreDecks({ q: '', colors: [], tags: [] });
+    expect(lastCall().url).toBe(`${API_BASE}/explore/decks`);
   });
 });

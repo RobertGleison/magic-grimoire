@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../components/Button/Button';
 import { Spinner } from '../../components/Spinner/Spinner';
+import { TagEditor } from '../../components/TagEditor/TagEditor';
+import { VisibilityToggle } from '../../components/VisibilityToggle/VisibilityToggle';
 import { DeckResultsPanel } from '../../deck-builder/DeckResultsPanel';
 import { deckFileName, deckListText } from '../../deck-builder/deckLogic';
-import { ApiError, getDeck, isAbortError } from '../../lib/apiClient';
+import { ApiError, getDeck, isAbortError, setDeckTags, setDeckVisibility } from '../../lib/apiClient';
 import type { DeckResponse } from '../../types/api';
 import styles from './page.module.css';
 
@@ -28,7 +30,7 @@ const NOTE_MS = 2400;
 
 function messageOf(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 404 || error.status === 403) return 'This deck does not exist or is not yours to view.';
+    if (error.status === 404 || error.status === 403) return 'This deck does not exist, or it is private.';
     return error.message;
   }
   return 'Something went wrong opening this deck.';
@@ -37,7 +39,7 @@ function messageOf(error: unknown): string {
 interface DeckViewProps {
   /** `null` while the URL is still being read, or when it carries no id. */
   deckId: string | null;
-  /** Where "Edit" points. Omit to hide the action (someone else's deck). */
+  /** Where "Edit" points. Shown only to the deck's owner. */
   editHref?: string;
   /** The page this view was opened from. */
   backHref: string;
@@ -79,6 +81,44 @@ export function DeckView({ deckId, editHref, backHref, backLabel, shareUrl }: De
 
   const deck = state.kind === 'ready' ? state.deck : null;
 
+  // Optimistic, with rollback: the lock flips now and back if the PATCH fails.
+  const handleToggleVisibility = useCallback(async () => {
+    if (!deck) return;
+    const previous = deck.is_public;
+    setState({ kind: 'ready', deck: { ...deck, is_public: !previous } });
+    try {
+      await setDeckVisibility(deck.id, !previous);
+      flash(previous ? 'Deck is now private.' : 'Deck is now public.');
+    } catch (error: unknown) {
+      setState((current) =>
+        current.kind === 'ready' ? { kind: 'ready', deck: { ...current.deck, is_public: previous } } : current,
+      );
+      flash(error instanceof ApiError ? error.message : 'Could not change who can see this deck.');
+    }
+  }, [deck, flash]);
+
+  // Optimistic too: chips update now, the server's normalised list wins, and
+  // a refusal puts the previous tags back.
+  const handleTagsChange = useCallback(
+    async (next: string[]) => {
+      if (!deck) return;
+      const previous = deck.tags;
+      setState({ kind: 'ready', deck: { ...deck, tags: next } });
+      try {
+        const saved = await setDeckTags(deck.id, next);
+        setState((current) =>
+          current.kind === 'ready' ? { kind: 'ready', deck: { ...current.deck, tags: saved.tags } } : current,
+        );
+      } catch (error: unknown) {
+        setState((current) =>
+          current.kind === 'ready' ? { kind: 'ready', deck: { ...current.deck, tags: previous } } : current,
+        );
+        flash(error instanceof ApiError ? error.message : 'Could not save the tags.');
+      }
+    },
+    [deck, flash],
+  );
+
   const handleCopyList = useCallback(async () => {
     if (!deck) return;
     try {
@@ -118,10 +158,19 @@ export function DeckView({ deckId, editHref, backHref, backLabel, shareUrl }: De
           <Button href={backHref} variant="ghost" size="sm">
             &larr; {backLabel}
           </Button>
-          {deck && editHref ? (
-            <Button href={editHref} variant="primary" size="sm" disabled={deck.status !== 'completed'}>
-              Edit
-            </Button>
+          {deck?.is_owner ? (
+            <div className={styles.ownerActions}>
+              <VisibilityToggle
+                isPublic={deck.is_public}
+                onToggle={() => void handleToggleVisibility()}
+                deckName={deck.title?.trim() || 'this deck'}
+              />
+              {editHref ? (
+                <Button href={editHref} variant="primary" size="sm" disabled={deck.status !== 'completed'}>
+                  Edit
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </nav>
 
@@ -143,6 +192,13 @@ export function DeckView({ deckId, editHref, backHref, backLabel, shareUrl }: De
             <h1 className={styles.panelTitle}>The deck would not open</h1>
             <p className={styles.panelBody}>{state.message}</p>
           </div>
+        ) : null}
+
+        {deck ? (
+          <TagEditor
+            tags={deck.tags}
+            onChange={deck.is_owner ? (next) => void handleTagsChange(next) : undefined}
+          />
         ) : null}
 
         {deck ? (

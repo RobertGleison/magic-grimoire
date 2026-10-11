@@ -14,6 +14,7 @@ import type { CardInDeck, DeckListResponse, DeckResponse } from '../../app/types
 const mocks = vi.hoisted(() => ({
   listDecks: vi.fn(),
   deleteDeck: vi.fn(),
+  setDeckVisibility: vi.fn(),
   session: null as { access_token: string } | null,
   getSessionRejects: false,
   supabaseThrows: false,
@@ -38,7 +39,10 @@ vi.mock('../../app/lib/supabase', () => ({
 
 vi.mock('../../app/lib/apiClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../app/lib/apiClient')>();
-  return { ...actual, listDecks: mocks.listDecks, deleteDeck: mocks.deleteDeck };
+  return { ...actual, listDecks: mocks.listDecks,
+    deleteDeck: mocks.deleteDeck,
+    setDeckVisibility: mocks.setDeckVisibility,
+  };
 });
 
 import { ApiError } from '../../app/lib/apiClient';
@@ -64,6 +68,9 @@ function makeDeck(overrides: Partial<DeckResponse> = {}): DeckResponse {
     cards: null,
     card_count: 60,
     version_no: null,
+    is_public: true,
+    tags: [],
+    is_owner: true,
     status: 'completed',
     error_message: null,
     created_at: '2026-08-23T10:00:00.000Z',
@@ -88,6 +95,7 @@ function respondWith(list: DeckListResponse) {
 beforeEach(() => {
   mocks.listDecks.mockReset();
   mocks.deleteDeck.mockReset();
+  mocks.setDeckVisibility.mockReset();
   mocks.unsubscribe.mockReset();
   mocks.session = { access_token: 'jwt' };
   mocks.getSessionRejects = false;
@@ -469,5 +477,41 @@ describe('LibraryPage', () => {
     });
     expect(titlesNow()).toEqual(['Zebra', 'Alpha']);
     expect(mocks.listDecks).toHaveBeenCalledTimes(1);
+  });
+
+  it('flips the visibility lock at once and persists it (MTG-24)', async () => {
+    respondWith(makeList([makeDeck()]));
+    let resolve: (deck: DeckResponse) => void = () => {};
+    mocks.setDeckVisibility.mockReturnValue(new Promise((r) => (resolve = r)));
+    render(<LibraryPage />);
+
+    const lock = await screen.findByRole('button', { name: 'Make private: Rakdos Sacrifice' });
+    expect(lock).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(lock);
+
+    // Optimistic: the tile reads private before the server has answered.
+    const locked = screen.getByRole('button', { name: 'Make public: Rakdos Sacrifice' });
+    expect(locked).toHaveAttribute('aria-pressed', 'true');
+    expect(locked).toHaveTextContent('Private');
+    expect(mocks.setDeckVisibility).toHaveBeenCalledWith('deck-1', false);
+
+    resolve(makeDeck({ is_public: false }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Make public: Rakdos Sacrifice' })).toBeInTheDocument(),
+    );
+  });
+
+  it('rolls the lock back and says why when the change fails (MTG-24)', async () => {
+    respondWith(makeList([makeDeck({ is_public: false })]));
+    mocks.setDeckVisibility.mockRejectedValue(new ApiError('Access denied', 403));
+    render(<LibraryPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Make public: Rakdos Sacrifice' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Access denied');
+    expect(screen.getByRole('button', { name: 'Make public: Rakdos Sacrifice' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

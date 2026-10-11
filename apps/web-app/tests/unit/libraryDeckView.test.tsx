@@ -1,10 +1,11 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DeckResponse } from '../../app/types/api';
 
 const mocks = vi.hoisted(() => ({
   getDeck: vi.fn(),
+  setDeckVisibility: vi.fn(),
   sendChat: vi.fn(),
 }));
 
@@ -20,7 +21,7 @@ vi.mock('../../app/lib/supabase', () => ({
 
 vi.mock('../../app/lib/apiClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../app/lib/apiClient')>();
-  return { ...actual, getDeck: mocks.getDeck, sendChat: mocks.sendChat };
+  return { ...actual, getDeck: mocks.getDeck, setDeckVisibility: mocks.setDeckVisibility, sendChat: mocks.sendChat };
 });
 
 import { ApiError } from '../../app/lib/apiClient';
@@ -47,6 +48,9 @@ function makeDeck(overrides: Partial<DeckResponse> = {}): DeckResponse {
     ],
     card_count: 4,
     version_no: 1,
+    is_public: true,
+    tags: [],
+    is_owner: true,
     status: 'completed',
     error_message: null,
     created_at: '2026-08-23T10:00:00.000Z',
@@ -62,6 +66,7 @@ function visit(search: string) {
 
 beforeEach(() => {
   mocks.getDeck.mockReset();
+  mocks.setDeckVisibility.mockReset();
   mocks.sendChat.mockReset();
 });
 
@@ -108,8 +113,11 @@ describe('/library/deck read-only view (MTG-15)', () => {
     // A saved snapshot cannot be re-saved, so the builder's Save is omitted.
     expect(screen.queryByRole('button', { name: 'Save to Library' })).toBeNull();
 
-    // No chat surface: no message box, and the chat API is never touched.
-    expect(screen.queryByRole('textbox')).toBeNull();
+    // No chat surface: no conversation panel or message box, and the chat
+    // API is never touched. (The only textbox is the owner's tag field.)
+    expect(screen.queryByRole('region', { name: 'Deck conversation' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: /describe your ideal deck/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
     expect(mocks.sendChat).not.toHaveBeenCalled();
 
     expect(screen.getByRole('link', { name: /back to library/i })).toHaveAttribute('href', '/library');
@@ -120,7 +128,7 @@ describe('/library/deck read-only view (MTG-15)', () => {
     visit('?id=someone-elses');
     render(<LibraryDeckPage />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not yours to view/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/does not exist, or it is private/i);
     expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
   });
 
@@ -129,5 +137,31 @@ describe('/library/deck read-only view (MTG-15)', () => {
     render(<LibraryDeckPage />);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/no deck chosen/i));
     expect(mocks.getDeck).not.toHaveBeenCalled();
+  });
+
+  it('gives the owner a lock that toggles optimistically and rolls back on error (MTG-24)', async () => {
+    mocks.getDeck.mockResolvedValue(makeDeck());
+    mocks.setDeckVisibility.mockRejectedValue(new ApiError('Deck storage is temporarily unavailable.', 503));
+    visit('?id=deck-1');
+    render(<LibraryDeckPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Make private: Rakdos Sacrifice' }));
+    expect(mocks.setDeckVisibility).toHaveBeenCalledWith('deck-1', false);
+
+    expect(await screen.findByText('Deck storage is temporarily unavailable.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Make private: Rakdos Sacrifice' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('shows someone else\'s public deck without Edit or the lock (MTG-24)', async () => {
+    mocks.getDeck.mockResolvedValue(makeDeck({ is_owner: false }));
+    visit('?id=deck-1');
+    render(<LibraryDeckPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Rakdos Sacrifice' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /make (public|private)/i })).toBeNull();
   });
 });
